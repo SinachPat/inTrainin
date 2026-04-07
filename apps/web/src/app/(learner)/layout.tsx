@@ -17,7 +17,6 @@ const MOCK_SESSION = { firstName: 'Emeka' }
 
 export default function LearnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [menuOpen, setMenuOpen] = useState(false)
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
