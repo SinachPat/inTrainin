@@ -46,60 +46,70 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Card elevation shadow — replaces the harsh ring-1 on Card components */
+  --shadow-card: var(--shadow-card);
 }
 
 /* ── Light mode: warm oatmeal + YC orange ──────────────────────────────── */
 :root {
-  /* Warm cream oatmeal — the YC background */
-  --background: oklch(0.975 0.012 85);
-  --foreground: oklch(0.185 0.025 50);
+  /* Page canvas — warm light grey, enough separation from pure-white cards */
+  --background: oklch(0.962 0.008 80);
+  /* Rich near-black for body text — strong contrast (WCAG AAA on white) */
+  --foreground: oklch(0.165 0.022 45);
 
-  --card: oklch(0.99 0.008 85);
-  --card-foreground: oklch(0.185 0.025 50);
+  /* Cards are pure white so they lift off the canvas naturally */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.165 0.022 45);
 
-  --popover: oklch(0.99 0.008 85);
-  --popover-foreground: oklch(0.185 0.025 50);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.165 0.022 45);
 
   /* YC orange — #FF6600 */
-  --primary: oklch(0.66 0.21 49);
-  --primary-foreground: oklch(0.99 0 0);
+  --primary: oklch(0.64 0.21 49);
+  --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.935 0.016 82);
-  --secondary-foreground: oklch(0.25 0.025 50);
+  --secondary: oklch(0.930 0.010 78);
+  --secondary-foreground: oklch(0.22 0.020 45);
 
-  --muted: oklch(0.942 0.014 82);
-  --muted-foreground: oklch(0.52 0.032 58);
+  --muted: oklch(0.938 0.008 78);
+  /* Muted text raised to 0.46L for WCAG AA on white (was 0.52, too light) */
+  --muted-foreground: oklch(0.46 0.026 52);
 
-  --accent: oklch(0.935 0.016 82);
-  --accent-foreground: oklch(0.25 0.025 50);
+  --accent: oklch(0.930 0.010 78);
+  --accent-foreground: oklch(0.22 0.020 45);
 
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.555 0.240 27);
 
-  /* Warm beige borders */
-  --border: oklch(0.882 0.018 82);
-  --input: oklch(0.882 0.018 82);
+  /* Borders: near-invisible — just a whisper of separation */
+  --border: oklch(0.918 0.007 78);
+  --input: oklch(0.918 0.007 78);
 
   /* Orange focus ring */
-  --ring: oklch(0.66 0.21 49);
+  --ring: oklch(0.64 0.21 49);
 
   --radius: 0.625rem;
 
+  /* Card shadow: replaces ring-1 ring-foreground/10
+     Layer 1 — outline (0 0 0 1px at 4%): barely-there boundary
+     Layer 2 — lift (0 2px 4px at 6%): gentle elevation */
+  --shadow-card: 0 0 0 1px oklch(0 0 0 / 0.04), 0 2px 4px oklch(0 0 0 / 0.06);
+
   /* Charts */
-  --chart-1: oklch(0.66 0.21 49);
+  --chart-1: oklch(0.64 0.21 49);
   --chart-2: oklch(0.72 0.16 65);
-  --chart-3: oklch(0.58 0.18 35);
+  --chart-3: oklch(0.56 0.18 35);
   --chart-4: oklch(0.78 0.12 85);
   --chart-5: oklch(0.50 0.14 50);
 
-  /* Sidebar */
-  --sidebar: oklch(0.965 0.013 84);
-  --sidebar-foreground: oklch(0.185 0.025 50);
-  --sidebar-primary: oklch(0.66 0.21 49);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.942 0.014 82);
-  --sidebar-accent-foreground: oklch(0.25 0.025 50);
-  --sidebar-border: oklch(0.882 0.018 82);
-  --sidebar-ring: oklch(0.66 0.21 49);
+  /* Sidebar — very slightly warmer than background so it reads as a distinct panel */
+  --sidebar: oklch(0.972 0.007 78);
+  --sidebar-foreground: oklch(0.165 0.022 45);
+  --sidebar-primary: oklch(0.64 0.21 49);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.938 0.008 78);
+  --sidebar-accent-foreground: oklch(0.22 0.020 45);
+  --sidebar-border: oklch(0.918 0.007 78);
+  --sidebar-ring: oklch(0.64 0.21 49);
 }
 
 /* ── Dark mode: deep warm charcoal + YC orange ─────────────────────────── */
@@ -142,6 +152,9 @@
   --chart-3: oklch(0.65 0.12 85);
   --chart-4: oklch(0.62 0.18 35);
   --chart-5: oklch(0.78 0.10 75);
+
+  /* Card shadow in dark mode: deeper, uses dark ambient */
+  --shadow-card: 0 0 0 1px oklch(0 0 0 / 0.18), 0 2px 6px oklch(0 0 0 / 0.28);
 
   /* Sidebar */
   --sidebar: oklch(0.195 0.022 48);
