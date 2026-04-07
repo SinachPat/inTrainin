@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Check,
@@ -37,18 +38,21 @@ const TESTIMONIALS = [
       "I applied for five jobs with no luck. After I got my InTrainin certificate for Cashier, the next employer asked me zero experience questions — they just checked the link. I started the following Monday.",
     name: "Amara O.",
     title: "Cashier · Lagos",
+    image: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&q=80",
   },
   {
     quote:
       "My new hires used to need two weeks of hand-holding before they could work a shift alone. Now I assign them the curriculum before Day 1. They arrive knowing the job. The difference is real.",
     name: "Chukwudi A.",
     title: "Supermarket Owner · Abuja",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&q=80",
   },
   {
     quote:
       "I have worked in hospitality for seven years with nothing to show for it on paper. The Waiter/Waitress certificate from InTrainin got me into an interview at a hotel chain I had applied to three times before.",
     name: "Fatima M.",
     title: "Waitress · Kano",
+    image: "https://images.unsplash.com/photo-1489424731084-a5d8b06b4985?w=200&h=200&fit=crop&q=80",
   },
 ];
 
@@ -113,6 +117,18 @@ const ROLE_CATEGORIES = [
   { icon: "✂️", label: "Beauty & Wellness" },
 ];
 
+const ROLES = [
+  { slug: "cashier-retail", title: "Cashier (Retail)", category: "Retail & Store Ops", icon: "🛒", modules: 5, topics: 28, price: "₦2,500", description: "Master POS systems, cash handling, customer service, and end-of-day reconciliation." },
+  { slug: "waiter-waitress", title: "Waiter / Waitress", category: "Food & Beverage", icon: "🍽️", modules: 5, topics: 25, price: "₦2,500", description: "Table service, menu knowledge, food safety, upselling, and shift procedures." },
+  { slug: "store-attendant", title: "Store Attendant", category: "Retail & Store Ops", icon: "🧾", modules: 4, topics: 22, price: "₦2,500", description: "Stock management, customer handling, display standards, and security protocols." },
+  { slug: "barista", title: "Barista", category: "Food & Beverage", icon: "☕", modules: 5, topics: 24, price: "₦2,500", description: "Espresso techniques, milk frothing, beverage recipes, hygiene, and equipment care." },
+  { slug: "customer-service-rep", title: "Customer Service Rep", category: "Sales & Marketing", icon: "📣", modules: 5, topics: 26, price: "₦2,500", description: "Complaint handling, communication, product knowledge, CRM basics, and follow-up." },
+  { slug: "dispatch-rider", title: "Dispatch Rider", category: "Logistics", icon: "🚚", modules: 4, topics: 20, price: "₦2,500", description: "Route optimization, safety protocols, delivery SOPs, and customer interaction." },
+  { slug: "receptionist", title: "Receptionist", category: "Admin & Office", icon: "📋", modules: 5, topics: 24, price: "₦2,500", description: "Front desk operations, scheduling, communication etiquette, and office software basics." },
+  { slug: "hairdresser", title: "Hairdresser", category: "Beauty & Wellness", icon: "✂️", modules: 5, topics: 26, price: "₦2,500", description: "Haircut techniques, client consultation, chemical treatments, and salon hygiene." },
+  { slug: "security-guard", title: "Security Guard", category: "Admin & Office", icon: "🛡️", modules: 4, topics: 18, price: "₦2,500", description: "Access control, emergency response, report writing, and legal boundaries of duty." },
+];
+
 // Shared section wrapper — centers and constrains width consistently
 function Section({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -132,67 +148,95 @@ export default function Home() {
 
       {/* ── 1. HERO ──────────────────────────────────────────────────────── */}
       <section
-        className="relative w-full border-b border-border"
+        className="relative border-b border-border overflow-hidden"
         style={{
-          backgroundImage:
-            "radial-gradient(circle, var(--color-border) 1.5px, transparent 1.5px)",
+          backgroundImage: "radial-gradient(circle, var(--color-border) 1.5px, transparent 1.5px)",
           backgroundSize: "28px 28px",
         }}
       >
-        {/* Fade mask */}
+        {/* Fade mask — fades dots toward center-right */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            background:
-              "radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, var(--color-background) 100%)",
+            background: "radial-gradient(ellipse 90% 100% at 25% 50%, transparent 30%, var(--color-background) 75%)",
           }}
         />
-        <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center md:py-32">
-          {/* Announcement pill */}
-          <Link
-            href="/roles"
-            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-foreground/20 hover:text-foreground"
-          >
-            <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-            <span className="truncate">Now live in Lagos, Abuja, Enugu, Kano &amp; Port Harcourt</span>
-            <ChevronRight className="size-3 shrink-0" />
-          </Link>
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 md:px-8 md:py-24">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-center">
 
-          {/* Headline */}
-          <h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground md:text-6xl">
-            Get trained.{" "}
-            <span className="text-muted-foreground">Get certified.</span>
-            <br />
-            Get hired.
-          </h1>
+            {/* Left: headline + CTAs */}
+            <div className="flex flex-col items-start gap-6">
+              <Link
+                href="/roles"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-foreground/20 hover:text-foreground"
+              >
+                <span className="size-1.5 shrink-0 rounded-full bg-primary" />
+                Now live in Lagos, Abuja, Enugu, Kano &amp; Port Harcourt
+                <ChevronRight className="size-3 shrink-0" />
+              </Link>
 
-          {/* Subheadline */}
-          <p className="max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            InTrainin is the role-based learning platform for informal sector workers across
-            Nigeria. Structured training, verifiable certificates, and direct job matching —
-            built for the roles that matter.
-          </p>
+              <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-foreground md:text-5xl lg:text-6xl">
+                Get trained.<br />
+                <span className="text-muted-foreground">Get certified.</span><br />
+                Get hired.
+              </h1>
 
-          {/* CTAs */}
-          <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link
-              href="/roles"
-              className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto px-8")}
-            >
-              Start learning free
-              <ArrowRight className="ml-1 size-4" />
-            </Link>
-            <Link
-              href="/roles"
-              className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto px-8")}
-            >
-              View all roles
-            </Link>
+              <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+                InTrainin is the role-based learning platform for informal sector workers across
+                Nigeria. Structured training, verifiable certificates, and direct job matching —
+                built for the roles that matter.
+              </p>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "px-8")}>
+                  Start learning free
+                  <ArrowRight className="ml-1 size-4" />
+                </Link>
+                <Link href="/roles" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "px-8")}>
+                  View all roles
+                </Link>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Free trial on Module 1 of any role. No card required.
+              </p>
+            </div>
+
+            {/* Right: photo + floating card */}
+            <div className="relative hidden md:block">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border shadow-xl">
+                <Image
+                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&h=1000&fit=crop&q=80"
+                  alt="Young Nigerian professional"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+                {/* Floating learner card */}
+                <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                      AO
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-foreground">Amara Okafor</p>
+                      <p className="text-[10px] text-muted-foreground">Cashier (Retail) · Certified</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary">
+                      <CheckCircle2 className="size-3.5" /> Verified
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Floating XP badge */}
+              <div className="absolute -left-4 top-1/3 rounded-lg border border-border bg-background px-3 py-2 shadow-lg">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Zap className="size-3.5 text-primary" /> 340 XP earned
+                </div>
+              </div>
+            </div>
+
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            Free trial on Module 1 of any role. No card required.
-          </p>
         </div>
       </section>
 
@@ -251,6 +295,66 @@ export default function Home() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* ── 4b. ROLE CARDS ───────────────────────────────────────────────── */}
+      <Section>
+        <div className="px-4 py-10 md:px-8 md:py-14">
+          <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Browse Courses
+              </p>
+              <h2 className="text-2xl font-bold text-foreground md:text-3xl">
+                Find your role, start learning today
+              </h2>
+            </div>
+            <Link href="/roles" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden shrink-0 sm:flex")}>
+              View all 15+ roles <ArrowRight className="ml-1 size-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {ROLES.map((role) => (
+              <Link
+                key={role.slug}
+                href={`/roles/${role.slug}`}
+                className="group flex flex-col rounded-xl border border-border bg-background p-5 transition-all hover:border-foreground/20 hover:shadow-sm"
+              >
+                <div className="mb-4 flex items-start justify-between gap-2">
+                  <span className="text-2xl leading-none">{role.icon}</span>
+                  <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+                    {role.category}
+                  </span>
+                </div>
+                <h3 className="mb-1.5 text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">
+                  {role.title}
+                </h3>
+                <p className="mb-5 flex-1 text-sm leading-relaxed text-muted-foreground">
+                  {role.description}
+                </p>
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <BookOpen className="size-3" />
+                    {role.modules} modules · {role.topics} topics
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">{role.price}</span>
+                    <span className="rounded-lg bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
+                      Enroll
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-6 sm:hidden">
+            <Link href="/roles" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full justify-center")}>
+              View all 15+ roles <ArrowRight className="ml-1 size-3.5" />
+            </Link>
           </div>
         </div>
       </Section>
@@ -656,9 +760,14 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="flex-1 text-sm leading-relaxed text-muted-foreground">&ldquo;{t.quote}&rdquo;</p>
-                <div className="border-t border-border pt-4">
-                  <p className="text-sm font-semibold text-foreground">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.title}</p>
+                <div className="flex items-center gap-3 border-t border-border pt-4">
+                  <div className="relative size-10 shrink-0 overflow-hidden rounded-full border border-border">
+                    <Image src={t.image} alt={t.name} fill className="object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.title}</p>
+                  </div>
                 </div>
               </div>
             ))}

@@ -29,16 +29,16 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${interTight.variable} h-full antialiased`}
+      className={`${inter.variable} ${interTight.variable} antialiased`}
     >
       <head>
         {/* Runs synchronously before first paint — prevents dark/light flash */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" />
       </head>
-      <body className="flex min-h-full w-full flex-col bg-background text-foreground">
+      <body className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-background text-foreground">
         <SiteHeader />
-        <main className="w-full flex-1">{children}</main>
+        <main>{children}</main>
         <SiteFooter />
       </body>
     </html>

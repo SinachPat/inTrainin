@@ -162,6 +162,7 @@
      (unlike overflow-x-hidden which creates a new stacking context) */
   html {
     @apply font-sans overflow-x-clip;
+    max-width: 100vw;
   }
   body {
     @apply bg-background text-foreground overflow-x-clip;
