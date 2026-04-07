@@ -6,5 +6,6 @@
   "/favicon.ico/route": "/favicon.ico",
   "/job-hub/page": "/job-hub",
   "/page": "/",
+  "/roles/[slug]/page": "/roles/[slug]",
   "/roles/page": "/roles"
 }

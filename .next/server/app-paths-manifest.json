@@ -6,5 +6,6 @@
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/job-hub/page": "app/job-hub/page.js",
   "/page": "app/page.js",
+  "/roles/[slug]/page": "app/roles/[slug]/page.js",
   "/roles/page": "app/roles/page.js"
 }
