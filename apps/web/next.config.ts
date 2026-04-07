@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.nappy.co" },
     ],
   },
+  // Transpile workspace packages (they expose TypeScript source via "main": "./src/index.ts")
+  // so Next.js compiles them through its own bundler rather than expecting pre-built JS.
+  transpilePackages: [
+    "@intrainin/shared",
+    "@intrainin/db",
+    "@intrainin/cms",
+  ],
 };
 
 export default nextConfig;
