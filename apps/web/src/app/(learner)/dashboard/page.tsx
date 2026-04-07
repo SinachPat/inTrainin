@@ -1,7 +1,6 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, Award, Clock, CheckCircle2, ChevronRight, Play } from 'lucide-react'
+import { ArrowRight, BookOpen, Award, Clock, CheckCircle2, ChevronRight } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
   MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES,
@@ -26,102 +25,98 @@ export default function LearnerDashboardPage() {
   const heroNextTopic  = heroRole && heroEnrollment ? getNextTopic(heroRole, heroEnrollment) : null
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
 
       {/* ── Greeting ──────────────────────────────────────────────────────── */}
-      <div
-        className="relative overflow-hidden rounded-2xl border border-border px-5 py-6"
-        style={{
-          backgroundImage: 'radial-gradient(circle, var(--color-border) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-        }}
-      >
-        <div
-          className="pointer-events-none absolute inset-0 rounded-2xl"
-          style={{ background: 'radial-gradient(ellipse 80% 80% at 0% 50%, var(--color-background) 40%, transparent 100%)' }}
-        />
-        <div className="relative z-10">
-          <p className="text-xs font-medium text-muted-foreground">{greeting}</p>
-          <h1 className="mt-0.5 font-heading text-2xl font-bold tracking-tight text-foreground">
-            Welcome back, {firstName} 👋
-          </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {heroRole
-              ? `You're ${heroPct}% through ${heroRole.title}. Keep the momentum going.`
-              : 'Pick a role below to begin your first training.'}
-          </p>
-        </div>
+      <div className="space-y-1">
+        <p className="text-[13px] text-muted-foreground">{greeting}</p>
+        <h1 className="font-heading text-[22px] font-semibold tracking-tight text-foreground">
+          Welcome back, {firstName}
+        </h1>
       </div>
 
-      {/* ── Hero: Continue Learning ──────────────────────────────────────── */}
+      {/* ── Continue Learning card ───────────────────────────────────────── */}
       {heroRole && heroEnrollment && heroProgress && (
-        <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-linear-to-br from-primary/8 via-primary/4 to-transparent p-5">
-          {/* Decorative ring */}
-          <div className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full border border-primary/10" />
-          <div className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full border border-primary/10" />
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {/* Orange top-bar accent — 2px, razor thin */}
+          <div className="h-[2px] w-full bg-primary" />
 
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-2xl">
-              {heroRole.icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <Badge variant="secondary" className="mb-1.5 text-[10px]">{heroRole.category}</Badge>
-              <h2 className="font-heading text-lg font-bold leading-tight text-foreground">{heroRole.title}</h2>
-              {heroNextTopic && (
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  Up next — {heroNextTopic.title}
+          <div className="p-5">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xl leading-none">
+                {heroRole.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Continue learning
+                  </p>
+                  <span className="text-[13px] font-semibold tabular-nums text-foreground">{heroPct}%</span>
+                </div>
+                <p className="mt-0.5 text-[15px] font-semibold text-foreground">{heroRole.title}</p>
+                {heroNextTopic && (
+                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                    Next — {heroNextTopic.title}
+                  </p>
+                )}
+
+                {/* Progress bar */}
+                <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-700"
+                    style={{ width: `${heroPct}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {heroProgress.completedTopics} of {heroProgress.totalTopics} topics complete
                 </p>
-              )}
+              </div>
             </div>
-          </div>
 
-          {/* Progress */}
-          <div className="mt-4 space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">{heroProgress.completedTopics} of {heroProgress.totalTopics} topics</span>
-              <span className="font-semibold text-foreground">{heroPct}%</span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/15">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-700"
-                style={{ width: `${heroPct}%` }}
-              />
-            </div>
+            <Link
+              href={`/learn/${heroRole.slug}`}
+              className={cn(buttonVariants({ size: 'sm' }), 'mt-4 w-full justify-center gap-1.5 text-[13px]')}
+            >
+              Continue <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-
-          <Link
-            href={`/learn/${heroRole.slug}`}
-            className={cn(buttonVariants({ size: 'sm' }), 'mt-4 w-full gap-1.5')}
-          >
-            <Play className="h-3.5 w-3.5" /> Continue Learning
-          </Link>
         </div>
       )}
 
-      {/* ── Quick stats ──────────────────────────────────────────────────── */}
+      {/* ── Stats strip ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
-            <BookOpen className="h-4 w-4 text-blue-500" />
+        {[
+          {
+            label: 'Roles enrolled',
+            value: MOCK_ENROLLMENTS.length,
+            icon: BookOpen,
+            iconClass: 'text-blue-500',
+            bgClass: 'bg-blue-500/8',
+          },
+          {
+            label: 'Certificates',
+            value: MOCK_CERTIFICATES.length,
+            icon: Award,
+            iconClass: 'text-amber-500',
+            bgClass: 'bg-amber-500/8',
+          },
+        ].map(({ label, value, icon: Icon, iconClass, bgClass }) => (
+          <div key={label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className={cn('mb-2.5 flex h-7 w-7 items-center justify-center rounded-md', bgClass)}>
+              <Icon className={cn('h-3.5 w-3.5', iconClass)} />
+            </div>
+            <p className="font-heading text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{label}</p>
           </div>
-          <p className="font-heading text-2xl font-bold text-foreground">{MOCK_ENROLLMENTS.length}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Roles enrolled</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/10">
-            <Award className="h-4 w-4 text-yellow-500" />
-          </div>
-          <p className="font-heading text-2xl font-bold text-foreground">{MOCK_CERTIFICATES.length}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Certificates earned</p>
-        </div>
+        ))}
       </div>
 
       {/* ── My Roles ─────────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-base font-semibold text-foreground">My Roles</h2>
-          <Link href="/roles" className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline">
-            Explore more <ChevronRight className="h-3.5 w-3.5" />
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold text-foreground">My Roles</h2>
+          <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+            Browse all <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
@@ -134,29 +129,40 @@ export default function LearnerDashboardPage() {
             const done = pct === 100
 
             return (
-              <Link key={enr.id} href={`/learn/${enr.roleSlug}`} className="block">
-                <div className="group flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3.5 transition-all hover:border-foreground/20 hover:shadow-sm">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-xl">
+              <Link key={enr.id} href={`/learn/${enr.roleSlug}`} className="block group">
+                <div className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
+                  {/* Emoji avatar */}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-lg leading-none">
                     {role.icon}
                   </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-foreground">{enr.roleTitle}</p>
-                      <span className="shrink-0 text-xs font-semibold text-muted-foreground">{pct}%</span>
+                      <p className="text-[13px] font-medium text-foreground">{enr.roleTitle}</p>
+                      <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">
+                        {pct}%
+                      </span>
                     </div>
-                    <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+                    {/* Thin progress track */}
+                    <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={cn('h-full rounded-full transition-all duration-500', done ? 'bg-green-500' : 'bg-primary')}
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          done ? 'bg-green-500' : 'bg-primary',
+                        )}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {completedTopics}/{totalTopics} topics · {role.category}
+                    <p className="mt-1.5 text-[11px] text-muted-foreground">
+                      {completedTopics}/{totalTopics} topics
                     </p>
                   </div>
+
+                  {/* Right icon */}
                   {done
                     ? <CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-                    : <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}
+                    : <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-all duration-150 group-hover:text-muted-foreground group-hover:translate-x-0.5" />}
                 </div>
               </Link>
             )
@@ -166,17 +172,17 @@ export default function LearnerDashboardPage() {
 
       {/* ── Badges ───────────────────────────────────────────────────────── */}
       {MOCK_BADGES.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="font-heading text-base font-semibold text-foreground">Recent Badges</h2>
+        <section>
+          <h2 className="mb-3 text-[13px] font-semibold text-foreground">Badges</h2>
           <div className="flex flex-wrap gap-2">
             {MOCK_BADGES.map((badge) => (
               <div
                 key={badge.slug}
-                className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-sm"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 shadow-sm"
               >
-                <span className="text-xl leading-none">{badge.icon}</span>
+                <span className="text-lg leading-none">{badge.icon}</span>
                 <div>
-                  <p className="text-xs font-semibold text-foreground">{badge.name}</p>
+                  <p className="text-[12px] font-medium text-foreground">{badge.name}</p>
                   <p className="text-[10px] text-muted-foreground">{badge.description}</p>
                 </div>
               </div>
@@ -185,23 +191,28 @@ export default function LearnerDashboardPage() {
         </section>
       )}
 
-      {/* ── Expand Your Skills ───────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-base font-semibold text-foreground">Expand Your Skills</h2>
+      {/* ── Explore ──────────────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold text-foreground">Explore roles</h2>
+          <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+            See all <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           {MOCK_SUGGESTED_ROLES.map((role) => (
             <Link key={role.slug} href={`/roles/${role.slug}`} className="group block">
-              <div className="h-full rounded-xl border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm">
+              <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
                 <span className="text-2xl leading-none">{role.icon}</span>
-                <p className="mt-2.5 text-sm font-semibold text-foreground">{role.title}</p>
+                <p className="mt-3 text-[13px] font-medium text-foreground">{role.title}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{role.category}</p>
-                <div className="mt-3 flex items-center justify-between">
+                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Clock className="h-3 w-3" />{role.estimatedHours}h
+                    <Clock className="h-3 w-3" /> {role.estimatedHours}h
                   </span>
-                  <span className="text-[11px] font-medium text-foreground">₦{role.priceNgn.toLocaleString()}</span>
+                  <span className="text-[11px] font-medium text-foreground">
+                    ₦{role.priceNgn.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </Link>
