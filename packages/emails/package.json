@@ -1,0 +1,20 @@
+{
+  "name": "@intrainin/emails",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "scripts": {
+    "dev": "email dev --dir src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-email/components": "^1.0.11",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "react-email": "^5.2.10",
+    "typescript": "^5"
+  }
+}
