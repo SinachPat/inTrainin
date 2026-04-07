@@ -142,7 +142,7 @@ export default function Home() {
             href="/roles"
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:border-foreground/20 hover:text-foreground"
           >
-            <span className="size-1.5 rounded-full bg-foreground" />
+            <span className="size-1.5 rounded-full bg-primary" />
             Now live in Lagos, Abuja, Enugu, Kano & Port Harcourt
             <ChevronRight className="size-3" />
           </Link>
@@ -168,7 +168,7 @@ export default function Home() {
               href="/roles"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "bg-foreground text-background hover:bg-foreground/90 px-6"
+                "px-6"
               )}
             >
               Start learning free
@@ -253,12 +253,12 @@ export default function Home() {
       </section>
 
       {/* ── 5. VISION QUOTE ──────────────────────────────────────────────── */}
-      <section className="border-b border-border bg-foreground">
+      <section className="border-b border-border bg-primary">
         <div className="mx-auto max-w-4xl px-8 py-20 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-background/50">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-primary-foreground/60">
             Our Mission
           </p>
-          <blockquote className="mt-6 text-xl font-medium leading-relaxed text-background md:text-2xl">
+          <blockquote className="mt-6 text-xl font-medium leading-relaxed text-primary-foreground md:text-2xl">
             "Every cashier, waiter, cleaner, and store attendant deserves structured training,
             portable proof of competence, and a fair shot at better employment — regardless of
             where they started."
@@ -355,9 +355,9 @@ export default function Home() {
                     className={cn(
                       "flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
                       mod.done
-                        ? "bg-foreground text-background"
+                        ? "bg-muted text-foreground"
                         : mod.active
-                        ? "bg-foreground text-background"
+                        ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
                     )}
                   >
@@ -377,7 +377,7 @@ export default function Home() {
                   {mod.locked ? (
                     <Lock className="size-3.5 shrink-0 text-muted-foreground" />
                   ) : mod.active ? (
-                    <span className="rounded-full bg-foreground px-2 py-0.5 text-[9px] font-bold text-background">
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground">
                       In Progress
                     </span>
                   ) : null}
@@ -566,7 +566,7 @@ export default function Home() {
               <div className="rounded-xl border border-border bg-background px-4 py-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-xs font-semibold text-foreground">Your Job Hub Profile</p>
-                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[9px] font-bold text-background">
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground">
                     Active
                   </span>
                 </div>
@@ -628,7 +628,7 @@ export default function Home() {
                     {match.role} · {match.location} · {match.pay}
                   </p>
                   <div className="flex gap-2">
-                    <button className="flex-1 rounded-lg bg-foreground py-1.5 text-[10px] font-semibold text-background">
+                    <button className="flex-1 rounded-lg bg-primary py-1.5 text-[10px] font-semibold text-primary-foreground">
                       Accept
                     </button>
                     <button className="flex-1 rounded-lg border border-border py-1.5 text-[10px] font-semibold text-foreground">
@@ -700,7 +700,6 @@ export default function Home() {
                 href="/business"
                 className={cn(
                   buttonVariants({ size: "sm" }),
-                  "bg-foreground text-background hover:bg-foreground/90"
                 )}
               >
                 View Enterprise plans
@@ -846,7 +845,7 @@ export default function Home() {
                 className={cn(
                   "flex flex-col rounded-xl border p-6",
                   plan.highlight
-                    ? "border-foreground bg-foreground text-background"
+                    ? "border-primary bg-primary"
                     : "border-border bg-background"
                 )}
               >
@@ -854,7 +853,7 @@ export default function Home() {
                   <p
                     className={cn(
                       "mb-1 text-xs font-semibold uppercase tracking-widest",
-                      plan.highlight ? "text-background/60" : "text-muted-foreground"
+                      plan.highlight ? "text-primary-foreground/70" : "text-muted-foreground"
                     )}
                   >
                     {plan.name}
@@ -863,7 +862,7 @@ export default function Home() {
                     <span
                       className={cn(
                         "text-3xl font-bold",
-                        plan.highlight ? "text-background" : "text-foreground"
+                        plan.highlight ? "text-primary-foreground" : "text-foreground"
                       )}
                     >
                       {plan.price}
@@ -871,7 +870,7 @@ export default function Home() {
                     <span
                       className={cn(
                         "mb-1 text-sm",
-                        plan.highlight ? "text-background/60" : "text-muted-foreground"
+                        plan.highlight ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}
                     >
                       /{plan.period}
@@ -880,7 +879,7 @@ export default function Home() {
                   <p
                     className={cn(
                       "mt-2 text-sm",
-                      plan.highlight ? "text-background/70" : "text-muted-foreground"
+                      plan.highlight ? "text-primary-foreground/80" : "text-muted-foreground"
                     )}
                   >
                     {plan.description}
@@ -893,8 +892,8 @@ export default function Home() {
                     buttonVariants({ size: "sm" }),
                     "mb-6 justify-center",
                     plan.highlight
-                      ? "bg-background text-foreground hover:bg-background/90"
-                      : "bg-foreground text-background hover:bg-foreground/90"
+                      ? "bg-background text-primary hover:bg-background/90"
+                      : ""
                   )}
                 >
                   {plan.cta}
@@ -906,10 +905,10 @@ export default function Home() {
                       <Check
                         className={cn(
                           "mt-0.5 size-4 shrink-0",
-                          plan.highlight ? "text-background/60" : "text-muted-foreground"
+                          plan.highlight ? "text-primary-foreground/70" : "text-muted-foreground"
                         )}
                       />
-                      <span className={plan.highlight ? "text-background/80" : "text-muted-foreground"}>
+                      <span className={plan.highlight ? "text-primary-foreground/90" : "text-muted-foreground"}>
                         {f}
                       </span>
                     </li>
@@ -952,7 +951,7 @@ export default function Home() {
               href="/roles"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "bg-foreground px-8 text-background hover:bg-foreground/90"
+                "px-8"
               )}
             >
               Start learning free

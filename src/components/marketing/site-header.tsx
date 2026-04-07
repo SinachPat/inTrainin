@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { marketingNavLinks } from "@/components/marketing/nav-links";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ export function SiteHeader() {
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-1.5">
-          <span className="text-sm font-bold tracking-tight text-foreground">InTrainin</span>
+          <span className="text-base font-bold tracking-tight text-foreground">InTrainin</span>
         </Link>
 
         {/* Nav — desktop */}
@@ -35,8 +36,9 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        {/* CTAs — desktop */}
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Right side — desktop */}
+        <div className="hidden items-center gap-1 md:flex">
+          <ThemeToggle />
           <Link
             href="/login"
             className={cn(
@@ -46,27 +48,23 @@ export function SiteHeader() {
           >
             Log in
           </Link>
-          <Link
-            href="/signup"
-            className={cn(
-              buttonVariants({ variant: "default", size: "sm" }),
-              "bg-foreground text-background hover:bg-foreground/90"
-            )}
-          >
+          <Link href="/signup" className={cn(buttonVariants({ size: "sm" }))}>
             Get started
           </Link>
         </div>
 
-        {/* Hamburger — mobile */}
-        <Button
-          className="md:hidden"
-          variant="outline"
-          size="icon"
-          aria-label="Toggle menu"
-          onClick={() => setOpen((prev) => !prev)}
-        >
-          {open ? <X /> : <Menu />}
-        </Button>
+        {/* Mobile right side */}
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Toggle menu"
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            {open ? <X /> : <Menu />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile nav drawer */}
@@ -76,7 +74,10 @@ export function SiteHeader() {
             <Link
               key={link.href}
               href={link.href}
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "justify-start text-muted-foreground")}
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "justify-start text-muted-foreground"
+              )}
               onClick={() => setOpen(false)}
             >
               {link.label}
@@ -85,17 +86,17 @@ export function SiteHeader() {
           <div className="mt-2 flex gap-2 border-t border-border pt-3">
             <Link
               href="/login"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1 justify-center")}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "flex-1 justify-center"
+              )}
               onClick={() => setOpen(false)}
             >
               Log in
             </Link>
             <Link
               href="/signup"
-              className={cn(
-                buttonVariants({ variant: "default", size: "sm" }),
-                "flex-1 justify-center bg-foreground text-background hover:bg-foreground/90"
-              )}
+              className={cn(buttonVariants({ size: "sm" }), "flex-1 justify-center")}
               onClick={() => setOpen(false)}
             >
               Get started

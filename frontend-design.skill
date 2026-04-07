@@ -1,0 +1,223 @@
+# InTrainin Frontend Design System
+
+## Purpose
+Use this skill for every frontend task in InTrainin. The design language is directly inspired by **Y Combinator's website** — warm oatmeal/cream backgrounds, YC orange as the primary action color, clean typographic hierarchy, and generous whitespace. Functional, credible, and alive.
+
+---
+
+## Brand Identity
+
+### The YC Palette — InTrainin Edition
+
+InTrainin uses the exact visual energy of YC's product aesthetic:
+- **Warm oatmeal background** — not cold white or grey. `oklch(0.975 0.012 85)` ≈ `#F8F5F0`
+- **YC Orange primary** — `#FF6600` / `oklch(0.66 0.21 49)`. Used for CTAs, active states, badges, progress, icons
+- **Warm dark charcoal** — `oklch(0.185 0.025 50)` ≈ `#1C1510`. Foreground text
+- **Warm beige borders** — `oklch(0.882 0.018 82)` ≈ `#E5DDD0`. Never cold grey
+- **Dark mode** — Deep warm near-black `oklch(0.155 0.022 48)`, same orange primary, warm off-white text
+
+### Color Token Reference
+
+| Token | Light | Dark | Usage |
+|---|---|---|---|
+| `background` | Oatmeal cream | Deep warm charcoal | Page backgrounds |
+| `foreground` | Warm near-black | Warm off-white | All text |
+| `primary` | #FF6600 orange | Slightly lighter orange | CTAs, buttons, active, progress |
+| `primary-foreground` | White | White | Text on orange |
+| `muted` | Light warm beige | Dark warm | Panels, alt rows |
+| `muted-foreground` | Warm grey | Warm light grey | Secondary text |
+| `border` | Warm beige | Warm dark border | All dividers |
+| `card` | Near-white cream | Slightly lighter dark | Card surfaces |
+
+### Orange usage rules
+- **Use orange for**: Primary CTA buttons, active tab indicators, progress bars, check icons in feature lists, status badges ("Active", "In Progress"), announcement dots, focus rings
+- **Never use orange for**: Body text, decorative backgrounds on large surfaces (exception: vision/quote sections), borders
+- **Orange on dark bg**: Use `bg-primary text-primary-foreground` always — never mix orange bg with non-white text
+
+---
+
+## Dark / Light Mode
+
+The system uses a `.dark` class on `<html>`, toggled by the `ThemeToggle` component:
+- Toggle is in `src/components/theme-toggle.tsx`
+- Anti-FOUC script is in `public/theme-init.js` (reads `localStorage("intrainin-dark")` and respects `prefers-color-scheme`)
+- Uses `suppressHydrationWarning` on `<html>` to prevent React mismatch
+- Always use semantic tokens — never hardcode hex — so dark mode works automatically
+
+---
+
+## Typography
+
+Geist Sans (Google Fonts) — clean, modern, slightly warm. Matches YC's body typography feel.
+
+| Role | Size / Line-height | Weight | Usage |
+|---|---|---|---|
+| Display | 48–60px / 56–68px | 700 | Hero headlines |
+| H1 | 36px / 44px | 700 | Page titles |
+| H2 | 28–30px / 36px | 700 | Section headings |
+| H3 | 22–24px / 30px | 700 | Feature headings |
+| H4 | 18px / 26px | 600 | Subheadings |
+| Body | 16px / 24px | 400–500 | Content, descriptions |
+| Small | 14px / 20px | 400–500 | Labels, metadata |
+| Caption | 12px / 16px | 500–600 | Timestamps, badge text, eyebrows |
+
+**Eyebrow labels** (section identifiers): `text-xs font-semibold uppercase tracking-widest text-muted-foreground`
+
+---
+
+## Spacing and Radius
+
+4px base grid. All spacing must be a multiple of 4.
+
+**Scale**: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96
+
+**Border radius**:
+| Context | Value | Class |
+|---|---|---|
+| Cards, panels, dialogs | 8–10px | `rounded-lg` or `rounded-xl` |
+| Buttons, inputs | 8px | `rounded-lg` |
+| Pills, badges, tags | full | `rounded-full` |
+| Progress bars | full | `rounded-full` |
+
+---
+
+## Elevation
+
+Use **borders + background contrast** over shadows:
+1. Background color shift (`card` vs `background`)
+2. 1px `border-border` (warm beige)
+3. `shadow-sm` only on floating cards (product mocks, popovers)
+
+Never use heavy `shadow-lg` or `shadow-xl` on static page elements.
+
+---
+
+## Layout System
+
+- **Max content width**: `max-w-6xl` (1152px) centered with `px-8`
+- **Section separator**: `border-b border-border` — no gaps between sections, they stack edge-to-edge
+- **Feature sections**: 2-column grid `md:grid-cols-2` with copy on one side, product UI mock on the other, alternating L/R
+- **Section header**: centered eyebrow + H2 + muted subheadline, `border-b border-border` below
+- **Mobile**: single column stack; `border-b` replaces `border-r` between copy and visual
+
+---
+
+## Stack
+
+- **Next.js** App Router + TypeScript (Server Components by default; client only for interactivity)
+- **Tailwind CSS v4** (PostCSS plugin, not v3 config file)
+- **shadcn/ui base-nova** — uses `@base-ui/react` primitives (NOT Radix UI)
+- **Lucide icons** — use `size-4` default, `size-3` in dense UI
+- Do not build custom primitives when shadcn/ui equivalents exist
+
+---
+
+## Component Rules
+
+### Required components
+- Navigation: `Tabs`, `Sheet`
+- Inputs: `Input`, `Textarea`, `Select`, `Checkbox`, `RadioGroup`, `Switch`
+- Actions: `Button`, `DropdownMenu`, `Dialog`, `AlertDialog`
+- Data: `Table`, `Badge`, `Card`, `Progress`, `Tooltip`
+- Feedback: `Toast`, `Skeleton`, `Alert`
+
+### Button styles (all use semantic tokens automatically)
+- **Primary** (`variant="default"`): Orange `bg-primary text-primary-foreground`
+- **Outline** (`variant="outline"`): Bordered, inherits background
+- **Ghost** (`variant="ghost"`): No border, subtle hover
+- **Never override** button color with arbitrary `bg-foreground` — use `variant="default"` for primary orange actions
+
+### Checkmark/feature list icons
+Use `text-primary` on check icons in feature lists — this gives the signature orange checkmarks.
+
+---
+
+## Motion
+
+- Duration: 120ms–220ms
+- Easing: `ease-out` entrance, `ease-in` exit
+- Fade + slight `translateY(4px) → 0` for dropdowns/panels
+- No decorative animation in learning flows or assessments
+- Always wrap in `prefers-reduced-motion` guard
+
+---
+
+## Product UI Mocks (Landing Page Pattern)
+
+When building product demo panels (used in feature tabs and deep-dive sections):
+- Use real semantic tokens — mocks adapt to dark mode automatically
+- Show the orange in context: progress bars `bg-primary`, CTA buttons `bg-primary`, status badges `bg-primary text-primary-foreground`, check icons `text-primary`
+- `Certified match` badges use `bg-primary/10 text-primary` — orange tint, readable in both modes
+- Keep mocks at `max-w-sm` with `rounded-xl border border-border shadow-sm`
+
+---
+
+## InTrainin-Specific UX Patterns
+
+### Learning content
+- Persistent orange progress bar at top
+- Resume CTA always accessible
+- Completed topics: `line-through text-muted-foreground` + orange `CheckCircle2`
+- Active topic: `bg-muted/60` row + orange "Open" badge
+- Locked topics: `Lock` icon + `text-muted-foreground`
+
+### Assessments
+- Timer and attempt state prominent
+- Orange pass state, red/destructive fail state
+- Cooldown: disabled retry CTA + time remaining
+
+### Certificates
+- Orange accent strip at top of certificate card (`h-1.5 bg-primary`)
+- `InTrainin` brand label in `text-primary`
+- WhatsApp share button as primary orange CTA
+
+### Dashboards
+- Border-grid rows: `label | value | trend` separated by `divide-y divide-border`
+- Progress bars: `bg-primary` fill on `bg-muted` track
+- Status "Active" / "In Progress" badges: `bg-primary text-primary-foreground rounded-full`
+
+---
+
+## Copy and Tone
+
+- Plain, supportive, confidence-building language
+- Action-oriented labels: "Start learning free", "View all roles", "Accept"
+- Certificate/milestone copy: earned weight, not casual
+- Avoid "professional" filler. Write for Amara, 22, Lagos — not a LinkedIn user
+
+---
+
+## Definition of Done (Frontend)
+
+A task is done only when:
+1. Uses shadcn/ui (base-nova) primitives or documented extension
+2. Responsive mobile → tablet → desktop
+3. WCAG 2.1 AA contrast minimum
+4. Semantic tokens only — **no arbitrary hex in components**
+5. Works correctly in light AND dark mode
+6. Loading, empty, and error states implemented
+7. TypeScript strict mode — no `any` escapes
+8. Orange (`primary`) appears on at least the main CTA of every interactive section
+
+---
+
+## Reusable Prompt Block
+
+Use when asking an agent to build UI:
+
+```md
+Apply InTrainin Frontend Design System:
+- Stack: Next.js App Router + Tailwind v4 + shadcn/ui (base-nova / @base-ui/react)
+- Brand: YC-inspired — warm oatmeal background (#F8F5F0), YC orange (#FF6600) as primary,
+  warm charcoal text (#1C1510), warm beige borders (#E5DDD0)
+- Dark mode: deep warm charcoal (#1C1208), same orange, warm off-white text — use semantic tokens
+- Semantic tokens only: bg-background, bg-primary, text-primary-foreground, border-border, etc.
+- Orange usage: primary CTAs, progress bars, check icons, status badges, active indicators
+- Border radius: rounded-lg (8px) buttons/inputs, rounded-xl cards, rounded-full badges/pills
+- Elevation: 1px border + background contrast, shadow-sm for floating elements only
+- Section layout: border-b separators, max-w-6xl, px-8, alternating 2-col feature sections
+- Mobile-first responsive
+- WCAG 2.1 AA required
+- Include loading, empty, and error states
+- Reuse existing components before creating new ones
+```
