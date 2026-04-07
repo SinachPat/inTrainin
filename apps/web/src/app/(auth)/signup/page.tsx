@@ -32,6 +32,7 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [profile, setProfile] = useState({ fullName: '', city: '', careerGoalSlug: '' })
+  const [otherRole, setOtherRole] = useState('')
   const [bizName, setBizName] = useState('')
 
   function startCountdown() {
@@ -342,7 +343,38 @@ export default function SignupPage() {
                     )}
                   </button>
                 ))}
+                {/* Other option */}
+                <button
+                  type="button"
+                  onClick={() => setProfile(p => ({ ...p, careerGoalSlug: 'other' }))}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                    profile.careerGoalSlug === 'other'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background text-foreground hover:border-foreground/30',
+                  )}
+                >
+                  <span>✏️</span>
+                  <span>Other</span>
+                  {profile.careerGoalSlug === 'other' && (
+                    <Check className="ml-auto h-3 w-3 shrink-0" />
+                  )}
+                </button>
               </div>
+
+              {/* Expanded input when Other is selected */}
+              {profile.careerGoalSlug === 'other' && (
+                <div className="relative">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="e.g. Security Guard, Nurse Assistant…"
+                    value={otherRole}
+                    onChange={e => setOtherRole(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-primary bg-primary/5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              )}
             </div>
           )}
 
