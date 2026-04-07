@@ -206,7 +206,7 @@ export default function Home() {
             <div className="relative hidden md:block">
               <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border shadow-xl">
                 <Image
-                  src="https://images.nappy.co/photo/jaf9HWx_i6g_eLRaBjZQj.jpg?width=800"
+                  src="https://images.nappy.co/photo/0LsMQoo-LPoc9c7M3ZRbL.jpg?width=800"
                   alt="Nigerian professional handling payment at work"
                   fill
                   className="object-cover"
