@@ -187,7 +187,7 @@ export default function Home() {
                 built for the roles that matter.
               </p>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex w-full flex-col gap-3 sm:flex-row">
                 <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto px-8")}>
                   Start learning free
                   <ArrowRight className="ml-1 size-4" />

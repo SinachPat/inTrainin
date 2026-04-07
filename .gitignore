@@ -17,6 +17,9 @@ build
 .env.test.local
 .env.production.local
 
+# Claude Code worktrees (local only)
+.claude/worktrees/
+
 # Misc
 .DS_Store
 *.pem
