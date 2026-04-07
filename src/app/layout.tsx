@@ -36,9 +36,9 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="flex min-h-full w-full flex-col bg-background text-foreground">
         <SiteHeader />
-        <div className="flex-1">{children}</div>
+        <main className="w-full flex-1">{children}</main>
         <SiteFooter />
       </body>
     </html>

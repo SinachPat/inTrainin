@@ -128,7 +128,7 @@ function Section({ children, className }: { children: React.ReactNode; className
 
 export default function Home() {
   return (
-    <main className="flex w-full flex-col">
+    <>
 
       {/* ── 1. HERO ──────────────────────────────────────────────────────── */}
       <section
@@ -147,7 +147,7 @@ export default function Home() {
               "radial-gradient(ellipse 80% 60% at 50% 50%, transparent 40%, var(--color-background) 100%)",
           }}
         />
-        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-4 py-20 text-center md:py-32">
+        <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 py-20 text-center md:py-32">
           {/* Announcement pill */}
           <Link
             href="/roles"
@@ -760,6 +760,6 @@ export default function Home() {
         </div>
       </section>
 
-    </main>
+    </>
   );
 }
