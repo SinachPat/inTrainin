@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
-  LayoutDashboard, Users, Briefcase, ChevronRight,
+  LayoutDashboard, Users, Briefcase,
   Menu, X, Building2, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -54,15 +54,20 @@ function SidebarContent({ pathname, onNav }: { pathname: string; onNav?: () => v
               href={href}
               onClick={onNav}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150',
                 active
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  ? 'bg-muted text-foreground font-medium'
+                  : 'font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              {active && (
+                <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
+              )}
+              <Icon className={cn(
+                'h-4 w-4 shrink-0 transition-colors',
+                active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground',
+              )} />
               {label}
-              {!active && <ChevronRight className="ml-auto h-3 w-3 opacity-30" />}
             </Link>
           )
         })}
