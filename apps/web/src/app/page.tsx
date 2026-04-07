@@ -188,11 +188,11 @@ export default function Home() {
               </p>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "px-8")}>
+                <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto px-8")}>
                   Start learning free
                   <ArrowRight className="ml-1 size-4" />
                 </Link>
-                <Link href="/roles" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "px-8")}>
+                <Link href="/roles" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto px-8")}>
                   View all roles
                 </Link>
               </div>
