@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import {
   LayoutDashboard, Users, Briefcase, ChevronRight,
-  Menu, X, Building2,
+  Menu, X, Building2, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { signOut } from '@/lib/auth'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -67,8 +69,8 @@ function SidebarContent({ pathname, onNav }: { pathname: string; onNav?: () => v
       </nav>
 
       {/* Plan footer */}
-      <div className="border-t border-sidebar-border px-4 py-4">
-        <div className="flex items-center justify-between">
+      <div className="border-t border-sidebar-border px-3 py-3 space-y-0.5">
+        <div className="flex items-center justify-between px-2 py-2">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40">
               Plan expires
@@ -84,6 +86,14 @@ function SidebarContent({ pathname, onNav }: { pathname: string; onNav?: () => v
             Upgrade
           </Link>
         </div>
+        <ThemeToggle />
+        <button
+          onClick={() => signOut()}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs text-sidebar-foreground/60 transition-colors hover:bg-destructive/8 hover:text-destructive"
+        >
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
+          Sign out
+        </button>
       </div>
     </div>
   )
@@ -94,10 +104,10 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen bg-background md:flex-row">
+    <div className="flex h-screen overflow-hidden bg-background md:flex-row">
 
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-56 lg:w-64 md:flex-col md:shrink-0 border-r border-sidebar-border bg-sidebar">
+      <aside className="hidden md:flex md:w-56 lg:w-64 md:flex-col md:shrink-0 h-screen border-r border-sidebar-border bg-sidebar">
         <SidebarContent pathname={pathname} />
       </aside>
 

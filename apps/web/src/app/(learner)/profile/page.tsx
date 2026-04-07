@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import {
-  User, Phone, MapPin, Briefcase, Bell, BellOff,
+  Phone, MapPin, Briefcase, Bell, BellOff,
   ChevronRight, LogOut, Edit3, Check, ExternalLink,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES, getRoleBySlug } from '@/lib/mock-data'
+import { signOut } from '@/lib/auth'
 
 const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'Benin City', 'Kaduna']
 
@@ -20,6 +21,12 @@ export default function ProfilePage() {
   const [draftName, setDraftName] = useState(MOCK_USER.fullName)
   const [city, setCity] = useState(MOCK_USER.locationCity)
   const [notifPrefs, setNotifPrefs] = useState(MOCK_USER.notificationPrefs)
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    await signOut() // clears storage + navigates; component unmounts naturally
+  }
 
   function saveName() {
     setName(draftName.trim() || name)
@@ -222,9 +229,15 @@ export default function ProfilePage() {
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </Link>
           ))}
-          <button className="flex w-full items-center gap-3 px-4 py-3 text-destructive hover:bg-destructive/5">
-            <LogOut className="h-4 w-4" />
-            <span className="text-sm font-medium">Sign out</span>
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex w-full items-center gap-3 px-4 py-3 text-destructive transition-colors hover:bg-destructive/5 disabled:opacity-50"
+          >
+            <LogOut className={cn('h-4 w-4', signingOut && 'animate-spin')} />
+            <span className="text-sm font-medium">
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </span>
           </button>
         </CardContent>
       </Card>
