@@ -143,6 +143,21 @@ export interface MockCandidate {
   status: 'pending' | 'shortlisted' | 'hired' | 'rejected'
 }
 
+export interface MockRoadmapStep {
+  roleSlug: string
+  roleTitle: string
+  icon: string
+  status: 'completed' | 'in_progress' | 'locked'
+}
+
+export interface MockRoadmap {
+  id: string
+  title: string
+  category: string
+  description: string
+  steps: MockRoadmapStep[]
+}
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 export const MOCK_USER = {
@@ -830,6 +845,33 @@ export const MOCK_CERTIFICATES: MockCertificate[] = [
 export const MOCK_BADGES: MockBadge[] = [
   { slug: 'first_module', name: 'First Step', description: 'Completed your first module', icon: '⭐', earnedAt: '2026-03-20T11:01:00Z' },
   { slug: 'five_day_streak', name: '5-Day Streak', description: 'Learned for 5 days in a row', icon: '🔥', earnedAt: '2026-04-02T08:00:00Z' },
+]
+
+// ─── Roadmaps ─────────────────────────────────────────────────────────────────
+
+export const MOCK_ROADMAPS: MockRoadmap[] = [
+  {
+    id: 'roadmap-retail',
+    title: 'Retail Career Track',
+    category: 'Retail & Store Ops',
+    description: 'From cashier to retail supervisor — the certified path.',
+    steps: [
+      { roleSlug: 'cashier', roleTitle: 'Cashier', icon: '🛒', status: 'in_progress' },
+      { roleSlug: 'store-keeper', roleTitle: 'Store Keeper', icon: '🧾', status: 'locked' },
+      { roleSlug: 'retail-supervisor', roleTitle: 'Retail Supervisor', icon: '📋', status: 'locked' },
+    ],
+  },
+  {
+    id: 'roadmap-hospitality',
+    title: 'Hospitality Track',
+    category: 'Hospitality',
+    description: 'Build a career in hotels and food service.',
+    steps: [
+      { roleSlug: 'waiter-waitress', roleTitle: 'Waiter / Waitress', icon: '🍽️', status: 'in_progress' },
+      { roleSlug: 'hotel-receptionist', roleTitle: 'Hotel Receptionist', icon: '🏨', status: 'locked' },
+      { roleSlug: 'fb-supervisor', roleTitle: 'F&B Supervisor', icon: '🍳', status: 'locked' },
+    ],
+  },
 ]
 
 // ─── Business data ────────────────────────────────────────────────────────────

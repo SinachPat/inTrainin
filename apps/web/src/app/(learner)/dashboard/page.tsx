@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, Award, Clock, CheckCircle2, ChevronRight } from 'lucide-react'
+import { ArrowRight, BookOpen, Award, Clock, CheckCircle2, ChevronRight, Lock, MapPin } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
-  MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES,
+  MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES, MOCK_ROADMAPS,
   getRoleBySlug, computeRoleProgress, getNextTopic,
 } from '@/lib/mock-data'
 
@@ -25,25 +25,49 @@ export default function LearnerDashboardPage() {
   const heroNextTopic  = heroRole && heroEnrollment ? getNextTopic(heroRole, heroEnrollment) : null
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
 
       {/* ── Greeting ──────────────────────────────────────────────────────── */}
       <div className="space-y-1">
         <p className="text-[13px] text-muted-foreground">{greeting}</p>
-        <h1 className="font-heading text-[22px] font-semibold tracking-tight text-foreground">
+        <h1 className="font-heading text-[24px] font-semibold tracking-tight text-foreground">
           Welcome back, {firstName}
         </h1>
       </div>
 
+      {/* ── Badges ───────────────────────────────────────────────────────────── */}
+      {MOCK_BADGES.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold text-foreground">Your badges</h2>
+            <span className="text-[11px] text-muted-foreground">{MOCK_BADGES.length} earned</span>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            {MOCK_BADGES.map((badge) => (
+              <div
+                key={badge.slug}
+                className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-sm"
+              >
+                <span className="text-xl leading-none">{badge.icon}</span>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">{badge.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{badge.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Continue Learning card ───────────────────────────────────────── */}
       {heroRole && heroEnrollment && heroProgress && (
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-          {/* Orange top-bar accent — 2px, razor thin */}
+          {/* Orange top-bar accent */}
           <div className="h-[2px] w-full bg-primary" />
 
-          <div className="p-5">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xl leading-none">
+          <div className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-2xl leading-none">
                 {heroRole.icon}
               </div>
               <div className="min-w-0 flex-1">
@@ -53,7 +77,7 @@ export default function LearnerDashboardPage() {
                   </p>
                   <span className="text-[13px] font-semibold tabular-nums text-foreground">{heroPct}%</span>
                 </div>
-                <p className="mt-0.5 text-[15px] font-semibold text-foreground">{heroRole.title}</p>
+                <p className="mt-0.5 text-[16px] font-semibold text-foreground">{heroRole.title}</p>
                 {heroNextTopic && (
                   <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
                     Next — {heroNextTopic.title}
@@ -75,7 +99,7 @@ export default function LearnerDashboardPage() {
 
             <Link
               href={`/learn/${heroRole.slug}`}
-              className={cn(buttonVariants({ size: 'sm' }), 'mt-4 w-full justify-center gap-1.5 text-[13px]')}
+              className={cn(buttonVariants({ size: 'sm' }), 'mt-5 w-full justify-center gap-1.5 text-[13px]')}
             >
               Continue <ArrowRight className="h-3.5 w-3.5" />
             </Link>
@@ -84,7 +108,7 @@ export default function LearnerDashboardPage() {
       )}
 
       {/* ── Stats strip ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {[
           {
             label: 'Roles enrolled',
@@ -101,9 +125,9 @@ export default function LearnerDashboardPage() {
             bgClass: 'bg-amber-500/8',
           },
         ].map(({ label, value, icon: Icon, iconClass, bgClass }) => (
-          <div key={label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className={cn('mb-2.5 flex h-7 w-7 items-center justify-center rounded-md', bgClass)}>
-              <Icon className={cn('h-3.5 w-3.5', iconClass)} />
+          <div key={label} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-md', bgClass)}>
+              <Icon className={cn('h-4 w-4', iconClass)} />
             </div>
             <p className="font-heading text-2xl font-semibold tabular-nums text-foreground">{value}</p>
             <p className="mt-0.5 text-[11px] text-muted-foreground">{label}</p>
@@ -111,16 +135,96 @@ export default function LearnerDashboardPage() {
         ))}
       </div>
 
+      {/* ── Career Roadmaps ──────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold text-foreground">Career roadmaps</h2>
+          <span className="text-[11px] text-muted-foreground">{MOCK_ROADMAPS.length} tracks</span>
+        </div>
+
+        <div className="space-y-3">
+          {MOCK_ROADMAPS.map((roadmap) => {
+            const doneCount = roadmap.steps.filter(s => s.status === 'completed').length
+            const activeStep = roadmap.steps.find(s => s.status === 'in_progress')
+
+            return (
+              <div key={roadmap.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[14px] font-semibold text-foreground">{roadmap.title}</p>
+                    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {roadmap.category}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">{roadmap.description}</p>
+                </div>
+
+                {/* Steps */}
+                <div className="flex items-center gap-0">
+                  {roadmap.steps.map((step, i) => (
+                    <div key={step.roleSlug} className="flex flex-1 items-center">
+                      {/* Step node */}
+                      <div className="flex flex-1 flex-col items-center gap-1.5">
+                        <div className={cn(
+                          'flex h-10 w-10 items-center justify-center rounded-full border-2 text-base leading-none transition-all',
+                          step.status === 'completed'
+                            ? 'border-green-500 bg-green-500/10'
+                            : step.status === 'in_progress'
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border bg-muted/50',
+                        )}>
+                          {step.status === 'completed'
+                            ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            : step.status === 'locked'
+                              ? <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
+                              : <span>{step.icon}</span>}
+                        </div>
+                        <p className={cn(
+                          'text-center text-[10px] font-medium leading-tight',
+                          step.status === 'locked' ? 'text-muted-foreground/60' : 'text-foreground',
+                        )}>
+                          {step.roleTitle}
+                        </p>
+                      </div>
+
+                      {/* Connector */}
+                      {i < roadmap.steps.length - 1 && (
+                        <div className={cn(
+                          'h-[2px] w-full max-w-[32px] shrink-0 rounded-full',
+                          roadmap.steps[i + 1].status !== 'locked' ? 'bg-primary/40' : 'bg-border',
+                        )} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA */}
+                {activeStep && (
+                  <div className="mt-4 border-t border-border/60 pt-4">
+                    <Link
+                      href={`/learn/${activeStep.roleSlug}`}
+                      className="flex items-center gap-1.5 text-[12px] font-medium text-primary hover:underline"
+                    >
+                      Continue with {activeStep.roleTitle} <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
       {/* ── My Roles ─────────────────────────────────────────────────────── */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-foreground">My Roles</h2>
           <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
             Browse all <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {MOCK_ENROLLMENTS.map((enr) => {
             const role = getRoleBySlug(enr.roleSlug)
             if (!role) return null
@@ -130,9 +234,9 @@ export default function LearnerDashboardPage() {
 
             return (
               <Link key={enr.id} href={`/learn/${enr.roleSlug}`} className="block group">
-                <div className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
+                <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
                   {/* Emoji avatar */}
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-lg leading-none">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl leading-none">
                     {role.icon}
                   </div>
 
@@ -170,43 +274,22 @@ export default function LearnerDashboardPage() {
         </div>
       </section>
 
-      {/* ── Badges ───────────────────────────────────────────────────────── */}
-      {MOCK_BADGES.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-[13px] font-semibold text-foreground">Badges</h2>
-          <div className="flex flex-wrap gap-2">
-            {MOCK_BADGES.map((badge) => (
-              <div
-                key={badge.slug}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 shadow-sm"
-              >
-                <span className="text-lg leading-none">{badge.icon}</span>
-                <div>
-                  <p className="text-[12px] font-medium text-foreground">{badge.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{badge.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ── Explore ──────────────────────────────────────────────────────── */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[13px] font-semibold text-foreground">Explore roles</h2>
           <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
             See all <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-        <div className="grid gap-2.5 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3">
           {MOCK_SUGGESTED_ROLES.map((role) => (
             <Link key={role.slug} href={`/roles/${role.slug}`} className="group block">
-              <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
+              <div className="h-full rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
                 <span className="text-2xl leading-none">{role.icon}</span>
                 <p className="mt-3 text-[13px] font-medium text-foreground">{role.title}</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{role.category}</p>
-                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
+                <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Clock className="h-3 w-3" /> {role.estimatedHours}h
                   </span>

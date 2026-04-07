@@ -94,7 +94,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <main className="min-w-0 flex-1 overflow-y-auto pb-24 md:pb-0">
-        <div className="mx-auto max-w-2xl px-4 py-8 md:px-8">
+        <div className="mx-auto max-w-3xl px-4 py-8 md:px-10">
           {children}
         </div>
       </main>
