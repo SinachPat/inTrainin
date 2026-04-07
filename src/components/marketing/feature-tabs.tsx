@@ -17,41 +17,43 @@ import {
 export function FeatureTabs() {
   return (
     <Tabs defaultValue="learning" className="w-full">
-      {/* Tab triggers */}
-      <div className="flex justify-center border-b border-border">
-        <TabsList
-          variant="line"
-          className="h-auto gap-0 rounded-none bg-transparent p-0"
-        >
-          <TabsTrigger
-            value="learning"
-            className="flex items-center gap-2 rounded-none px-5 py-3 text-sm font-medium"
+      {/* Tab triggers — horizontal scroll on mobile so they never cause overflow */}
+      <div className="border-b border-border">
+        <div className="overflow-x-auto">
+          <TabsList
+            variant="line"
+            className="h-auto w-full min-w-max gap-0 rounded-none bg-transparent p-0"
           >
-            <BookOpen className="size-4" />
-            Learning Engine
-          </TabsTrigger>
-          <TabsTrigger
-            value="certification"
-            className="flex items-center gap-2 rounded-none px-5 py-3 text-sm font-medium"
-          >
-            <Award className="size-4" />
-            Certification
-          </TabsTrigger>
-          <TabsTrigger
-            value="jobs"
-            className="flex items-center gap-2 rounded-none px-5 py-3 text-sm font-medium"
-          >
-            <Briefcase className="size-4" />
-            Job Hub
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger
+              value="learning"
+              className="flex shrink-0 items-center gap-1.5 rounded-none px-4 py-3 text-sm font-medium sm:px-5"
+            >
+              <BookOpen className="hidden size-4 sm:block" />
+              Learning Engine
+            </TabsTrigger>
+            <TabsTrigger
+              value="certification"
+              className="flex shrink-0 items-center gap-1.5 rounded-none px-4 py-3 text-sm font-medium sm:px-5"
+            >
+              <Award className="hidden size-4 sm:block" />
+              Certification
+            </TabsTrigger>
+            <TabsTrigger
+              value="jobs"
+              className="flex shrink-0 items-center gap-1.5 rounded-none px-4 py-3 text-sm font-medium sm:px-5"
+            >
+              <Briefcase className="hidden size-4 sm:block" />
+              Job Hub
+            </TabsTrigger>
+          </TabsList>
+        </div>
       </div>
 
       {/* ── Learning Engine tab ──────────────────────────────────────────── */}
       <TabsContent value="learning" className="mt-0">
-        <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left — copy */}
-          <div className="flex flex-col justify-center gap-6 border-b border-border px-8 py-12 md:border-b-0 md:border-r md:px-12">
+          <div className="flex flex-col justify-center gap-6 border-b border-border px-4 py-8 md:border-b-0 md:border-r md:px-10 md:py-12">
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Learning Engine
@@ -82,9 +84,8 @@ export function FeatureTabs() {
           </div>
 
           {/* Right — product UI mock */}
-          <div className="flex items-center justify-center bg-muted/40 p-8 md:p-12">
+          <div className="flex items-center justify-center bg-muted/40 p-4 sm:p-8">
             <div className="w-full max-w-sm overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-              {/* Mock header */}
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <div>
                   <p className="text-xs font-semibold text-foreground">Cashier (Retail)</p>
@@ -95,7 +96,6 @@ export function FeatureTabs() {
                 </span>
               </div>
 
-              {/* Progress bar */}
               <div className="px-4 py-3">
                 <div className="mb-1 flex justify-between text-[10px] text-muted-foreground">
                   <span>Cash Handling</span>
@@ -106,7 +106,6 @@ export function FeatureTabs() {
                 </div>
               </div>
 
-              {/* Topic list */}
               <div className="divide-y divide-border">
                 {[
                   { label: "Introduction to Cash Management", done: true },
@@ -118,9 +117,7 @@ export function FeatureTabs() {
                 ].map((topic) => (
                   <div
                     key={topic.label}
-                    className={`flex items-center gap-2.5 px-4 py-2.5 ${
-                      topic.active ? "bg-muted/60" : ""
-                    }`}
+                    className={`flex items-center gap-2.5 px-4 py-2.5 ${topic.active ? "bg-muted/60" : ""}`}
                   >
                     {topic.done ? (
                       <CheckCircle2 className="size-3.5 shrink-0 text-primary" />
@@ -129,15 +126,11 @@ export function FeatureTabs() {
                     ) : (
                       <ChevronRight className="size-3.5 shrink-0 text-primary" />
                     )}
-                    <span
-                      className={`text-[11px] leading-snug ${
-                        topic.locked
-                          ? "text-muted-foreground"
-                          : topic.active
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground line-through"
-                      }`}
-                    >
+                    <span className={`text-[11px] leading-snug ${
+                      topic.locked ? "text-muted-foreground"
+                      : topic.active ? "font-medium text-foreground"
+                      : "text-muted-foreground line-through"
+                    }`}>
                       {topic.label}
                     </span>
                     {topic.active && (
@@ -149,7 +142,6 @@ export function FeatureTabs() {
                 ))}
               </div>
 
-              {/* Footer stats */}
               <div className="flex items-center gap-4 border-t border-border px-4 py-3">
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Flame className="size-3 text-primary" /> 5-day streak
@@ -165,9 +157,9 @@ export function FeatureTabs() {
 
       {/* ── Certification tab ────────────────────────────────────────────── */}
       <TabsContent value="certification" className="mt-0">
-        <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left — copy */}
-          <div className="flex flex-col justify-center gap-6 border-b border-border px-8 py-12 md:border-b-0 md:border-r md:px-12">
+          <div className="flex flex-col justify-center gap-6 border-b border-border px-4 py-8 md:border-b-0 md:border-r md:px-10 md:py-12">
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Certification System
@@ -199,12 +191,9 @@ export function FeatureTabs() {
           </div>
 
           {/* Right — certificate mock */}
-          <div className="flex items-center justify-center bg-muted/40 p-8 md:p-12">
+          <div className="flex items-center justify-center bg-muted/40 p-4 sm:p-8">
             <div className="w-full max-w-sm overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-              {/* Certificate header — orange accent strip */}
               <div className="h-1.5 w-full bg-primary" />
-
-              {/* Certificate content */}
               <div className="flex flex-col items-center gap-3 border-b border-border px-6 py-8 text-center">
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
                   InTrainin
@@ -215,14 +204,10 @@ export function FeatureTabs() {
                 </p>
                 <p className="mt-2 text-[11px] text-muted-foreground">This certifies that</p>
                 <p className="text-xl font-bold text-foreground">Amara Okafor</p>
-                <p className="text-[11px] text-muted-foreground">
-                  has successfully completed the curriculum for
-                </p>
+                <p className="text-[11px] text-muted-foreground">has successfully completed the curriculum for</p>
                 <p className="text-base font-bold text-foreground">Cashier (Retail)</p>
                 <p className="text-[11px] text-muted-foreground">with a score of 82% on the Final Exam</p>
               </div>
-
-              {/* Certificate meta */}
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <div>
                   <p className="text-[10px] text-muted-foreground">Issued</p>
@@ -233,8 +218,6 @@ export function FeatureTabs() {
                   <p className="font-mono text-[11px] font-semibold text-foreground">IT-2026-84921</p>
                 </div>
               </div>
-
-              {/* Share actions */}
               <div className="flex gap-2 px-4 py-3">
                 <button className="flex-1 rounded-lg bg-primary py-2 text-[10px] font-semibold text-primary-foreground">
                   WhatsApp
@@ -253,9 +236,9 @@ export function FeatureTabs() {
 
       {/* ── Job Hub tab ──────────────────────────────────────────────────── */}
       <TabsContent value="jobs" className="mt-0">
-        <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left — copy */}
-          <div className="flex flex-col justify-center gap-6 border-b border-border px-8 py-12 md:border-b-0 md:border-r md:px-12">
+          <div className="flex flex-col justify-center gap-6 border-b border-border px-4 py-8 md:border-b-0 md:border-r md:px-10 md:py-12">
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Job Hub
@@ -287,40 +270,19 @@ export function FeatureTabs() {
           </div>
 
           {/* Right — job match mock */}
-          <div className="flex items-center justify-center bg-muted/40 p-8 md:p-12">
+          <div className="flex items-center justify-center bg-muted/40 p-4 sm:p-8">
             <div className="w-full max-w-sm overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-              {/* Header */}
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <p className="text-xs font-semibold text-foreground">Job Hub</p>
                 <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
                   3 new matches
                 </span>
               </div>
-
-              {/* Match cards */}
               <div className="divide-y divide-border">
                 {[
-                  {
-                    employer: "Shoprite Supermarket",
-                    role: "Cashier",
-                    location: "Ikeja, Lagos",
-                    pay: "₦45,000/mo",
-                    certified: true,
-                  },
-                  {
-                    employer: "Chicken Republic",
-                    role: "Cashier (F&B)",
-                    location: "Wuse, Abuja",
-                    pay: "₦38,000/mo",
-                    certified: true,
-                  },
-                  {
-                    employer: "QuickMart Store",
-                    role: "Store Attendant",
-                    location: "Enugu",
-                    pay: "₦35,000/mo",
-                    certified: false,
-                  },
+                  { employer: "Shoprite Supermarket", role: "Cashier", location: "Ikeja, Lagos", pay: "₦45,000/mo", certified: true },
+                  { employer: "Chicken Republic", role: "Cashier (F&B)", location: "Wuse, Abuja", pay: "₦38,000/mo", certified: true },
+                  { employer: "QuickMart Store", role: "Store Attendant", location: "Enugu", pay: "₦35,000/mo", certified: false },
                 ].map((match) => (
                   <div key={match.employer} className="px-4 py-3">
                     <div className="mb-2 flex items-start justify-between gap-2">
@@ -329,7 +291,7 @@ export function FeatureTabs() {
                         <p className="text-[11px] text-muted-foreground">{match.role}</p>
                       </div>
                       {match.certified && (
-                        <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
                           <CheckCircle2 className="size-2.5" /> Certified
                         </span>
                       )}
@@ -351,12 +313,8 @@ export function FeatureTabs() {
                   </div>
                 ))}
               </div>
-
-              {/* Footer */}
               <div className="border-t border-border px-4 py-3">
-                <p className="text-[10px] text-muted-foreground">
-                  Job Hub Active · ₦1,000/month
-                </p>
+                <p className="text-[10px] text-muted-foreground">Job Hub Active · ₦1,000/month</p>
               </div>
             </div>
           </div>
