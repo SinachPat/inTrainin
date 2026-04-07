@@ -23,7 +23,7 @@ interface Props {
 export default async function RoleCurriculumPage({ params }: Props) {
   const { roleSlug } = await params
   const role = getRoleBySlug(roleSlug)
-  if (!role) notFound()
+  if (!role) return notFound()
 
   const enrollment = getEnrollmentBySlug(roleSlug)
 

@@ -86,10 +86,11 @@ function ReviewCard({ question, selected, index }: { question: Question; selecte
 export default function TestPage({ params }: Props) {
   const { roleSlug, testId } = use(params)
   const role = getRoleBySlug(roleSlug)
-  if (!role) notFound()
+  if (!role) return notFound()
 
-  const test = getTestById(role, testId)
-  if (!test) notFound()
+  const testOrNull = getTestById(role, testId)
+  if (!testOrNull) return notFound()
+  const test: MockTest = testOrNull   // narrow to non-optional for closures
 
   const isFinalExam = test.testType === 'final'
   const [testState, setTestState] = useState<TestState>('intro')

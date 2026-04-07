@@ -164,10 +164,10 @@ function TopicContentRenderer({ topic }: { topic: MockTopic }) {
 export default function TopicPage({ params }: Props) {
   const { roleSlug, topicId } = use(params)
   const role = getRoleBySlug(roleSlug)
-  if (!role) notFound()
+  if (!role) return notFound()
 
   const topic = getTopicById(role, topicId)
-  if (!topic) notFound()
+  if (!topic) return notFound()
 
   const mod = getModuleForTopic(role, topicId)
   const enrollment = getEnrollmentBySlug(roleSlug)

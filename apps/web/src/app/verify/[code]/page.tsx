@@ -7,18 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { MOCK_CERTIFICATES } from '@/lib/mock-data'
 
-// Seed a demo certificate so the verification page has something to show
-const DEMO_CERT = {
-  id: 'cert-demo-01',
-  roleSlug: 'cashier',
-  roleTitle: 'Cashier',
-  roleCategory: 'Retail & Store Operations',
-  holderName: 'Adaeze Obi',
-  issuedAt: '2026-03-15T11:42:00Z',
-  verificationCode: 'demo-cert-abcdef12',
-  imageUrl: null,
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-NG', {
     day: 'numeric',
@@ -34,10 +22,8 @@ interface Props {
 export default async function VerifyCertificatePage({ params }: Props) {
   const { code } = await params
 
-  // In production this will be a DB lookup by verificationCode.
-  // For now: check MOCK_CERTIFICATES first, then fall back to the demo cert.
-  const cert = MOCK_CERTIFICATES.find(c => c.verificationCode === code)
-    ?? (code === DEMO_CERT.verificationCode ? DEMO_CERT : null)
+  // TODO (Layer 3): replace with DB lookup by verificationCode
+  const cert = MOCK_CERTIFICATES.find(c => c.verificationCode === code) ?? null
 
   if (!cert) {
     return (
