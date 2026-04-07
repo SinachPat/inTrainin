@@ -51,7 +51,7 @@ export default async function RoleCurriculumPage({ params }: Props) {
   const allTopicsDone = completedTopics === totalTopics
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-10">
       <Link href="/dashboard" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
         <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Dashboard
       </Link>

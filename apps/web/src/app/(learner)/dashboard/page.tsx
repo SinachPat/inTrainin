@@ -25,7 +25,7 @@ export default function LearnerDashboardPage() {
   const heroNextTopic  = heroRole && heroEnrollment ? getNextTopic(heroRole, heroEnrollment) : null
 
   return (
-    <div className="space-y-10">
+    <div className="mx-auto max-w-3xl space-y-10 px-4 py-8 md:px-10">
 
       {/* ── Greeting ──────────────────────────────────────────────────────── */}
       <div className="space-y-1">

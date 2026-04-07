@@ -205,7 +205,7 @@ export default function TopicPage({ params }: Props) {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 pb-8 md:px-10">
       {/* Back */}
       <Link
         href={`/learn/${roleSlug}`}

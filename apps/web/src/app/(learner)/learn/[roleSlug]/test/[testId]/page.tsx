@@ -129,7 +129,7 @@ export default function TestPage({ params }: Props) {
   // ── Intro screen ────────────────────────────────────────────────────────────
   if (testState === 'intro') {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-10">
         <Link href={`/learn/${roleSlug}`} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
           <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Back to curriculum
         </Link>
@@ -182,7 +182,7 @@ export default function TestPage({ params }: Props) {
     const progress = ((currentQ + 1) / test.questions.length) * 100
 
     return (
-      <div className="space-y-5">
+      <div className="mx-auto max-w-3xl space-y-5 px-4 py-8 md:px-10">
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -254,7 +254,7 @@ export default function TestPage({ params }: Props) {
   // ── Result screen ───────────────────────────────────────────────────────────
   if (testState === 'result' && score) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-10">
         {/* Result card */}
         <div className={cn(
           'rounded-xl border p-6 text-center space-y-4',

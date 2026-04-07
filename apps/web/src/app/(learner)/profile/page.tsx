@@ -29,7 +29,7 @@ export default function ProfilePage() {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-10">
       <h1 className="font-heading text-2xl font-bold">Profile</h1>
 
       {/* Avatar + name */}
@@ -192,14 +192,16 @@ export default function ProfilePage() {
               </div>
               <button
                 onClick={() => setNotifPrefs(p => ({ ...p, [key]: !p[key] }))}
+                aria-checked={notifPrefs[key]}
+                role="switch"
                 className={cn(
-                  'relative h-5 w-9 rounded-full transition-colors',
-                  notifPrefs[key] ? 'bg-primary' : 'bg-muted',
+                  'relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200',
+                  notifPrefs[key] ? 'bg-primary' : 'bg-muted-foreground/25',
                 )}
               >
                 <span className={cn(
-                  'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform',
-                  notifPrefs[key] ? 'translate-x-4' : 'translate-x-0.5',
+                  'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
+                  notifPrefs[key] ? 'translate-x-5' : 'translate-x-0',
                 )} />
               </button>
             </div>
