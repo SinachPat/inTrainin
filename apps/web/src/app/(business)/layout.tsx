@@ -2,11 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  LayoutDashboard, Users, Briefcase,
-  Building2, LogOut,
-  ChevronLeft, ChevronRight,
+  LayoutDashboard, Users, Briefcase, User,
+  LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -14,9 +13,10 @@ import { signOut } from '@/lib/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 const NAV = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/team',  label: 'Team',      icon: Users },
-  { href: '/hire',  label: 'Hire',      icon: Briefcase },
+  { href: '/admin',   label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/team',    label: 'Team',      icon: Users },
+  { href: '/hire',    label: 'Hire',      icon: Briefcase },
+  { href: '/account', label: 'Account',   icon: User },
 ]
 
 // TODO: replace with real business session (Layer 3)
@@ -26,6 +26,8 @@ const MOCK_BIZ = {
   planExpiry: 'Dec 2026',
   initials: 'SS',
 }
+
+const MOCK_OWNER = { fullName: 'Tunde Adeyemi', initials: 'TA' }
 
 function SidebarContent({
   pathname,
@@ -78,7 +80,7 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Plan footer */}
+      {/* Footer */}
       {collapsed ? (
         <div className="border-t border-sidebar-border px-1 py-3 flex flex-col items-center gap-1">
           <ThemeToggle iconOnly />
@@ -94,17 +96,10 @@ function SidebarContent({
         <div className="border-t border-sidebar-border px-3 py-3 space-y-0.5">
           <div className="flex items-center justify-between px-2 py-2">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40">
-                Plan expires
-              </p>
-              <p className="mt-0.5 text-xs font-medium text-sidebar-foreground">
-                {MOCK_BIZ.planExpiry}
-              </p>
+              <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40">Plan expires</p>
+              <p className="mt-0.5 text-xs font-medium text-sidebar-foreground">{MOCK_BIZ.planExpiry}</p>
             </div>
-            <Link
-              href="/business"
-              className="text-[11px] font-medium text-primary hover:underline"
-            >
+            <Link href="/business" className="text-[11px] font-medium text-primary hover:underline">
               Upgrade
             </Link>
           </div>
@@ -125,6 +120,22 @@ function SidebarContent({
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  const avatarRef = useRef<HTMLDivElement>(null)
+
+  // Close avatar menu on route change
+  useEffect(() => { setAvatarOpen(false) }, [pathname])
+
+  // Close avatar menu on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
+        setAvatarOpen(false)
+      }
+    }
+    if (avatarOpen) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [avatarOpen])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background md:flex-row">
@@ -136,34 +147,36 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
           collapsed ? 'md:w-14' : 'md:w-56 lg:w-64',
         )}
       >
-        {/* Brand header */}
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border px-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary font-bold text-sm text-primary-foreground">
-            {MOCK_BIZ.initials}
-          </span>
-          <div
-            className={cn(
-              'flex-1 min-w-0 overflow-hidden transition-[opacity,width] duration-200',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
-            )}
-          >
-            <p className="truncate text-sm font-semibold text-sidebar-foreground">
-              {MOCK_BIZ.name}
-            </p>
-            <Badge variant="secondary" className="mt-0.5 h-4 px-1.5 text-[10px]">
-              {MOCK_BIZ.plan}
-            </Badge>
-          </div>
+        {/* Brand header — whole row is the expand button when collapsed */}
+        {collapsed ? (
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={() => setCollapsed(false)}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className="flex h-14 w-full shrink-0 items-center justify-center border-b border-sidebar-border transition-colors hover:bg-muted/50"
           >
-            {collapsed
-              ? <ChevronRight className="h-3.5 w-3.5" />
-              : <ChevronLeft  className="h-3.5 w-3.5" />}
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-sm text-primary-foreground">
+              {MOCK_BIZ.initials}
+            </span>
           </button>
-        </div>
+        ) : (
+          <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary font-bold text-sm text-primary-foreground">
+              {MOCK_BIZ.initials}
+            </span>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="truncate text-sm font-semibold text-sidebar-foreground">{MOCK_BIZ.name}</p>
+              <Badge variant="secondary" className="mt-0.5 h-4 px-1.5 text-[10px]">{MOCK_BIZ.plan}</Badge>
+            </div>
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse sidebar"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         <SidebarContent pathname={pathname} collapsed={collapsed} />
       </aside>
@@ -171,20 +184,57 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
       <div className="flex min-w-0 flex-1 flex-col">
 
         {/* ── Mobile top bar ─────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur md:hidden">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur md:hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">
               {MOCK_BIZ.initials}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold text-foreground">
-                {MOCK_BIZ.name}
-              </p>
+              <p className="truncate text-[13px] font-semibold text-foreground">{MOCK_BIZ.name}</p>
             </div>
           </div>
-          <Badge variant="secondary" className="ml-auto shrink-0 text-[10px]">
-            {MOCK_BIZ.plan}
-          </Badge>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="shrink-0 text-[10px]">{MOCK_BIZ.plan}</Badge>
+
+            {/* Owner avatar with dropdown */}
+            <div ref={avatarRef} className="relative">
+              <button
+                onClick={() => setAvatarOpen(o => !o)}
+                aria-label="Account menu"
+                aria-expanded={avatarOpen}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary ring-2 ring-transparent transition-all hover:ring-primary/30"
+              >
+                {MOCK_OWNER.initials}
+              </button>
+
+              {avatarOpen && (
+                <div className="absolute right-0 top-10 z-50 min-w-[192px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  <div className="border-b border-border px-4 py-3">
+                    <p className="text-[13px] font-semibold text-foreground">{MOCK_OWNER.fullName}</p>
+                    <p className="text-[11px] text-muted-foreground">Business owner · {MOCK_BIZ.plan}</p>
+                  </div>
+                  <Link
+                    href="/account"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                    onClick={() => setAvatarOpen(false)}
+                  >
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    Account settings
+                  </Link>
+                  <div className="border-t border-border">
+                    <button
+                      onClick={() => signOut()}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/5"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
@@ -198,7 +248,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
       {/* ── Mobile bottom nav ────────────────────────────────────────────── */}
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden">
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-4">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
             return (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LayoutDashboard, Compass, Award, User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOut } from '@/lib/auth'
@@ -19,8 +19,24 @@ const NAV = [
 const MOCK_SESSION = { fullName: 'Emeka Johnson', initials: 'EJ' }
 
 export default function LearnerLayout({ children }: { children: React.ReactNode }) {
-  const pathname   = usePathname()
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  const avatarRef = useRef<HTMLDivElement>(null)
+
+  // Close avatar menu on route change
+  useEffect(() => { setAvatarOpen(false) }, [pathname])
+
+  // Close avatar menu on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
+        setAvatarOpen(false)
+      }
+    }
+    if (avatarOpen) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [avatarOpen])
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
@@ -37,29 +53,35 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           collapsed ? 'md:w-14' : 'md:w-56 lg:w-60',
         )}
       >
-        {/* Logo */}
-        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-border px-3">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
-            IT
-          </span>
-          <span
-            className={cn(
-              'flex-1 font-heading text-sm font-semibold tracking-tight text-foreground overflow-hidden whitespace-nowrap transition-[opacity,width] duration-200',
-              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
-            )}
-          >
-            InTrainin
-          </span>
+        {/* Logo — whole row is the expand button when collapsed */}
+        {collapsed ? (
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={() => setCollapsed(false)}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className="flex h-14 w-full shrink-0 items-center justify-center border-b border-border transition-colors hover:bg-muted/50"
           >
-            {collapsed
-              ? <ChevronRight className="h-3.5 w-3.5" />
-              : <ChevronLeft  className="h-3.5 w-3.5" />}
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
+              IT
+            </span>
           </button>
-        </div>
+        ) : (
+          <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
+              IT
+            </span>
+            <span className="flex-1 font-heading text-sm font-semibold tracking-tight text-foreground">
+              InTrainin
+            </span>
+            <button
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse sidebar"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className={cn('flex-1 py-3 space-y-0.5', collapsed ? 'px-1' : 'px-2')}>
@@ -78,7 +100,6 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground font-normal',
                 )}
               >
-                {/* Active pill — only when expanded */}
                 {active && !collapsed && (
                   <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
                 )}
@@ -144,8 +165,44 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           </span>
           <span className="font-heading text-sm font-semibold tracking-tight">InTrainin</span>
         </Link>
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-          {MOCK_SESSION.initials}
+
+        {/* Avatar with dropdown */}
+        <div ref={avatarRef} className="relative">
+          <button
+            onClick={() => setAvatarOpen(o => !o)}
+            aria-label="Account menu"
+            aria-expanded={avatarOpen}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary ring-2 ring-transparent transition-all hover:ring-primary/30"
+          >
+            {MOCK_SESSION.initials}
+          </button>
+
+          {avatarOpen && (
+            <div className="absolute right-0 top-10 z-50 min-w-[192px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+              {/* User info header */}
+              <div className="border-b border-border px-4 py-3">
+                <p className="text-[13px] font-semibold text-foreground">{MOCK_SESSION.fullName}</p>
+                <p className="text-[11px] text-muted-foreground">Learner</p>
+              </div>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                onClick={() => setAvatarOpen(false)}
+              >
+                <User className="h-4 w-4 text-muted-foreground" />
+                View profile
+              </Link>
+              <div className="border-t border-border">
+                <button
+                  onClick={() => signOut()}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-destructive transition-colors hover:bg-destructive/5"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
