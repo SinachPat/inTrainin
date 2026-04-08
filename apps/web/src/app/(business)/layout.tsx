@@ -153,10 +153,11 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
             onClick={() => setCollapsed(false)}
             title="Expand sidebar"
             aria-label="Expand sidebar"
-            className="flex h-14 w-full shrink-0 items-center justify-center border-b border-sidebar-border transition-colors hover:bg-muted/50"
+            className="group flex h-14 w-full shrink-0 items-center justify-center border-b border-sidebar-border transition-colors hover:bg-muted/50"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-sm text-primary-foreground">
-              {MOCK_BIZ.initials}
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-bold text-sm text-primary-foreground">
+              <span className="transition-opacity duration-150 group-hover:opacity-0">{MOCK_BIZ.initials}</span>
+              <ChevronRight className="absolute h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
             </span>
           </button>
         ) : (
@@ -238,7 +239,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+        <main className="flex-1 overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>
@@ -247,7 +248,10 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
       </div>
 
       {/* ── Mobile bottom nav ────────────────────────────────────────────── */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="grid grid-cols-4">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')

@@ -59,10 +59,11 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
             onClick={() => setCollapsed(false)}
             title="Expand sidebar"
             aria-label="Expand sidebar"
-            className="flex h-14 w-full shrink-0 items-center justify-center border-b border-border transition-colors hover:bg-muted/50"
+            className="group flex h-14 w-full shrink-0 items-center justify-center border-b border-border transition-colors hover:bg-muted/50"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
-              IT
+            <span className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
+              <span className="transition-opacity duration-150 group-hover:opacity-0">IT</span>
+              <ChevronRight className="absolute h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
             </span>
           </button>
         ) : (
@@ -207,12 +208,15 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       </header>
 
       {/* ── Main content — only this element scrolls ─────────────────────── */}
-      <main className="min-w-0 flex-1 overflow-y-auto pb-24 md:pb-0">
+      <main className="min-w-0 flex-1 overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {children}
       </main>
 
       {/* ── Mobile bottom nav ────────────────────────────────────────────── */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden">
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="grid grid-cols-4">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(href)
