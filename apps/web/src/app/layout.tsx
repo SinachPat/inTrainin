@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight } from "next/font/google";
-import { SiteFooter } from "@/components/marketing/site-footer";
-import { SiteHeader } from "@/components/marketing/site-header";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,10 +34,8 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" />
       </head>
-      <body className="grid min-h-screen grid-rows-[auto_1fr_auto] bg-background text-foreground">
-        <SiteHeader />
-        <main>{children}</main>
-        <SiteFooter />
+      <body className="min-h-screen bg-background text-foreground">
+        {children}
       </body>
     </html>
   );
