@@ -1,6 +1,6 @@
 /**
  * Paystack client — minimal typed wrapper around the Paystack REST API.
- * TODO Layer 8: replace with a full SDK or expand as needed.
+ * TODO Layer 8: replace with the official @paystack/paystack-sdk or expand as needed.
  */
 
 const BASE = 'https://api.paystack.co'
@@ -14,27 +14,40 @@ function paystackHeaders() {
   }
 }
 
+async function paystackFetch<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init)
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Paystack ${init?.method ?? 'GET'} ${input} failed (${res.status}): ${body}`)
+  }
+  return res.json() as Promise<T>
+}
+
 export const paystack = {
-  /** Initialise a transaction. Returns the payment authorisation URL. */
+  /**
+   * Initialise a transaction — returns the payment authorisation URL.
+   *
+   * Note: Paystack requires an email address. Since InTrainin users sign up
+   * with phone only, generate a synthetic email when none is available:
+   *   `${userId}@users.intrainin.com`
+   */
   async initializeTransaction(params: {
     email: string
-    amount: number // in kobo
+    amount: number // in kobo (1 NGN = 100 kobo)
     reference: string
     metadata?: Record<string, unknown>
   }) {
-    const res = await fetch(`${BASE}/transaction/initialize`, {
+    return paystackFetch(`${BASE}/transaction/initialize`, {
       method: 'POST',
       headers: paystackHeaders(),
       body: JSON.stringify(params),
     })
-    return res.json()
   },
 
   /** Verify a transaction by reference. */
   async verifyTransaction(reference: string) {
-    const res = await fetch(`${BASE}/transaction/verify/${reference}`, {
+    return paystackFetch(`${BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: paystackHeaders(),
     })
-    return res.json()
   },
 }

@@ -37,6 +37,10 @@ const phone = z.string().regex(
 export const AccountTypeSchema = z.enum(['learner', 'business', 'admin'])
 export type AccountType = z.infer<typeof AccountTypeSchema>
 
+/**
+ * Planned for a future migration — the users table does not yet have a status
+ * column. Reserved here so the enum is defined before the DB column is added.
+ */
 export const AccountStatusSchema = z.enum(['active', 'suspended', 'pending_verification'])
 export type AccountStatus = z.infer<typeof AccountStatusSchema>
 
@@ -309,7 +313,11 @@ export type TopicProgress = z.infer<typeof TopicProgressSchema>
 
 // ── Test Attempt ──────────────────────────────────────────────────────────────
 
-/** A single answer as stored in test_attempts.answers (JSONB array) */
+/**
+ * A single answer — camelCase in the application domain.
+ * Layer 5 note: when writing to/reading from test_attempts.answers (JSONB),
+ * convert to snake_case: questionId→question_id, selectedText→selected_text.
+ */
 export const TestAnswerSchema = z.object({
   questionId:   z.string(),
   selected:     z.number().int().nonnegative(), // index into options[]
@@ -406,7 +414,7 @@ export const JobHubProfileSchema = z.object({
   id:                    uuid,
   userId:                uuid,
   isSubscribed:          z.boolean(),
-  subscriptionPlan:      z.string().nullable(),
+  subscriptionPlan:      SubscriptionPlanSchema.nullable(),
   subscriptionStartsAt:  isoDateTime.nullable(),
   subscriptionExpiresAt: isoDateTime.nullable(),
   preferredRoles:        z.array(z.string()),
@@ -583,9 +591,13 @@ const HireRequestBaseSchema = z.object({
   certificationRequired: z.boolean().default(false),
 })
 
-/** Shared pay-range invariant — reused by both create and update schemas */
+/**
+ * Shared pay-range invariant — reused by both create and update schemas.
+ * Uses `=== undefined` (not falsy) so that payMin: 0 is a valid lower bound
+ * and is still compared against payMax rather than short-circuiting.
+ */
 const payRangeRefinement = (data: { payMin?: number; payMax?: number }) =>
-  !data.payMin || !data.payMax || data.payMin <= data.payMax
+  data.payMin === undefined || data.payMax === undefined || data.payMin <= data.payMax
 
 export const PostHireRequestSchema = HireRequestBaseSchema.refine(payRangeRefinement, {
   message: 'Minimum pay cannot exceed maximum pay',
