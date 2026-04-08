@@ -28,7 +28,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background md:flex-row">
+    <div className="flex flex-col h-screen overflow-hidden bg-background md:flex-row">
 
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside

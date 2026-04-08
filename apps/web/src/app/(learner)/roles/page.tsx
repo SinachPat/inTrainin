@@ -8,17 +8,17 @@ const CATEGORIES = [...new Set(ROLES.map((r) => r.category))];
 
 export default function RolesPage() {
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:py-12 md:px-8">
 
       {/* Header */}
-      <div className="mb-10 border-b border-border pb-8">
+      <div className="mb-8 border-b border-border pb-6 md:mb-10 md:pb-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Role Catalogue
         </p>
-        <h1 className="mb-3 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
           {ROLES.length} roles. One platform.
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
           Every curriculum is structured into modules, topics, and a final certification exam.
           Pick your role, complete Module 1 free, and enrol for the full course when you&apos;re ready.
         </p>
@@ -76,7 +76,7 @@ export default function RolesPage() {
       </div>
 
       {/* Bottom CTA */}
-      <div className="mt-12 rounded-xl border border-border bg-muted px-6 py-8 text-center">
+      <div className="mt-8 rounded-xl border border-border bg-muted px-4 py-6 text-center md:mt-12 md:px-6 md:py-8">
         <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Coming soon
         </p>
