@@ -197,6 +197,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="shrink-0 text-[10px]">{MOCK_BIZ.plan}</Badge>
+            <ThemeToggle iconOnly />
 
             {/* Owner avatar with dropdown */}
             <div ref={avatarRef} className="relative">
@@ -239,7 +240,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
+        <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>

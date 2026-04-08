@@ -5,7 +5,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <div className="grid min-h-screen grid-rows-[auto_1fr_auto]">
       <SiteHeader />
-      <main className="min-w-0 overflow-x-hidden">{children}</main>
+      <main className="min-w-0 overflow-x-clip">{children}</main>
       <SiteFooter />
     </div>
   );

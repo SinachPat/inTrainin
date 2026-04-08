@@ -168,8 +168,11 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           <span className="font-heading text-sm font-semibold tracking-tight">InTrainin</span>
         </Link>
 
-        {/* Avatar with dropdown */}
-        <div ref={avatarRef} className="relative">
+        {/* Theme + Avatar */}
+        <div className="flex items-center gap-1">
+          <ThemeToggle iconOnly />
+          {/* Avatar with dropdown */}
+          <div ref={avatarRef} className="relative">
           <button
             onClick={() => setAvatarOpen(o => !o)}
             aria-label="Account menu"
@@ -205,11 +208,12 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
               </div>
             </div>
           )}
+          </div>
         </div>
       </header>
 
       {/* ── Main content — only this element scrolls ─────────────────────── */}
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+      <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {children}
       </main>
 
