@@ -1,16 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Briefcase, MapPin, CheckCircle2, Star,
   Clock, ChevronRight, Plus, X, Check,
-  Award, Users,
+  Award, Users, Loader2,
 } from 'lucide-react'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { MOCK_HIRE_REQUESTS, MOCK_CANDIDATES, MOCK_ROLES, type MockCandidate } from '@/lib/mock-data'
+import { api, ApiError } from '@/lib/api'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Role { id: string; slug: string; title: string }
+
+interface HireRequest {
+  id: string
+  status: 'open' | 'filled' | 'closed' | 'draft'
+  positions_count: number
+  pay_min: number | null
+  pay_max: number | null
+  location_city: string
+  location_state: string | null
+  posted_at: string
+  roles: Role | null
+}
+
+interface Candidate {
+  id: string
+  match_score: number
+  status: 'pending' | 'shortlisted' | 'hired' | 'rejected'
+  users: { id: string; full_name: string; phone: string | null } | null
+  locationCity: string | null
+  availability: string | null
+  certified: boolean
+}
 
 const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'Benin City', 'Kaduna']
 
@@ -22,14 +48,44 @@ const AVAILABILITY_LABEL: Record<string, string> = {
 
 // ─── Post request modal ───────────────────────────────────────────────────────
 
-function PostRequestModal({ onClose }: { onClose: () => void }) {
-  const [roleSlug, setRoleSlug]       = useState('')
-  const [city, setCity]               = useState('Abuja')
-  const [positions, setPositions]     = useState('1')
-  const [payMin, setPayMin]           = useState('')
-  const [payMax, setPayMax]           = useState('')
+function PostRequestModal({
+  onClose, onSuccess, roles,
+}: {
+  onClose: () => void
+  onSuccess: () => void
+  roles: Role[]
+}) {
+  const [roleId, setRoleId]             = useState('')
+  const [city, setCity]                 = useState('Abuja')
+  const [positions, setPositions]       = useState('1')
+  const [payMin, setPayMin]             = useState('')
+  const [payMax, setPayMax]             = useState('')
   const [certRequired, setCertRequired] = useState(true)
-  const [submitted, setSubmitted]     = useState(false)
+  const [submitting, setSubmitting]     = useState(false)
+  const [submitted, setSubmitted]       = useState(false)
+  const [error, setError]               = useState('')
+
+  async function handleSubmit() {
+    if (!roleId) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await api.post('/jobhub/hire-requests', {
+        roleId,
+        locationCity: city,
+        positionsCount: parseInt(positions, 10) || 1,
+        ...(payMin ? { payMin: parseInt(payMin, 10) } : {}),
+        ...(payMax ? { payMax: parseInt(payMax, 10) } : {}),
+        certificationRequired: certRequired,
+      })
+      setSubmitted(true)
+      onSuccess()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to post hire request')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
@@ -59,16 +115,20 @@ function PostRequestModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
 
+            {error && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-xs font-medium text-muted-foreground">Role *</label>
                 <select
-                  value={roleSlug}
-                  onChange={e => setRoleSlug(e.target.value)}
+                  value={roleId}
+                  onChange={e => setRoleId(e.target.value)}
                   className="h-9 w-full appearance-none rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
                 >
                   <option value="">Select a role…</option>
-                  {MOCK_ROLES.map(r => <option key={r.slug} value={r.slug}>{r.title}</option>)}
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
                 </select>
               </div>
 
@@ -141,9 +201,10 @@ function PostRequestModal({ onClose }: { onClose: () => void }) {
 
             <Button
               className="w-full"
-              onClick={() => setSubmitted(true)}
-              disabled={!roleSlug}
+              onClick={handleSubmit}
+              disabled={!roleId || submitting}
             >
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Post hire request
             </Button>
           </div>
@@ -155,13 +216,34 @@ function PostRequestModal({ onClose }: { onClose: () => void }) {
 
 // ─── Candidate card ───────────────────────────────────────────────────────────
 
-function CandidateCard({ candidate }: { candidate: MockCandidate }) {
-  const [status, setStatus] = useState<MockCandidate['status']>(candidate.status)
+function CandidateCard({
+  candidate,
+  onStatusChange,
+}: {
+  candidate: Candidate
+  onStatusChange: (id: string, status: string) => void
+}) {
+  const [updating, setUpdating] = useState(false)
+
+  const name = candidate.users?.full_name ?? 'Unknown'
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2)
 
   const matchColor =
-    candidate.matchScore >= 90 ? 'text-green-600' :
-    candidate.matchScore >= 75 ? 'text-amber-600' :
+    candidate.match_score >= 90 ? 'text-green-600' :
+    candidate.match_score >= 75 ? 'text-amber-600' :
     'text-muted-foreground'
+
+  async function updateStatus(status: string) {
+    setUpdating(true)
+    try {
+      await api.patch(`/jobhub/candidates/${candidate.id}`, { status })
+      onStatusChange(candidate.id, status)
+    } catch {
+      // best effort
+    } finally {
+      setUpdating(false)
+    }
+  }
 
   return (
     <Card size="sm">
@@ -169,19 +251,21 @@ function CandidateCard({ candidate }: { candidate: MockCandidate }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              {candidate.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+              {initials}
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">{candidate.name}</p>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                {candidate.locationCity}
-              </div>
+              <p className="text-sm font-semibold text-foreground">{name}</p>
+              {candidate.locationCity && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {candidate.locationCity}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <Star className={cn('h-3.5 w-3.5', matchColor)} />
-            <span className={cn('text-sm font-bold', matchColor)}>{candidate.matchScore}%</span>
+            <span className={cn('text-sm font-bold', matchColor)}>{Math.round(candidate.match_score)}%</span>
             <span className="text-[10px] text-muted-foreground">match</span>
           </div>
         </div>
@@ -192,56 +276,45 @@ function CandidateCard({ candidate }: { candidate: MockCandidate }) {
               <Award className="h-3 w-3" /> Certified
             </span>
           )}
-          {candidate.testScore && (
-            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
-              Score: {candidate.testScore}%
+          {candidate.availability && (
+            <span className="flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
+              <Clock className="h-3 w-3" /> {AVAILABILITY_LABEL[candidate.availability] ?? candidate.availability}
             </span>
           )}
-          <span className="flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
-            <Clock className="h-3 w-3" /> {AVAILABILITY_LABEL[candidate.availability]}
-          </span>
         </div>
 
         {/* Action row */}
         <div className="flex gap-2">
-          {status === 'pending' && (
+          {candidate.status === 'pending' && (
             <>
-              <Button
-                size="xs"
-                className="flex-1"
-                onClick={() => setStatus('shortlisted')}
-              >
+              <Button size="xs" className="flex-1" onClick={() => updateStatus('shortlisted')} disabled={updating}>
                 Shortlist
               </Button>
-              <Button
-                size="xs"
-                variant="outline"
-                className="flex-1"
-                onClick={() => setStatus('rejected')}
-              >
+              <Button size="xs" variant="outline" className="flex-1" onClick={() => updateStatus('rejected')} disabled={updating}>
                 Pass
               </Button>
             </>
           )}
-          {status === 'shortlisted' && (
+          {candidate.status === 'shortlisted' && (
             <>
-              <Button size="xs" className="flex-1 gap-1" onClick={() => setStatus('hired')}>
+              <Button size="xs" className="flex-1 gap-1" onClick={() => updateStatus('hired')} disabled={updating}>
                 <CheckCircle2 className="h-3.5 w-3.5" /> Hire
               </Button>
-              <Button size="xs" variant="outline" className="flex-1" onClick={() => setStatus('rejected')}>
+              <Button size="xs" variant="outline" className="flex-1" onClick={() => updateStatus('rejected')} disabled={updating}>
                 Remove
               </Button>
             </>
           )}
-          {status === 'hired' && (
+          {candidate.status === 'hired' && (
             <div className="flex flex-1 items-center gap-1.5 text-xs font-medium text-green-600">
               <CheckCircle2 className="h-4 w-4" /> Hired
             </div>
           )}
-          {status === 'rejected' && (
+          {candidate.status === 'rejected' && (
             <button
               className="text-xs font-medium text-primary hover:underline"
-              onClick={() => setStatus('pending')}
+              onClick={() => updateStatus('pending')}
+              disabled={updating}
             >
               Undo
             </button>
@@ -255,19 +328,88 @@ function CandidateCard({ candidate }: { candidate: MockCandidate }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HirePage() {
-  const [showPost, setShowPost]   = useState(false)
-  const [activeReq, setActiveReq] = useState(MOCK_HIRE_REQUESTS.find(r => r.status === 'open')?.id ?? null)
+  const [loading, setLoading]         = useState(true)
+  const [roles, setRoles]             = useState<Role[]>([])
+  const [requests, setRequests]       = useState<HireRequest[]>([])
+  const [showPost, setShowPost]       = useState(false)
+  const [activeReq, setActiveReq]     = useState<string | null>(null)
+  const [candidates, setCandidates]   = useState<Candidate[]>([])
+  const [loadingCandidates, setLoadingCandidates] = useState(false)
 
-  const openRequests   = MOCK_HIRE_REQUESTS.filter(r => r.status === 'open')
-  const closedRequests = MOCK_HIRE_REQUESTS.filter(r => r.status !== 'open')
+  async function load() {
+    try {
+      const [reqRes, rolesRes] = await Promise.all([
+        api.get<{ success: boolean; data: { requests: HireRequest[] } }>('/jobhub/hire-requests'),
+        api.get<{ success: boolean; data: { roles: Role[] } }>('/learning/roles').catch(() => null),
+      ])
+      setRequests(reqRes.data.requests)
+      if (rolesRes) setRoles(rolesRes.data.roles)
 
-  const activeCandidates = activeReq
-    ? MOCK_CANDIDATES
-    : []
+      // Auto-expand the first open request
+      const firstOpen = reqRes.data.requests.find(r => r.status === 'open')
+      if (firstOpen) {
+        setActiveReq(firstOpen.id)
+        loadCandidates(firstOpen.id)
+      }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadCandidates(requestId: string) {
+    setLoadingCandidates(true)
+    try {
+      const res = await api.get<{ success: boolean; data: { candidates: Candidate[] } }>(
+        `/jobhub/hire-requests/${requestId}/candidates`,
+      )
+      setCandidates(res.data.candidates)
+    } catch {
+      setCandidates([])
+    } finally {
+      setLoadingCandidates(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  function toggleRequest(id: string) {
+    if (activeReq === id) {
+      setActiveReq(null)
+      setCandidates([])
+    } else {
+      setActiveReq(id)
+      loadCandidates(id)
+    }
+  }
+
+  function handleCandidateStatusChange(matchId: string, status: string) {
+    setCandidates(cs =>
+      cs.map(c => c.id === matchId ? { ...c, status: status as Candidate['status'] } : c),
+    )
+  }
+
+  const openRequests   = requests.filter(r => r.status === 'open')
+  const closedRequests = requests.filter(r => r.status !== 'open')
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <>
-      {showPost && <PostRequestModal onClose={() => setShowPost(false)} />}
+      {showPost && (
+        <PostRequestModal
+          roles={roles}
+          onClose={() => setShowPost(false)}
+          onSuccess={() => load()}
+        />
+      )}
 
       <div className="space-y-8">
 
@@ -320,7 +462,7 @@ export default function HirePage() {
                   'cursor-pointer transition-all',
                   activeReq === req.id ? 'border-primary ring-1 ring-primary/20' : 'hover:border-foreground/20',
                 )}
-                onClick={() => setActiveReq(activeReq === req.id ? null : req.id)}
+                onClick={() => toggleRequest(req.id)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -329,17 +471,13 @@ export default function HirePage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold">{req.roleTitle}</p>
+                        <p className="text-sm font-semibold">{req.roles?.title ?? 'Unknown role'}</p>
                         <Badge variant="default" className="text-[10px]">Open</Badge>
-                        {req.certificationRequired && (
-                          <Badge variant="secondary" className="text-[10px]">Certified only</Badge>
-                        )}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{req.locationCity}</span>
-                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{req.positionsCount} position{req.positionsCount !== 1 ? 's' : ''}</span>
-                        {req.payMin && <span>₦{req.payMin.toLocaleString()}{req.payMax ? `–₦${req.payMax.toLocaleString()}` : '+'}/mo</span>}
-                        <span className="font-medium text-primary">{req.matchCount} candidates matched</span>
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{req.location_city}</span>
+                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{req.positions_count} position{req.positions_count !== 1 ? 's' : ''}</span>
+                        {req.pay_min && <span>₦{req.pay_min.toLocaleString()}{req.pay_max ? `–₦${req.pay_max.toLocaleString()}` : '+'}/mo</span>}
                       </div>
                     </div>
                     <ChevronRight className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', activeReq === req.id && 'rotate-90')} />
@@ -348,12 +486,28 @@ export default function HirePage() {
                   {/* Expanded candidates */}
                   {activeReq === req.id && (
                     <div className="mt-4 space-y-2 border-t border-border pt-4" onClick={e => e.stopPropagation()}>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Matched candidates ({MOCK_CANDIDATES.length})
-                      </p>
-                      {MOCK_CANDIDATES.map(c => (
-                        <CandidateCard key={c.id} candidate={c} />
-                      ))}
+                      {loadingCandidates ? (
+                        <div className="flex justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : candidates.length === 0 ? (
+                        <p className="py-4 text-center text-xs text-muted-foreground">
+                          No candidates matched yet. Check back soon.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Matched candidates ({candidates.length})
+                          </p>
+                          {candidates.map(c => (
+                            <CandidateCard
+                              key={c.id}
+                              candidate={c}
+                              onStatusChange={handleCandidateStatusChange}
+                            />
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -374,12 +528,12 @@ export default function HirePage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold">{req.roleTitle}</p>
+                      <p className="text-sm font-semibold">{req.roles?.title ?? 'Unknown role'}</p>
                       <Badge variant="secondary" className="text-[10px] capitalize">{req.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {req.locationCity} · {req.positionsCount} position{req.positionsCount !== 1 ? 's' : ''}
-                      · Posted {new Date(req.postedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {req.location_city} · {req.positions_count} position{req.positions_count !== 1 ? 's' : ''}
+                      · Posted {new Date(req.posted_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   </div>
                 </CardContent>

@@ -5,7 +5,8 @@ import { Award, CheckCircle2, XCircle, ExternalLink, Share2 } from 'lucide-react
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { MOCK_CERTIFICATES } from '@/lib/mock-data'
+
+const API_URL = process.env.API_URL ?? 'http://localhost:3001'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-NG', {
@@ -15,15 +16,33 @@ function formatDate(iso: string) {
   })
 }
 
+interface CertificateData {
+  verificationCode: string
+  issuedAt: string
+  learner: { id: string; full_name: string } | null
+  role: { id: string; slug: string; title: string } | null
+}
+
 interface Props {
   params: Promise<{ code: string }>
 }
 
+async function fetchCertificate(code: string): Promise<CertificateData | null> {
+  try {
+    const res = await fetch(`${API_URL}/certificates/verify/${encodeURIComponent(code)}`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const json = await res.json() as { success: boolean; data?: { certificate: CertificateData } }
+    return json.success ? json.data!.certificate : null
+  } catch {
+    return null
+  }
+}
+
 export default async function VerifyCertificatePage({ params }: Props) {
   const { code } = await params
-
-  // TODO (Layer 3): replace with DB lookup by verificationCode
-  const cert = MOCK_CERTIFICATES.find(c => c.verificationCode === code) ?? null
+  const cert = await fetchCertificate(code)
 
   if (!cert) {
     return (
@@ -54,6 +73,9 @@ export default async function VerifyCertificatePage({ params }: Props) {
     )
   }
 
+  const holderName = cert.learner?.full_name ?? 'Unknown'
+  const roleTitle  = cert.role?.title ?? 'Unknown Role'
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
@@ -80,17 +102,17 @@ export default async function VerifyCertificatePage({ params }: Props) {
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
                 InTrainin Certificate of Completion
               </p>
-              <p className="mt-2 font-heading text-lg font-bold text-foreground">{cert.roleTitle}</p>
+              <p className="mt-2 font-heading text-lg font-bold text-foreground">{roleTitle}</p>
               <p className="mt-1 text-sm text-muted-foreground">awarded to</p>
-              <p className="mt-0.5 font-heading text-xl font-bold text-foreground">{cert.holderName}</p>
+              <p className="mt-0.5 font-heading text-xl font-bold text-foreground">{holderName}</p>
             </div>
           </div>
 
           {/* Details */}
           <div className="divide-y divide-border/60 px-6 py-4 space-y-0">
             <div className="flex items-center justify-between py-3">
-              <p className="text-xs text-muted-foreground">Category</p>
-              <Badge variant="secondary" className="text-[10px]">{cert.roleCategory}</Badge>
+              <p className="text-xs text-muted-foreground">Role</p>
+              <Badge variant="secondary" className="text-[10px]">{roleTitle}</Badge>
             </div>
             <div className="flex items-center justify-between py-3">
               <p className="text-xs text-muted-foreground">Date issued</p>

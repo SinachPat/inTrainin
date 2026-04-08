@@ -322,7 +322,7 @@ function UnsubscribedView() {
         {[
           { icon: CheckCircle2, label: 'Subscribe to activate your job profile' },
           { icon: Bell,         label: 'Employers post hiring requests for your role + location' },
-          { icon: Star,         label: 'You're ranked by certification, test scores & location' },
+          { icon: Star,         label: "You're ranked by certification, test scores & location" },
           { icon: ArrowRight,   label: 'Accept a match → employer sees your profile' },
         ].map(({ icon: Icon, label }, i) => (
           <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">

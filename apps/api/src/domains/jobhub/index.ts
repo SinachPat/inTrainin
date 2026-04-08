@@ -326,4 +326,150 @@ jobhub.patch(
   },
 )
 
+// ─── GET /jobhub/hire-requests/:id/candidates ───────────────────────────────
+// Protected (business) — matched candidates for a specific hire request.
+
+jobhub.get(
+  '/hire-requests/:id/candidates',
+  authMiddleware,
+  requireRole('business'),
+  async (c) => {
+    const requestId = c.req.param('id')
+    const userId    = c.get('userId')
+    const db        = createServerClient()
+
+    // Verify ownership
+    const { data: biz } = await db
+      .from('businesses')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .maybeSingle()
+
+    if (!biz) {
+      return c.json(
+        { success: false, error: 'No business profile found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    const { data: request } = await db
+      .from('hire_requests')
+      .select('id')
+      .eq('id', requestId)
+      .eq('business_id', biz.id)
+      .maybeSingle()
+
+    if (!request) {
+      return c.json(
+        { success: false, error: 'Hire request not found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    const { data: matches, error } = await db
+      .from('job_matches')
+      .select(`
+        id, match_score, status, created_at,
+        users ( id, full_name, phone )
+      `)
+      .eq('hire_request_id', requestId)
+      .order('match_score', { ascending: false })
+
+    if (error) return c.json({ success: false, error: error.message }, 500)
+
+    // Enrich with job hub profile + certification status per candidate
+    const userIds = (matches ?? []).map(m => (m.users as { id: string } | null)?.id).filter(Boolean) as string[]
+
+    const [profilesRes, certsRes] = await Promise.all([
+      userIds.length
+        ? db.from('job_hub_profiles').select('user_id, location_city, availability').in('user_id', userIds)
+        : Promise.resolve({ data: [] }),
+      userIds.length
+        ? db.from('certificates')
+            .select('user_id')
+            .eq('role_id', (await db.from('hire_requests').select('role_id').eq('id', requestId).single()).data!.role_id)
+            .eq('is_revoked', false)
+            .in('user_id', userIds)
+        : Promise.resolve({ data: [] }),
+    ])
+
+    const profileMap = new Map((profilesRes.data ?? []).map(p => [p.user_id, p]))
+    const certifiedSet = new Set((certsRes.data ?? []).map(c => c.user_id))
+
+    const candidates = (matches ?? []).map(m => {
+      const uid = (m.users as { id: string } | null)?.id
+      const profile = uid ? profileMap.get(uid) : null
+      return {
+        ...m,
+        locationCity: profile?.location_city ?? null,
+        availability: profile?.availability ?? null,
+        certified: uid ? certifiedSet.has(uid) : false,
+      }
+    })
+
+    return c.json({ success: true, data: { candidates } })
+  },
+)
+
+// ─── PATCH /jobhub/candidates/:id ────────────────────────────────────────────
+// Protected (business) — update a candidate match status (shortlist, hire, reject).
+
+jobhub.patch(
+  '/candidates/:id',
+  authMiddleware,
+  requireRole('business'),
+  async (c) => {
+    const matchId = c.req.param('id')
+    const userId  = c.get('userId')
+    const db      = createServerClient()
+
+    let body: { status?: string }
+    try { body = await c.req.json() } catch { body = {} }
+
+    const validStatuses = ['shortlisted', 'hired', 'rejected', 'pending']
+    if (!body.status || !validStatuses.includes(body.status)) {
+      return c.json({ success: false, error: 'Invalid status' }, 400)
+    }
+
+    // Verify the match belongs to a hire request owned by this business
+    const { data: biz } = await db
+      .from('businesses')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .maybeSingle()
+
+    if (!biz) {
+      return c.json(
+        { success: false, error: 'No business profile found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    // Join through hire_requests to verify ownership
+    const { data: match } = await db
+      .from('job_matches')
+      .select('id, hire_requests!inner ( business_id )')
+      .eq('id', matchId)
+      .maybeSingle()
+
+    if (!match) {
+      return c.json(
+        { success: false, error: 'Match not found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    const { data: updated, error } = await db
+      .from('job_matches')
+      .update({ status: body.status as 'pending' | 'shortlisted' | 'hired' | 'rejected' })
+      .eq('id', matchId)
+      .select('id, status')
+      .single()
+
+    if (error) return c.json({ success: false, error: error.message }, 500)
+
+    return c.json({ success: true, data: { match: updated } })
+  },
+)
+
 export { jobhub as jobhubRouter }
