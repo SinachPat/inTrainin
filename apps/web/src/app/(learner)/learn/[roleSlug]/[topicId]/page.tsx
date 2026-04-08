@@ -279,46 +279,46 @@ export default function TopicPage({ params }: Props) {
           />
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-between gap-2 px-4 py-3">
-          {/* Rewind 10s */}
-          <button
-            onClick={() => setAudioTime(t => Math.max(0, t - 10))}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Back 10s"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+        {/* Controls — two rows to fit 320px screens */}
+        <div className="px-4 py-3 space-y-2">
+          {/* Row 1: transport controls */}
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => setAudioTime(t => Math.max(0, t - 10))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Back 10s"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
 
-          {/* Play / Pause */}
-          <Button
-            size="sm"
-            variant={audioPlaying ? 'default' : 'outline'}
-            onClick={() => setAudioPlaying(p => !p)}
-            className="h-9 w-9 rounded-full p-0"
-          >
-            {audioPlaying
-              ? <Pause className="h-4 w-4" />
-              : <Play className="h-4 w-4" />}
-          </Button>
+            <Button
+              size="sm"
+              variant={audioPlaying ? 'default' : 'outline'}
+              onClick={() => setAudioPlaying(p => !p)}
+              className="h-9 w-9 rounded-full p-0"
+            >
+              {audioPlaying
+                ? <Pause className="h-4 w-4" />
+                : <Play className="h-4 w-4" />}
+            </Button>
 
-          {/* Forward 10s */}
-          <button
-            onClick={() => setAudioTime(t => Math.min(totalSeconds, t + 10))}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Forward 10s"
-          >
-            <RotateCw className="h-4 w-4" />
-          </button>
+            <button
+              onClick={() => setAudioTime(t => Math.min(totalSeconds, t + 10))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              title="Forward 10s"
+            >
+              <RotateCw className="h-4 w-4" />
+            </button>
+          </div>
 
-          {/* Speed selector */}
-          <div className="ml-auto flex items-center gap-1">
+          {/* Row 2: speed selector */}
+          <div className="flex items-center justify-center gap-1">
             {SPEEDS.map(s => (
               <button
                 key={s}
                 onClick={() => setSpeed(s)}
                 className={cn(
-                  'rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                  'rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors',
                   speed === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >

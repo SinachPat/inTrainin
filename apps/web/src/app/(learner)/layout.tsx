@@ -209,7 +209,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       </header>
 
       {/* ── Main content — only this element scrolls ─────────────────────── */}
-      <main className="min-w-0 flex-1 overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {children}
       </main>
 
