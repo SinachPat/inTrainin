@@ -16,14 +16,23 @@ const NAV = [
   { href: '/profile',      label: 'Profile', icon: User },
 ]
 
-// TODO: replace with real session from auth context (Layer 3)
-const MOCK_SESSION = { fullName: 'Emeka Johnson', initials: 'EJ' }
-
 export default function LearnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
+  const [session, setSessionState] = useState<{ fullName: string; initials: string } | null>(null)
+
+  useEffect(() => {
+    // Dynamically import to avoid SSR issues with localStorage
+    import('@/lib/auth').then(({ getSession }) => {
+      const s = getSession()
+      if (s) {
+        const initials = s.fullName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+        setSessionState({ fullName: s.fullName, initials })
+      }
+    })
+  }, [])
 
   // Restore sidebar state from localStorage on first client mount
   useEffect(() => {
@@ -154,10 +163,10 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           <div className="border-t border-border px-3 py-3 space-y-0.5">
             <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
-                {MOCK_SESSION.initials}
+                {session?.initials ?? '?'}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-foreground">{MOCK_SESSION.fullName}</p>
+                <p className="truncate text-xs font-medium text-foreground">{session?.fullName ?? '…'}</p>
                 <p className="text-[10px] text-muted-foreground">Learner</p>
               </div>
             </div>
@@ -193,14 +202,14 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
             aria-expanded={avatarOpen}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary ring-2 ring-transparent transition-all hover:ring-primary/30"
           >
-            {MOCK_SESSION.initials}
+            {session?.initials ?? '?'}
           </button>
 
           {avatarOpen && (
             <div className="absolute right-0 top-10 z-50 min-w-[192px] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
               {/* User info header */}
               <div className="border-b border-border px-4 py-3">
-                <p className="text-[13px] font-semibold text-foreground">{MOCK_SESSION.fullName}</p>
+                <p className="text-[13px] font-semibold text-foreground">{session?.fullName ?? '…'}</p>
                 <p className="text-[11px] text-muted-foreground">Learner</p>
               </div>
               <Link

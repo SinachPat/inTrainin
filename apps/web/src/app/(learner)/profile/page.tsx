@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Phone, MapPin, Briefcase, Bell, BellOff,
@@ -10,30 +10,74 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES, getRoleBySlug } from '@/lib/mock-data'
+import { api, ApiError } from '@/lib/api'
 import { signOut } from '@/lib/auth'
 
-const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'Benin City', 'Kaduna']
+interface ApiUser {
+  id: string
+  full_name: string
+  phone: string | null
+  location_city: string | null
+  account_type: string
+  xp_total: number
+  streak_current: number
+  notification_prefs: { push: boolean; sms: boolean; email: boolean } | null
+}
+
+const DEFAULT_PREFS = { push: true, sms: true, email: false }
 
 export default function ProfilePage() {
+  const [user, setUser]             = useState<ApiUser | null>(null)
+  const [loading, setLoading]       = useState(true)
   const [editingName, setEditingName] = useState(false)
-  const [name, setName] = useState(MOCK_USER.fullName)
-  const [draftName, setDraftName] = useState(MOCK_USER.fullName)
-  const [city, setCity] = useState(MOCK_USER.locationCity)
-  const [notifPrefs, setNotifPrefs] = useState(MOCK_USER.notificationPrefs)
+  const [name, setName]             = useState('')
+  const [draftName, setDraftName]   = useState('')
+  const [notifPrefs, setNotifPrefs] = useState(DEFAULT_PREFS)
   const [signingOut, setSigningOut] = useState(false)
+
+  useEffect(() => {
+    api.get<{ success: boolean; data: { user: ApiUser } }>('/auth/me')
+      .then(res => {
+        const u = res.data.user
+        setUser(u)
+        setName(u.full_name)
+        setDraftName(u.full_name)
+        setNotifPrefs(u.notification_prefs ?? DEFAULT_PREFS)
+      })
+      .catch(e => { if (e instanceof ApiError && e.status === 401) window.location.replace('/login') })
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function saveName() {
+    const trimmed = draftName.trim() || name
+    setName(trimmed)
+    setEditingName(false)
+    // Best-effort update — fire and forget
+    api.post('/auth/profile/complete', { fullName: trimmed, accountType: user?.account_type ?? 'learner', locationCity: user?.location_city ?? '' }).catch(() => {})
+  }
+
+  async function toggleNotif(key: keyof typeof notifPrefs) {
+    const next = { ...notifPrefs, [key]: !notifPrefs[key] }
+    setNotifPrefs(next)
+    api.put('/notifications/preferences', next).catch(() => {})
+  }
 
   async function handleSignOut() {
     setSigningOut(true)
-    await signOut() // clears storage + navigates; component unmounts naturally
+    await signOut()
   }
 
-  function saveName() {
-    setName(draftName.trim() || name)
-    setEditingName(false)
-  }
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
 
-  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-6 md:px-10">
+        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+        <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        <div className="h-40 animate-pulse rounded-xl bg-muted" />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
@@ -64,8 +108,10 @@ export default function ProfilePage() {
               </button>
             </div>
           )}
-          <p className="text-sm text-muted-foreground">{MOCK_USER.phone}</p>
-          <Badge variant="secondary" className="mt-1 text-[11px]">Learner</Badge>
+          <p className="text-sm text-muted-foreground">{user?.phone ?? '—'}</p>
+          <Badge variant="secondary" className="mt-1 text-[11px]">
+            {user?.account_type === 'business' ? 'Business' : 'Learner'}
+          </Badge>
         </div>
       </div>
 
@@ -81,7 +127,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <p className="text-xs text-muted-foreground">Phone</p>
-              <p className="text-sm font-medium">{MOCK_USER.phone}</p>
+              <p className="text-sm font-medium">{user?.phone ?? '—'}</p>
             </div>
             <Badge variant="secondary" className="text-[10px]">Verified</Badge>
           </div>
@@ -90,15 +136,9 @@ export default function ProfilePage() {
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
               <MapPin className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="flex-1">
               <p className="text-xs text-muted-foreground">City</p>
-              <select
-                value={city}
-                onChange={e => setCity(e.target.value)}
-                className="h-7 w-full appearance-none bg-transparent text-sm font-medium text-foreground outline-none"
-              >
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <p className="text-sm font-medium">{user?.location_city ?? '—'}</p>
             </div>
           </div>
 
@@ -107,72 +147,10 @@ export default function ProfilePage() {
               <Briefcase className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Career goal</p>
-              <p className="text-sm font-medium">{getRoleBySlug(MOCK_USER.careerGoalRoleSlug)?.title ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">XP earned</p>
+              <p className="text-sm font-medium">{user?.xp_total ?? 0} XP · {user?.streak_current ?? 0} day streak</p>
             </div>
-            <button className="text-xs font-medium text-primary hover:underline">Change</button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Learning stats */}
-      <Card size="sm">
-        <CardHeader className="pb-0">
-          <CardTitle className="text-sm">Learning stats</CardTitle>
-        </CardHeader>
-        <CardContent className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
-          {[
-            { label: 'Enrolled', value: MOCK_ENROLLMENTS.length },
-            { label: 'Certificates', value: MOCK_CERTIFICATES.length },
-            { label: 'Badges', value: MOCK_BADGES.length },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg bg-muted py-3 text-center">
-              <p className="font-heading text-xl font-bold text-foreground">{value}</p>
-              <p className="text-[11px] text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Badges */}
-      {MOCK_BADGES.length > 0 && (
-        <Card size="sm">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm">Badges earned</CardTitle>
-          </CardHeader>
-          <CardContent className="mt-3 flex flex-wrap gap-2">
-            {MOCK_BADGES.map(badge => (
-              <div key={badge.slug} className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
-                <span className="text-base">{badge.icon}</span>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">{badge.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{badge.description}</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Job Hub */}
-      <Card size="sm">
-        <CardContent className="flex items-center gap-3 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">Job Hub</p>
-            <p className="text-xs text-muted-foreground">
-              {MOCK_USER.jobHubSubscribed ? 'Active — receiving job matches' : 'Not subscribed — subscribe to get job alerts'}
-            </p>
-          </div>
-          {MOCK_USER.jobHubSubscribed ? (
-            <Badge variant="secondary" className="text-[10px] shrink-0">Active</Badge>
-          ) : (
-            <Link href="/job-hub" className={cn(buttonVariants({ size: 'xs' }), 'shrink-0')}>
-              Subscribe
-            </Link>
-          )}
         </CardContent>
       </Card>
 
@@ -183,10 +161,10 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="mt-3 space-y-3">
           {([
-            { key: 'push', label: 'Push notifications', desc: 'Course reminders and updates' },
-            { key: 'sms', label: 'SMS', desc: 'Job alerts and account activity' },
-            { key: 'email', label: 'Email', desc: 'Weekly progress summary (opt-in)' },
-          ] as const).map(({ key, label, desc }) => (
+            { key: 'push' as const, label: 'Push notifications', desc: 'Course reminders and updates' },
+            { key: 'sms'  as const, label: 'SMS', desc: 'Job alerts and account activity' },
+            { key: 'email' as const, label: 'Email', desc: 'Weekly progress summary (opt-in)' },
+          ]).map(({ key, label, desc }) => (
             <div key={key} className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 {notifPrefs[key]
@@ -198,7 +176,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <button
-                onClick={() => setNotifPrefs(p => ({ ...p, [key]: !p[key] }))}
+                onClick={() => toggleNotif(key)}
                 aria-checked={notifPrefs[key]}
                 role="switch"
                 className={cn(
@@ -221,7 +199,7 @@ export default function ProfilePage() {
         <CardContent className="divide-y divide-border/60 p-0">
           {[
             { label: 'Terms of Service', href: '/terms', icon: ExternalLink },
-            { label: 'Privacy Policy', href: '/privacy', icon: ExternalLink },
+            { label: 'Privacy Policy',   href: '/privacy', icon: ExternalLink },
           ].map(({ label, href, icon: Icon }) => (
             <Link key={href} href={href} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
               <Icon className="h-4 w-4 text-muted-foreground" />
