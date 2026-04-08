@@ -551,7 +551,15 @@ export interface Database {
           payment_reference?: string | null
         }
         Update: Partial<Database['public']['Tables']['businesses']['Insert']>
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "businesses_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── business_members ─────────────────────────────────────────────────────
@@ -580,7 +588,29 @@ export interface Database {
           joined_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['business_members']['Insert']>
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "business_members_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_members_assigned_role_id_fkey"
+            columns: ["assigned_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── certificates ─────────────────────────────────────────────────────────
@@ -608,7 +638,29 @@ export interface Database {
           image_url?: string | null
           is_revoked?: boolean
         }
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "certificates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── job_hub_profiles ─────────────────────────────────────────────────────
@@ -644,10 +696,18 @@ export interface Database {
           is_visible?: boolean
         }
         Update: Partial<Database['public']['Tables']['job_hub_profiles']['Insert']>
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "job_hub_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
-      // ── hire_requests ─────────────────────────────────────────────────────────
+      // ── hire_requests ────────────────────────────────────────────────────────
       hire_requests: {
         Row: {
           id: string
@@ -683,7 +743,22 @@ export interface Database {
           payment_reference?: string | null
         }
         Update: Partial<Database['public']['Tables']['hire_requests']['Insert']>
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "hire_requests_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hire_requests_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── job_matches ───────────────────────────────────────────────────────────
@@ -707,7 +782,22 @@ export interface Database {
           worker_notified_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['job_matches']['Insert']>
-        Relationships: Relationship[]
+        Relationships: [
+          {
+            foreignKeyName: "job_matches_hire_request_id_fkey"
+            columns: ["hire_request_id"]
+            isOneToOne: false
+            referencedRelation: "hire_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_matches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── notifications ─────────────────────────────────────────────────────────
