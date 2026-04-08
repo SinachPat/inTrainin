@@ -1,17 +1,17 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, Award, Clock, CheckCircle2, ChevronRight, Lock, MapPin } from 'lucide-react'
+import { ArrowRight, BookOpen, Award, CheckCircle2, ChevronRight, Lock } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES, MOCK_ROADMAPS,
   getRoleBySlug, computeRoleProgress, getNextTopic,
 } from '@/lib/mock-data'
+import { ROLES } from '@/lib/roles'
 
-const MOCK_SUGGESTED_ROLES = [
-  { slug: 'delivery-rider',     title: 'Delivery Rider',     category: 'Logistics',   priceNgn: 2000, estimatedHours: 3.5, icon: '🛵' },
-  { slug: 'store-keeper',       title: 'Store Keeper',       category: 'Retail',      priceNgn: 2500, estimatedHours: 4.0, icon: '🧾' },
-  { slug: 'hotel-receptionist', title: 'Hotel Receptionist', category: 'Hospitality', priceNgn: 3000, estimatedHours: 5.0, icon: '🏨' },
-]
+// Pick 3 representative roles from the real catalog for the "Explore" section
+const SUGGESTED_ROLES = ROLES.filter(r =>
+  ['dispatch-rider', 'store-attendant', 'front-desk-agent'].includes(r.slug)
+)
 
 export default function LearnerDashboardPage() {
   const firstName = MOCK_USER.fullName.split(' ')[0]
@@ -283,7 +283,7 @@ export default function LearnerDashboardPage() {
           </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          {MOCK_SUGGESTED_ROLES.map((role) => (
+          {SUGGESTED_ROLES.map((role) => (
             <Link key={role.slug} href={`/roles/${role.slug}`} className="group block">
               <div className="h-full rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
                 <span className="text-2xl leading-none">{role.icon}</span>
@@ -291,10 +291,10 @@ export default function LearnerDashboardPage() {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{role.category}</p>
                 <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Clock className="h-3 w-3" /> {role.estimatedHours}h
+                    <BookOpen className="h-3 w-3" /> {role.modules.length} modules
                   </span>
                   <span className="text-[11px] font-medium text-foreground">
-                    ₦{role.priceNgn.toLocaleString()}
+                    {role.price}
                   </span>
                 </div>
               </div>
