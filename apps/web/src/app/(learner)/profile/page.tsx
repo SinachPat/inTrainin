@@ -36,11 +36,11 @@ export default function ProfilePage() {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:px-10">
+    <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
       <h1 className="font-heading text-2xl font-bold">Profile</h1>
 
       {/* Avatar + name */}
-      <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-card sm:gap-4 sm:p-5">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
           {initials}
         </div>
@@ -65,7 +65,7 @@ export default function ProfilePage() {
             </div>
           )}
           <p className="text-sm text-muted-foreground">{MOCK_USER.phone}</p>
-          <Badge variant="secondary" className="mt-1 text-[10px]">Learner</Badge>
+          <Badge variant="secondary" className="mt-1 text-[11px]">Learner</Badge>
         </div>
       </div>
 
@@ -120,13 +120,13 @@ export default function ProfilePage() {
         <CardHeader className="pb-0">
           <CardTitle className="text-sm">Learning stats</CardTitle>
         </CardHeader>
-        <CardContent className="mt-3 grid grid-cols-3 gap-3">
+        <CardContent className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
           {[
             { label: 'Enrolled', value: MOCK_ENROLLMENTS.length },
             { label: 'Certificates', value: MOCK_CERTIFICATES.length },
             { label: 'Badges', value: MOCK_BADGES.length },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-border bg-muted/40 py-3 text-center">
+            <div key={label} className="rounded-lg bg-muted py-3 text-center">
               <p className="font-heading text-xl font-bold text-foreground">{value}</p>
               <p className="text-[11px] text-muted-foreground">{label}</p>
             </div>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="mt-3 flex flex-wrap gap-2">
             {MOCK_BADGES.map(badge => (
-              <div key={badge.slug} className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+              <div key={badge.slug} className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
                 <span className="text-base">{badge.icon}</span>
                 <div>
                   <p className="text-xs font-semibold text-foreground">{badge.name}</p>

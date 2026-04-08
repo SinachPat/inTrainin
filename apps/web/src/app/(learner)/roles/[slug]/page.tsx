@@ -36,46 +36,46 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
   const totalTopics = getTotalTopics(role);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10 md:px-8">
 
       {/* Back link */}
       <Link
         href="/roles"
-        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 mb-6 text-muted-foreground")}
+        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 mb-5 text-muted-foreground")}
       >
         <ArrowLeft className="mr-1.5 size-3.5" />
         All roles
       </Link>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_300px] lg:gap-10">
 
         {/* ── Main content ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-10">
+        <div className="flex flex-col gap-8 lg:gap-10">
 
           {/* Role header */}
-          <div className="border-b border-border pb-8">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="text-4xl leading-none">{role.icon}</span>
-              <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground">
+          <div className="border-b border-border pb-6 md:pb-8">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="text-3xl leading-none md:text-4xl">{role.icon}</span>
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground/70">
                 {role.category}
               </span>
             </div>
-            <h1 className="mb-3 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            <h1 className="mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
               {role.title}
             </h1>
-            <p className="mb-6 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
               {role.about}
             </p>
             {/* Stats bar */}
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-3 sm:gap-5">
               {[
                 { icon: BookOpen, label: `${role.modules.length} modules` },
                 { icon: CheckCircle2, label: `${totalTopics} topics` },
                 { icon: Award, label: "Certificate on completion" },
                 { icon: Zap, label: "XP & streak rewards" },
               ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Icon className="size-4 shrink-0 text-primary" />
+                <div key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
+                  <Icon className="size-3.5 shrink-0 text-primary sm:size-4" />
                   {label}
                 </div>
               ))}
@@ -106,7 +106,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                   <div
                     key={mod.num}
                     className={cn(
-                      "flex items-center gap-4 rounded-xl border px-5 py-4",
+                      "flex items-center gap-3 rounded-xl border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4",
                       isFree
                         ? "border-foreground/20 bg-background shadow-sm"
                         : "border-border bg-background"
@@ -145,7 +145,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
               })}
 
               {/* Final exam row */}
-              <div className="flex items-center gap-4 rounded-xl border border-dashed border-border px-5 py-4">
+              <div className="flex items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
                   <Award className="size-4 text-muted-foreground" />
                 </div>
@@ -161,9 +161,9 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
           </div>
 
           {/* Certificate section */}
-          <div className="rounded-xl border border-border bg-muted/40 px-6 py-6">
-            <div className="flex items-start gap-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+          <div className="rounded-xl border border-border bg-muted px-4 py-4 sm:px-6 sm:py-6">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-card shadow-card">
                 <Award className="size-5 text-primary" />
               </div>
               <div>
@@ -185,11 +185,11 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
 
         {/* ── Sticky sidebar CTA ───────────────────────────────────────── */}
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+          <div className="overflow-hidden rounded-xl bg-card shadow-card">
             {/* Price header */}
-            <div className="border-b border-border px-6 py-5">
+            <div className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
               <div className="mb-1 flex items-end gap-1.5">
-                <span className="text-3xl font-bold text-foreground">{role.price}</span>
+                <span className="text-2xl font-bold text-foreground sm:text-3xl">{role.price}</span>
                 <span className="mb-1 text-sm text-muted-foreground">one-time</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -198,7 +198,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
             </div>
 
             {/* Enroll CTA */}
-            <div className="flex flex-col gap-3 px-6 py-5">
+            <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5">
               <Link
                 href="/signup"
                 className={cn(buttonVariants({ size: "lg" }), "w-full justify-center")}
@@ -218,7 +218,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
             </div>
 
             {/* Includes */}
-            <div className="border-t border-border px-6 py-5">
+            <div className="border-t border-border px-4 py-4 sm:px-6 sm:py-5">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 This course includes
               </p>
@@ -245,16 +245,16 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
       </div>
 
       {/* Related roles */}
-      <div className="mt-16 border-t border-border pt-10">
-        <h2 className="mb-6 text-xl font-bold text-foreground">More roles to explore</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 border-t border-border pt-8 md:mt-16 md:pt-10">
+        <h2 className="mb-4 text-lg font-bold text-foreground md:mb-6 md:text-xl">More roles to explore</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ROLES.filter((r) => r.slug !== slug)
             .slice(0, 3)
             .map((r) => (
               <Link
                 key={r.slug}
                 href={`/roles/${r.slug}`}
-                className="group flex items-center gap-4 rounded-xl border border-border bg-background p-4 transition-all hover:border-foreground/20 hover:shadow-sm"
+                className="group flex items-center gap-3 rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-md"
               >
                 <span className="text-2xl leading-none">{r.icon}</span>
                 <div className="min-w-0 flex-1">

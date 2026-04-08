@@ -20,7 +20,7 @@ export default function CertificatesPage() {
   })
 
   return (
-    <div className="mx-auto max-w-3xl space-y-7 px-4 py-8 md:px-10">
+    <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-7 md:py-8 md:px-10">
       <div>
         <h1 className="font-heading text-2xl font-bold tracking-tight">My Certificates</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -51,7 +51,7 @@ export default function CertificatesPage() {
               <div className="border-t border-border px-4 py-3 space-y-3">
                 <div className="space-y-0.5">
                   <p className="text-xs text-muted-foreground">Issued {formatDate(cert.issuedAt)}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground/70">
+                  <p className="font-mono text-[10px] text-muted-foreground">
                     ID: {cert.verificationCode.slice(0, 8).toUpperCase()}
                   </p>
                 </div>
@@ -129,7 +129,7 @@ export default function CertificatesPage() {
       )}
 
       {/* Explore more roles */}
-      <section className="rounded-xl border border-border bg-muted/40 px-5 py-5 text-center">
+      <section className="rounded-xl border border-border bg-muted px-5 py-5 text-center">
         <BookOpen className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
         <p className="text-sm font-semibold text-foreground">Earn more certificates</p>
         <p className="mt-1 text-xs text-muted-foreground">Explore 15+ roles across 7 categories</p>

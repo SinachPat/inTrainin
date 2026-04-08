@@ -147,20 +147,20 @@ export default function TestPage({ params }: Props) {
             <h1 className="mt-1 font-heading text-xl font-bold">{test.title}</h1>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-3 gap-2 text-center sm:gap-3">
             {[
               { label: 'Questions', value: test.questions.length },
               { label: 'Pass mark', value: `${test.passMarkPct}%` },
               { label: 'Time limit', value: test.timeLimitMinutes ? `${test.timeLimitMinutes} min` : 'None' },
             ].map(({ label, value }) => (
-              <div key={label} className="rounded-lg border border-border bg-muted/40 py-3">
-                <p className="font-heading text-lg font-bold text-foreground">{value}</p>
+              <div key={label} className="rounded-lg bg-muted py-3">
+                <p className="font-heading text-base font-bold text-foreground sm:text-lg">{value}</p>
                 <p className="text-[11px] text-muted-foreground">{label}</p>
               </div>
             ))}
           </div>
 
-          <div className="rounded-lg border border-border bg-muted/40 p-3 text-left">
+          <div className="rounded-lg border border-border bg-muted p-3 text-left">
             <ul className="space-y-1.5 text-xs text-muted-foreground">
               <li className="flex items-start gap-2"><ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-primary" /> Read each question carefully before selecting your answer</li>
               <li className="flex items-start gap-2"><ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-primary" /> You can go back to previous questions before submitting</li>
@@ -229,13 +229,13 @@ export default function TestPage({ params }: Props) {
         </div>
 
         {/* Question dots */}
-        <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+        <div className="flex flex-wrap justify-center gap-1 pt-1 sm:gap-1.5">
           {test.questions.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentQ(i)}
               className={cn(
-                'h-6 w-6 rounded-full text-[10px] font-bold transition-all',
+                'h-7 w-7 rounded-full text-[11px] font-bold transition-all',
                 i === currentQ
                   ? 'bg-primary text-primary-foreground scale-110'
                   : answers[i] !== null
@@ -266,7 +266,7 @@ export default function TestPage({ params }: Props) {
               : <XCircle className="h-8 w-8 text-destructive" />}
           </div>
           <div>
-            <p className={cn('font-heading text-3xl font-bold', score.passed ? 'text-green-600' : 'text-destructive')}>
+            <p className={cn('font-heading text-2xl font-bold sm:text-3xl', score.passed ? 'text-green-600' : 'text-destructive')}>
               {score.pct}%
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">

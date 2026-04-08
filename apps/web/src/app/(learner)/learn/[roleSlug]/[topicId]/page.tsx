@@ -205,7 +205,7 @@ export default function TopicPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 pb-8 md:px-10">
+    <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
       {/* Back */}
       <Link
         href={`/learn/${roleSlug}`}
@@ -248,7 +248,7 @@ export default function TopicPage({ params }: Props) {
       </div>
 
       {/* Content */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl border border-border bg-card p-4 md:p-5">
         <TopicContentRenderer topic={topic} />
       </div>
 

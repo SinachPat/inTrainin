@@ -25,7 +25,7 @@ export default function LearnerDashboardPage() {
   const heroNextTopic  = heroRole && heroEnrollment ? getNextTopic(heroRole, heroEnrollment) : null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-10 px-4 py-8 md:px-10">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 md:space-y-10 md:py-8 md:px-10">
 
       {/* ── Greeting ──────────────────────────────────────────────────────── */}
       <div className="space-y-1">
@@ -46,7 +46,7 @@ export default function LearnerDashboardPage() {
             {MOCK_BADGES.map((badge) => (
               <div
                 key={badge.slug}
-                className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-sm"
+                className="flex items-center gap-2.5 rounded-xl bg-card px-3.5 py-2.5 shadow-card"
               >
                 <span className="text-xl leading-none">{badge.icon}</span>
                 <div>
@@ -152,7 +152,7 @@ export default function LearnerDashboardPage() {
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[14px] font-semibold text-foreground">{roadmap.title}</p>
-                    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground/70">
                       {roadmap.category}
                     </span>
                   </div>
