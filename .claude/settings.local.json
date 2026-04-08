@@ -45,7 +45,21 @@
       "Bash(git -C /Users/USER/Desktop/intrainin/.claude/worktrees/pedantic-wilson diff --stat)",
       "Bash(git -C /Users/USER/Desktop/intrainin/.claude/worktrees/pedantic-wilson add 'apps/web/src/app/\\(auth\\)/signup/page.tsx' 'apps/web/src/app/\\(learner\\)/certificates/page.tsx' 'apps/web/src/app/\\(learner\\)/dashboard/page.tsx' 'apps/web/src/app/\\(learner\\)/layout.tsx' 'apps/web/src/app/\\(learner\\)/learn/[roleSlug]/[topicId]/page.tsx' 'apps/web/src/app/\\(learner\\)/job-hub/page.tsx' apps/web/src/lib/mock-data.ts)",
       "Bash(git -C /Users/USER/Desktop/intrainin/.claude/worktrees/pedantic-wilson commit -m ':*)",
-      "Bash(git -C /Users/USER/Desktop/intrainin/.claude/worktrees/pedantic-wilson push origin claude/pedantic-wilson)"
+      "Bash(git -C /Users/USER/Desktop/intrainin/.claude/worktrees/pedantic-wilson push origin claude/pedantic-wilson)",
+      "Read(//Users/USER/Desktop/intrainin/**)",
+      "Read(//Users/USER/Desktop/intrainin/apps/web/**)",
+      "Bash(pnpm --filter @intrainin/shared typecheck)",
+      "Bash(npm list:*)",
+      "Bash(xargs ls:*)",
+      "Read(//tmp/**)",
+      "Bash(chmod +x /tmp/verify_exports.sh)",
+      "Bash(/tmp/verify_exports.sh)",
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|BUG\" apps/api/src/**/*.ts packages/shared/src/**/*.ts apps/web/src/lib/*.ts)",
+      "Bash(grep -n \"res.json\\(\\)\\\\|fetch\\\\|await\" apps/api/src/lib/*.ts)",
+      "Bash(find apps/api/src -name \"*.ts\" -exec grep -l \"camel\\\\|snake\\\\|convert\\\\|transform\" {} \\\\;)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm --filter @intrainin/api typecheck)"
     ]
   }
 }
