@@ -9,6 +9,7 @@ import {
 } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthVariables } from '../../middleware/auth.js'
+import { onTopicComplete, onEnrolment } from '../../lib/gamification.js'
 
 const learning = new Hono<{ Variables: AuthVariables }>()
 
@@ -149,6 +150,9 @@ learning.post(
       .single()
 
     if (enrolError) return c.json({ success: false, error: enrolError.message }, 500)
+
+    // Fire-and-forget: gamification failure must never break the response
+    onEnrolment(db, userId).catch(console.error)
 
     return c.json({ success: true, data: { enrolment } }, 201)
   },
@@ -318,6 +322,9 @@ learning.post(
       .single()
 
     if (error) return c.json({ success: false, error: error.message }, 500)
+
+    // Fire-and-forget: gamification failure must never break the response
+    onTopicComplete(db, userId).catch(console.error)
 
     return c.json({ success: true, data: { progress } })
   },

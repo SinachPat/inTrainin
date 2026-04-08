@@ -1,8 +1,10 @@
 /**
  * Typed API client — thin fetch wrapper for all calls to apps/api.
- * Server components use API_URL (private). Client components need
- * NEXT_PUBLIC_API_URL if calling the API directly from the browser.
+ * Auto-injects the stored JWT as an Authorization header on every request.
+ * Callers can override by passing { headers: { Authorization: '...' } } in init.
  */
+
+import { getAccessToken } from './auth'
 
 const BASE_URL =
   typeof window === 'undefined'
@@ -13,6 +15,7 @@ class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -20,17 +23,38 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getAccessToken()
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...init.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers, // caller-provided headers always win
     },
   })
 
+  if (res.status === 401) {
+    // Eagerly clear stale session so the middleware redirects on next navigation
+    if (typeof window !== 'undefined') {
+      ['intrainin_access_token', 'intrainin_refresh_token', 'intrainin_session_user'].forEach(k => {
+        try { localStorage.removeItem(k) } catch {}
+      })
+      try { document.cookie = 'intrainin_has_session=; path=/; max-age=0' } catch {}
+    }
+    throw new ApiError(401, 'Session expired — please sign in again.', 'UNAUTHORIZED')
+  }
+
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new ApiError(res.status, text)
+    let errMsg = res.statusText
+    let code: string | undefined
+    try {
+      const body = await res.json() as { error?: string; code?: string }
+      errMsg = body.error ?? errMsg
+      code   = body.code
+    } catch {
+      errMsg = await res.text().catch(() => errMsg)
+    }
+    throw new ApiError(res.status, errMsg, code)
   }
 
   return res.json() as Promise<T>

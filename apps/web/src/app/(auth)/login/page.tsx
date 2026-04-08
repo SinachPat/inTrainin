@@ -1,20 +1,33 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Phone, Shield, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
+import { setSession } from '@/lib/auth'
 
 type Step = 'phone' | 'otp'
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('0')) return '+234' + digits.slice(1)
+  if (digits.startsWith('234')) return '+' + digits
+  return digits
+}
+
 export default function LoginPage() {
+  const router = useRouter()
   const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState(0)
+  // Temporarily store tokens between OTP verify and /auth/me
+  const [pendingTokens, setPendingTokens] = useState<{ accessToken: string; refreshToken: string } | null>(null)
 
   function formatPhoneDisplay(raw: string) {
     const digits = raw.replace(/\D/g, '')
@@ -22,7 +35,7 @@ export default function LoginPage() {
     return '+234 ' + digits
   }
 
-  function handleRequestOtp(e: React.FormEvent) {
+  async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     const digits = phone.replace(/\D/g, '')
@@ -31,11 +44,17 @@ export default function LoginPage() {
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      const e164Phone = normalizePhone(phone)
+      await api.post('/auth/otp/send', { phone: e164Phone })
       setStep('otp')
       startCountdown()
-    }, 1200)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send OTP. Try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function startCountdown() {
@@ -64,18 +83,65 @@ export default function LoginPage() {
     }
   }
 
-  function handleVerify(e: React.FormEvent) {
+  async function handleVerify(e: React.FormEvent) {
     e.preventDefault()
-    if (otp.join('').length < 6) {
+    const otpString = otp.join('')
+    if (otpString.length < 6) {
       setError('Enter the complete 6-digit code')
       return
     }
     setError('')
     setLoading(true)
-    // Mock: any 6-digit code passes
-    setTimeout(() => {
-      window.location.href = '/dashboard'
-    }, 900)
+    try {
+      const e164Phone = normalizePhone(phone)
+      const verifyRes = await api.post<{
+        success: boolean
+        data: {
+          accessToken: string
+          refreshToken: string
+          profileComplete: boolean
+          accountType: string
+        }
+      }>('/auth/otp/verify', { phone: e164Phone, token: otpString })
+
+      const { accessToken, refreshToken, profileComplete, accountType } = verifyRes.data
+
+      if (profileComplete) {
+        // Fetch full user profile
+        const meRes = await api.get<{
+          data: {
+            user: {
+              id: string
+              full_name: string
+              account_type: string
+              phone: string
+            }
+          }
+        }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
+
+        const user = meRes.data.user
+        setSession({
+          accessToken,
+          refreshToken,
+          user: {
+            id: user.id,
+            fullName: user.full_name,
+            accountType: user.account_type as 'learner' | 'business' | 'admin',
+            phone: user.phone,
+          },
+        })
+        router.push(accountType === 'business' || accountType === 'admin' ? '/admin' : '/dashboard')
+      } else {
+        // New user — store tokens in sessionStorage and redirect to signup profile step
+        setPendingTokens({ accessToken, refreshToken })
+        sessionStorage.setItem('intrainin_temp_tokens', JSON.stringify({ accessToken, refreshToken }))
+        router.push('/signup?needsProfile=1')
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification failed. Check the code and try again.'
+      setError(msg)
+      setLoading(false)
+    }
   }
 
   return (
@@ -188,7 +254,14 @@ export default function LoginPage() {
             Didn&apos;t get it?{' '}
             <button
               type="button"
-              onClick={() => { setOtp(['', '', '', '', '', '']); startCountdown() }}
+              onClick={async () => {
+                setOtp(['', '', '', '', '', ''])
+                startCountdown()
+                try {
+                  const e164Phone = normalizePhone(phone)
+                  await api.post('/auth/otp/send', { phone: e164Phone })
+                } catch {}
+              }}
               disabled={countdown > 0}
               className={cn(
                 'font-medium transition-colors',

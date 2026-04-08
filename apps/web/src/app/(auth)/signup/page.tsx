@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
+import { setSession } from '@/lib/auth'
 
 type Step = 'type' | 'phone' | 'otp' | 'profile'
 type AccountType = 'learner' | 'business'
@@ -24,7 +27,16 @@ const CAREER_GOAL_ROLES = [
 
 const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'Benin City', 'Kaduna']
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('0')) return '+234' + digits.slice(1)
+  if (digits.startsWith('234')) return '+' + digits
+  return digits
+}
+
 export default function SignupPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>('type')
   const [accountType, setAccountType] = useState<AccountType>('learner')
   const [phone, setPhone] = useState('')
@@ -35,6 +47,22 @@ export default function SignupPage() {
   const [profile, setProfile] = useState({ fullName: '', city: '', careerGoalSlug: '' })
   const [otherRole, setOtherRole] = useState('')
   const [bizName, setBizName] = useState('')
+  // Tokens held in state after OTP verify, used for profile submit
+  const [pendingTokens, setPendingTokens] = useState<{ accessToken: string; refreshToken: string } | null>(null)
+
+  // On mount: if ?needsProfile=1, load tokens from sessionStorage and skip to profile
+  useEffect(() => {
+    if (searchParams.get('needsProfile') === '1') {
+      try {
+        const raw = sessionStorage.getItem('intrainin_temp_tokens')
+        if (raw) {
+          const tokens = JSON.parse(raw) as { accessToken: string; refreshToken: string }
+          setPendingTokens(tokens)
+          setStep('profile')
+        }
+      } catch {}
+    }
+  }, [searchParams])
 
   function startCountdown() {
     setCountdown(60)
@@ -54,13 +82,23 @@ export default function SignupPage() {
     setStep('phone')
   }
 
-  function handleRequestOtp(e: React.FormEvent) {
+  async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     const digits = phone.replace(/\D/g, '')
     if (digits.length < 10) { setError('Enter a valid Nigerian phone number'); return }
     setLoading(true)
-    setTimeout(() => { setLoading(false); setStep('otp'); startCountdown() }, 1200)
+    try {
+      const e164Phone = normalizePhone(phone)
+      await api.post('/auth/otp/send', { phone: e164Phone })
+      setStep('otp')
+      startCountdown()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send OTP. Try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleOtpChange(index: number, value: string) {
@@ -75,23 +113,107 @@ export default function SignupPage() {
     if (e.key === 'Backspace' && !otp[index] && index > 0) document.getElementById(`otp-${index - 1}`)?.focus()
   }
 
-  function handleVerifyOtp(e: React.FormEvent) {
+  async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault()
-    if (otp.join('').length < 6) { setError('Enter the complete 6-digit code'); return }
+    const otpString = otp.join('')
+    if (otpString.length < 6) { setError('Enter the complete 6-digit code'); return }
     setError('')
     setLoading(true)
-    setTimeout(() => { setLoading(false); setStep('profile') }, 900)
+    try {
+      const e164Phone = normalizePhone(phone)
+      const verifyRes = await api.post<{
+        success: boolean
+        data: {
+          accessToken: string
+          refreshToken: string
+          profileComplete: boolean
+          accountType: string
+        }
+      }>('/auth/otp/verify', { phone: e164Phone, token: otpString })
+
+      const { accessToken, refreshToken, profileComplete, accountType: returnedAccountType } = verifyRes.data
+
+      if (profileComplete) {
+        // Returning user — fetch /auth/me and navigate home
+        const meRes = await api.get<{
+          data: {
+            user: { id: string; full_name: string; account_type: string; phone: string }
+          }
+        }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
+
+        const user = meRes.data.user
+        setSession({
+          accessToken,
+          refreshToken,
+          user: {
+            id: user.id,
+            fullName: user.full_name,
+            accountType: user.account_type as 'learner' | 'business' | 'admin',
+            phone: user.phone,
+          },
+        })
+        router.push(returnedAccountType === 'business' || returnedAccountType === 'admin' ? '/admin' : '/dashboard')
+      } else {
+        // New user — store tokens and advance to profile step
+        setPendingTokens({ accessToken, refreshToken })
+        setStep('profile')
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Verification failed. Check the code and try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function handleProfileSubmit(e: React.FormEvent) {
+  async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!profile.fullName.trim()) { setError('Enter your full name'); return }
     if (accountType === 'business' && !bizName.trim()) { setError('Enter your business name'); return }
+    if (!pendingTokens) { setError('Session expired. Please start over.'); return }
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      window.location.href = accountType === 'business' ? '/admin' : '/dashboard'
-    }, 1000)
+    try {
+      const body: Record<string, unknown> = {
+        fullName: profile.fullName.trim(),
+        accountType,
+        locationCity: profile.city || undefined,
+      }
+      if (accountType === 'business') {
+        body.businessName = bizName.trim()
+      }
+      // careerGoalRoleId left out — will be wired in a future layer (only have slug, not UUID)
+
+      const profileRes = await api.post<{
+        success: boolean
+        data: { user: { id: string; full_name: string; account_type: string } }
+      }>('/auth/profile/complete', body, {
+        headers: { Authorization: `Bearer ${pendingTokens.accessToken}` },
+      })
+
+      const user = profileRes.data.user
+      const normalizedPhone = normalizePhone(phone)
+
+      setSession({
+        accessToken: pendingTokens.accessToken,
+        refreshToken: pendingTokens.refreshToken,
+        user: {
+          id: user.id,
+          fullName: user.full_name,
+          accountType: user.account_type as 'learner' | 'business' | 'admin',
+          phone: normalizedPhone || null,
+        },
+      })
+
+      // Clean up temp tokens from sessionStorage
+      try { sessionStorage.removeItem('intrainin_temp_tokens') } catch {}
+
+      router.push(accountType === 'business' ? '/admin' : '/dashboard')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Profile setup failed. Try again.'
+      setError(msg)
+      setLoading(false)
+    }
   }
 
   const stepIndex = { type: 0, phone: 1, otp: 2, profile: 3 }[step]
@@ -258,7 +380,14 @@ export default function SignupPage() {
             Didn&apos;t get it?{' '}
             <button
               type="button"
-              onClick={() => { setOtp(['', '', '', '', '', '']); startCountdown() }}
+              onClick={async () => {
+                setOtp(['', '', '', '', '', ''])
+                startCountdown()
+                try {
+                  const e164Phone = normalizePhone(phone)
+                  await api.post('/auth/otp/send', { phone: e164Phone })
+                } catch {}
+              }}
               disabled={countdown > 0}
               className={cn('font-medium', countdown > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-primary hover:underline')}
             >

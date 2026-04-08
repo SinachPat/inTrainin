@@ -9,6 +9,7 @@ import {
 } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthVariables } from '../../middleware/auth.js'
+import { onTestPass } from '../../lib/gamification.js'
 
 const assessment = new Hono<{ Variables: AuthVariables }>()
 
@@ -180,6 +181,11 @@ assessment.post(
 
     if (insertError) {
       return c.json({ success: false, error: insertError.message }, 500)
+    }
+
+    // Fire-and-forget: gamification failure must never break the response
+    if (passed) {
+      onTestPass(db, userId, test.test_type as 'module' | 'final').catch(console.error)
     }
 
     // ── Check if final exam is now unlocked for this role ─────────────────────

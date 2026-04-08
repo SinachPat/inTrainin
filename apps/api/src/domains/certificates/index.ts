@@ -3,6 +3,7 @@ import { createServerClient } from '@intrainin/db'
 import { ERROR_CODES } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthVariables } from '../../middleware/auth.js'
+import { awardXp, checkBadges } from '../../lib/gamification.js'
 
 const certificates = new Hono<{ Variables: AuthVariables }>()
 
@@ -131,6 +132,12 @@ certificates.post('/issue', authMiddleware, async (c) => {
     .from('enrollments')
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', enrolment.id)
+
+  // Fire-and-forget: gamification failure must never break the response
+  Promise.all([
+    awardXp(db, userId, 200),
+    checkBadges(db, userId),
+  ]).catch(console.error)
 
   return c.json({ success: true, data: { certificate: cert, alreadyIssued: false } }, 201)
 })
