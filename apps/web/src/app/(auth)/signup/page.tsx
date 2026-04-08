@@ -9,16 +9,17 @@ import { cn } from '@/lib/utils'
 type Step = 'type' | 'phone' | 'otp' | 'profile'
 type AccountType = 'learner' | 'business'
 
+// Slugs match lib/roles.ts ROLES array exactly
 const CAREER_GOAL_ROLES = [
-  { slug: 'cashier', label: 'Cashier', icon: '🛒' },
-  { slug: 'waiter-waitress', label: 'Waiter / Waitress', icon: '🍽️' },
-  { slug: 'hotel-receptionist', label: 'Hotel Receptionist', icon: '🏨' },
-  { slug: 'delivery-rider', label: 'Delivery Rider', icon: '🛵' },
-  { slug: 'sales-representative', label: 'Sales Representative', icon: '💼' },
-  { slug: 'office-assistant', label: 'Office Assistant', icon: '🗂️' },
-  { slug: 'cleaner', label: 'Cleaner / Janitor', icon: '🧹' },
-  { slug: 'hair-stylist', label: 'Hair Stylist / Barber', icon: '✂️' },
-  { slug: 'kitchen-assistant', label: 'Kitchen Assistant', icon: '🍳' },
+  { slug: 'cashier-retail',      label: 'Cashier',             icon: '🛒' },
+  { slug: 'waiter-waitress',     label: 'Waiter / Waitress',   icon: '🍽️' },
+  { slug: 'front-desk-agent',    label: 'Hotel Receptionist',  icon: '🏨' },
+  { slug: 'dispatch-rider',      label: 'Delivery Rider',      icon: '🚚' },
+  { slug: 'sales-rep',           label: 'Sales Representative', icon: '🤝' },
+  { slug: 'receptionist',        label: 'Receptionist',        icon: '📋' },
+  { slug: 'security-guard',      label: 'Security Guard',      icon: '🛡️' },
+  { slug: 'barber',              label: 'Barber / Hair Stylist', icon: '💈' },
+  { slug: 'cook-kitchen-hand',   label: 'Kitchen Assistant',   icon: '🍳' },
 ]
 
 const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'Benin City', 'Kaduna']

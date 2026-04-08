@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, Award, CheckCircle2, ChevronRight, Lock } from 'lucide-react'
+import { ArrowRight, BookOpen, Award, CheckCircle2, ChevronRight, Lock, Briefcase } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   MOCK_USER, MOCK_ENROLLMENTS, MOCK_CERTIFICATES, MOCK_BADGES, MOCK_ROADMAPS,
-  getRoleBySlug, computeRoleProgress, getNextTopic,
+  MOCK_TEST_ATTEMPTS, MOCK_JOB_MATCHES,
+  getRoleBySlug, computeRoleProgress, getNextTopic, getTestById,
 } from '@/lib/mock-data'
 import { ROLES } from '@/lib/roles'
 
@@ -134,6 +135,76 @@ export default function LearnerDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── Job Hub status ───────────────────────────────────────────────────── */}
+      <section>
+        <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', MOCK_USER.jobHubSubscribed ? 'bg-green-500/10' : 'bg-muted')}>
+              <Briefcase className={cn('h-4 w-4', MOCK_USER.jobHubSubscribed ? 'text-green-600' : 'text-muted-foreground')} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-foreground">Job Hub</p>
+              <p className="text-[11px] text-muted-foreground">
+                {MOCK_USER.jobHubSubscribed
+                  ? `Active · ${MOCK_JOB_MATCHES.filter(m => m.status === 'pending').length} new match${MOCK_JOB_MATCHES.filter(m => m.status === 'pending').length !== 1 ? 'es' : ''} waiting`
+                  : 'Subscribe to get matched to employers passively'}
+              </p>
+            </div>
+            <Link
+              href="/job-hub"
+              className={cn(buttonVariants({ size: 'xs', variant: MOCK_USER.jobHubSubscribed ? 'outline' : 'default' }), 'shrink-0')}
+            >
+              {MOCK_USER.jobHubSubscribed ? 'View' : 'Subscribe'}
+              <ChevronRight className="ml-0.5 h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Test history ─────────────────────────────────────────────────────── */}
+      {MOCK_TEST_ATTEMPTS.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold text-foreground">Test history</h2>
+            <Link href="/certificates" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+              All certs <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {[...MOCK_TEST_ATTEMPTS].reverse().map(attempt => {
+              let testTitle = attempt.testId
+              for (const enr of MOCK_ENROLLMENTS) {
+                const role = getRoleBySlug(enr.roleSlug)
+                if (!role) continue
+                const test = getTestById(role, attempt.testId)
+                if (test) { testTitle = test.title; break }
+              }
+              const takenDate = new Date(attempt.takenAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
+              return (
+                <div key={attempt.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+                  <div className={cn(
+                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                    attempt.passed ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive',
+                  )}>
+                    {attempt.passed ? '✓' : '✗'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-foreground">{testTitle}</p>
+                    <p className="text-[11px] text-muted-foreground">{takenDate} · Attempt #{attempt.attemptNumber}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={cn('text-[13px] font-semibold tabular-nums', attempt.passed ? 'text-green-600' : 'text-destructive')}>
+                      {attempt.scorePct}%
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{attempt.passed ? 'Passed' : 'Failed'}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── Career Roadmaps ──────────────────────────────────────────────── */}
       <section>

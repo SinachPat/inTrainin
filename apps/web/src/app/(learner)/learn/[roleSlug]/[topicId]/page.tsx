@@ -1,11 +1,12 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect, useRef } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Volume2, VolumeX,
   ChevronRight, AlertTriangle, BookOpen,
+  Play, Pause, RotateCcw, RotateCw,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -179,7 +180,35 @@ export default function TopicPage({ params }: Props) {
   const prevTopic = currentIndex > 0 ? allTopics[currentIndex - 1] : null
   const nextTopic = currentIndex < allTopics.length - 1 ? allTopics[currentIndex + 1] : null
 
+  // Audio player state
+  const SPEEDS = [0.75, 1, 1.25, 1.5] as const
+  type Speed = typeof SPEEDS[number]
+  const totalSeconds = (topic.estimatedMinutes ?? 5) * 60
   const [audioPlaying, setAudioPlaying] = useState(false)
+  const [audioTime, setAudioTime] = useState(0)
+  const [speed, setSpeed] = useState<Speed>(1)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (audioPlaying) {
+      intervalRef.current = setInterval(() => {
+        setAudioTime(t => {
+          if (t >= totalSeconds) { setAudioPlaying(false); return totalSeconds }
+          return t + speed
+        })
+      }, 1000)
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [audioPlaying, speed, totalSeconds])
+
+  function formatTime(s: number) {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+
   const [markingDone, setMarkingDone] = useState(false)
   const [marked, setMarked] = useState(isCompleted)
 
@@ -231,20 +260,73 @@ export default function TopicPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Audio toggle */}
-      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">Read aloud</p>
-          <p className="text-xs text-muted-foreground">Listen while you follow along</p>
+      {/* ── Audio player ─────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {/* Header row */}
+        <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
+          <Volume2 className="h-3.5 w-3.5 text-primary" />
+          <p className="flex-1 text-[13px] font-medium text-foreground">Read aloud</p>
+          <p className="text-[11px] text-muted-foreground">
+            {formatTime(audioTime)} / {formatTime(totalSeconds)}
+          </p>
         </div>
-        <Button
-          variant={audioPlaying ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setAudioPlaying(p => !p)}
-        >
-          {audioPlaying ? <VolumeX className="mr-1.5 h-4 w-4" /> : <Volume2 className="mr-1.5 h-4 w-4" />}
-          {audioPlaying ? 'Stop' : 'Play'}
-        </Button>
+
+        {/* Progress bar */}
+        <div className="h-1 w-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all duration-1000"
+            style={{ width: `${Math.min((audioTime / totalSeconds) * 100, 100)}%` }}
+          />
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
+          {/* Rewind 10s */}
+          <button
+            onClick={() => setAudioTime(t => Math.max(0, t - 10))}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Back 10s"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+
+          {/* Play / Pause */}
+          <Button
+            size="sm"
+            variant={audioPlaying ? 'default' : 'outline'}
+            onClick={() => setAudioPlaying(p => !p)}
+            className="h-9 w-9 rounded-full p-0"
+          >
+            {audioPlaying
+              ? <Pause className="h-4 w-4" />
+              : <Play className="h-4 w-4" />}
+          </Button>
+
+          {/* Forward 10s */}
+          <button
+            onClick={() => setAudioTime(t => Math.min(totalSeconds, t + 10))}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title="Forward 10s"
+          >
+            <RotateCw className="h-4 w-4" />
+          </button>
+
+          {/* Speed selector */}
+          <div className="ml-auto flex items-center gap-1">
+            {SPEEDS.map(s => (
+              <button
+                key={s}
+                onClick={() => setSpeed(s)}
+                className={cn(
+                  'rounded-md px-2 py-1 text-[11px] font-semibold transition-colors',
+                  speed === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {s}×
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Content */}

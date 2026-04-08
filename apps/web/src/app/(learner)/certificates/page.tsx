@@ -1,13 +1,69 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { Award, Share2, Download, ExternalLink, BookOpen } from 'lucide-react'
+import { Award, Share2, Download, ExternalLink, BookOpen, Check } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { MOCK_CERTIFICATES, MOCK_ENROLLMENTS, MOCK_ROLES, getRoleBySlug, computeRoleProgress } from '@/lib/mock-data'
+import { MOCK_CERTIFICATES, MOCK_ENROLLMENTS, MOCK_ROLES, getRoleBySlug, computeRoleProgress, type MockCertificate } from '@/lib/mock-data'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function CertShareActions({ cert }: { cert: MockCertificate }) {
+  const [copied, setCopied] = useState(false)
+  const verifyUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://intrainin.com'}/verify/${cert.verificationCode}`
+
+  function shareWhatsApp() {
+    const text = `I just earned my ${cert.roleTitle} certificate from InTrainin! 🎓\nVerify it here: ${verifyUrl}`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(verifyUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers
+      const el = document.createElement('textarea')
+      el.value = verifyUrl
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Link
+        href={`/verify/${cert.verificationCode}`}
+        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-center gap-1.5')}
+      >
+        <ExternalLink className="h-3.5 w-3.5" /> Verify
+      </Link>
+      <button
+        onClick={shareWhatsApp}
+        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-center gap-1.5')}
+      >
+        <Share2 className="h-3.5 w-3.5" /> WhatsApp
+      </button>
+      <button
+        onClick={copyLink}
+        className={cn(buttonVariants({ size: 'sm' }), 'flex-1 justify-center gap-1.5')}
+      >
+        {copied
+          ? <><Check className="h-3.5 w-3.5" /> Copied!</>
+          : <><Download className="h-3.5 w-3.5" /> Copy link</>}
+      </button>
+    </div>
+  )
 }
 
 export default function CertificatesPage() {
@@ -55,20 +111,7 @@ export default function CertificatesPage() {
                     ID: {cert.verificationCode.slice(0, 8).toUpperCase()}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/verify/${cert.verificationCode}`}
-                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-center gap-1.5')}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> Verify
-                  </Link>
-                  <button className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-center gap-1.5')}>
-                    <Share2 className="h-3.5 w-3.5" /> Share
-                  </button>
-                  <button className={cn(buttonVariants({ size: 'sm' }), 'flex-1 justify-center gap-1.5')}>
-                    <Download className="h-3.5 w-3.5" /> Download
-                  </button>
-                </div>
+                <CertShareActions cert={cert} />
               </div>
             </div>
           ))}
