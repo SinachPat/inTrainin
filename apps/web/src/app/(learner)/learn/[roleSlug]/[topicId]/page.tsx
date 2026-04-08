@@ -358,23 +358,23 @@ export default function TopicPage({ params }: Props) {
       )}
 
       {/* Prev / Next navigation */}
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
         {prevTopic && (
           <Link
             href={`/learn/${roleSlug}/${prevTopic.id}`}
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-start')}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full justify-start sm:flex-1')}
           >
-            <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+            <ArrowLeft className="mr-1.5 h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{prevTopic.title}</span>
           </Link>
         )}
         {nextTopic && (
           <Link
             href={`/learn/${roleSlug}/${nextTopic.id}`}
-            className={cn(buttonVariants({ variant: marked ? 'default' : 'outline', size: 'sm' }), 'flex-1 justify-end')}
+            className={cn(buttonVariants({ variant: marked ? 'default' : 'outline', size: 'sm' }), 'w-full justify-between sm:flex-1 sm:justify-end')}
           >
             <span className="truncate">{nextTopic.title}</span>
-            <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+            <ChevronRight className="ml-1.5 h-3.5 w-3.5 shrink-0" />
           </Link>
         )}
       </div>
