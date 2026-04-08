@@ -108,8 +108,8 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                     className={cn(
                       "flex items-center gap-3 rounded-xl border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4",
                       isFree
-                        ? "border-foreground/20 bg-background shadow-sm"
-                        : "border-border bg-background"
+                        ? "border-primary/30 bg-card shadow-card"
+                        : "border-border bg-card"
                     )}
                   >
                     {/* Number */}

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import {
   UserPlus, Search, MoreVertical, CheckCircle2,
@@ -347,9 +348,9 @@ export default function TeamPage() {
             <p className="mt-0.5 text-xs text-muted-foreground">
               You have {seatsLeft} seat{seatsLeft !== 1 ? 's' : ''} left. Upgrade to add more staff.
             </p>
-            <a href="/business" className={cn(buttonVariants({ size: 'xs', variant: 'outline' }), 'mt-3')}>
+            <Link href="/business" className={cn(buttonVariants({ size: 'xs', variant: 'outline' }), 'mt-3')}>
               View plans
-            </a>
+            </Link>
           </div>
         )}
 
