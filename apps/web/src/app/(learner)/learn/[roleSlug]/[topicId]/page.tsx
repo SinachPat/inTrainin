@@ -4,24 +4,44 @@ import { use, useState, useEffect, useRef } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, Volume2, VolumeX,
+  ArrowLeft, ArrowRight, CheckCircle2, Volume2,
   ChevronRight, AlertTriangle, BookOpen,
   Play, Pause, RotateCcw, RotateCw,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import {
-  MOCK_ROLES, getRoleBySlug, getEnrollmentBySlug,
-  getTopicById, getModuleForTopic,
-  type MockTopic, type ContentBody,
-} from '@/lib/mock-data'
+import { api, ApiError } from '@/lib/api'
+
+// ── API types ─────────────────────────────────────────────────────────────────
+
+interface ContentSection { heading: string; body: string }
+interface ContentStep    { step: number; title: string; description: string }
+interface ContentBody {
+  sections?:         ContentSection[]
+  key_points?:       string[]
+  steps?:            ContentStep[]
+  scenario?:         string
+  what_went_wrong?:  string
+  correct_response?: Record<string, string>
+  what_not_to_do?:   string[]
+  learning_outcome?: string
+}
+
+interface ApiTopic {
+  id: string
+  title: string
+  content_type: 'text' | 'guide' | 'workflow' | 'case_study'
+  content_body: ContentBody
+  estimated_minutes: number | null
+}
+
+interface NavTopic { id: string; title: string }
 
 interface Props {
   params: Promise<{ roleSlug: string; topicId: string }>
 }
 
-// ─── Content renderers ────────────────────────────────────────────────────────
+// ── Content renderers ─────────────────────────────────────────────────────────
 
 function TextContent({ body }: { body: ContentBody }) {
   return (
@@ -72,7 +92,6 @@ function WorkflowContent({ body }: { body: ContentBody }) {
     <div className="relative space-y-0">
       {body.steps?.map((step, i) => (
         <div key={step.step} className="relative flex gap-4 pb-4 last:pb-0">
-          {/* Vertical connector */}
           {i < (body.steps?.length ?? 0) - 1 && (
             <div className="absolute left-4 top-8 h-full w-0.5 bg-border" />
           )}
@@ -92,7 +111,6 @@ function WorkflowContent({ body }: { body: ContentBody }) {
 function CaseStudyContent({ body }: { body: ContentBody }) {
   return (
     <div className="space-y-4">
-      {/* Scenario */}
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
         <div className="mb-2 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -100,16 +118,12 @@ function CaseStudyContent({ body }: { body: ContentBody }) {
         </div>
         <p className="text-sm leading-relaxed text-foreground">{body.scenario}</p>
       </div>
-
-      {/* What went wrong */}
       {body.what_went_wrong && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-destructive">What went wrong</p>
           <p className="text-sm leading-relaxed text-foreground">{body.what_went_wrong}</p>
         </div>
       )}
-
-      {/* Correct response */}
       {body.correct_response && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-widest text-green-600">The correct response</p>
@@ -121,23 +135,19 @@ function CaseStudyContent({ body }: { body: ContentBody }) {
           ))}
         </div>
       )}
-
-      {/* What NOT to do */}
       {body.what_not_to_do && body.what_not_to_do.length > 0 && (
         <div className="rounded-xl border border-destructive/20 bg-card p-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-destructive">What NOT to do</p>
           <ul className="space-y-2">
             {body.what_not_to_do.map((item, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                <span className="mt-0.5 h-4 w-4 shrink-0 text-center text-destructive font-bold">✗</span>
+                <span className="mt-0.5 h-4 w-4 shrink-0 text-center font-bold text-destructive">✗</span>
                 {item}
               </li>
             ))}
           </ul>
         </div>
       )}
-
-      {/* Learning outcome */}
       {body.learning_outcome && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -151,42 +161,57 @@ function CaseStudyContent({ body }: { body: ContentBody }) {
   )
 }
 
-function TopicContentRenderer({ topic }: { topic: MockTopic }) {
-  switch (topic.contentType) {
-    case 'text': return <TextContent body={topic.contentBody} />
-    case 'guide': return <GuideContent body={topic.contentBody} />
-    case 'workflow': return <WorkflowContent body={topic.contentBody} />
-    case 'case_study': return <CaseStudyContent body={topic.contentBody} />
-  }
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TopicPage({ params }: Props) {
   const { roleSlug, topicId } = use(params)
-  const role = getRoleBySlug(roleSlug)
-  if (!role) return notFound()
 
-  const topic = getTopicById(role, topicId)
-  if (!topic) return notFound()
+  const [topic, setTopic]             = useState<ApiTopic | null>(null)
+  const [marked, setMarked]           = useState(false)
+  const [markingDone, setMarkingDone] = useState(false)
+  const [navTopics, setNavTopics]     = useState<NavTopic[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [gone, setGone]               = useState(false)
 
-  const mod = getModuleForTopic(role, topicId)
-  const enrollment = getEnrollmentBySlug(roleSlug)
-  const isCompleted = enrollment?.completedTopicIds.includes(topicId) ?? false
+  useEffect(() => {
+    async function load() {
+      try {
+        const [topicRes, roleRes] = await Promise.all([
+          api.get<{ success: boolean; data: { topic: ApiTopic; progress: { status: string } } }>(
+            `/learning/topics/${topicId}`,
+          ),
+          api.get<{
+            success: boolean
+            data: { role: { modules: { order_index: number; topics: { id: string; title: string; order_index: number }[] }[] } }
+          }>(`/learning/roles/${roleSlug}`).catch(() => null),
+        ])
 
-  // Find prev / next topics across all modules
-  const allTopics = role.modules.flatMap(m => m.topics)
-  const currentIndex = allTopics.findIndex(t => t.id === topicId)
-  const prevTopic = currentIndex > 0 ? allTopics[currentIndex - 1] : null
-  const nextTopic = currentIndex < allTopics.length - 1 ? allTopics[currentIndex + 1] : null
+        setTopic(topicRes.data.topic)
+        setMarked(topicRes.data.progress.status === 'completed')
 
-  // Audio player state
+        if (roleRes) {
+          const flat = [...roleRes.data.role.modules]
+            .sort((a, b) => a.order_index - b.order_index)
+            .flatMap(m => [...m.topics].sort((a, b) => a.order_index - b.order_index))
+          setNavTopics(flat)
+        }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
+        else if (e instanceof ApiError && (e.status === 404 || e.status === 403)) setGone(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [roleSlug, topicId])
+
+  // Simulated audio player
   const SPEEDS = [0.75, 1, 1.25, 1.5] as const
   type Speed = typeof SPEEDS[number]
-  const totalSeconds = (topic.estimatedMinutes ?? 5) * 60
+  const totalSeconds = (topic?.estimated_minutes ?? 5) * 60
   const [audioPlaying, setAudioPlaying] = useState(false)
-  const [audioTime, setAudioTime] = useState(0)
-  const [speed, setSpeed] = useState<Speed>(1)
+  const [audioTime, setAudioTime]       = useState(0)
+  const [speed, setSpeed]               = useState<Speed>(1)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -205,64 +230,72 @@ export default function TopicPage({ params }: Props) {
 
   function formatTime(s: number) {
     const m = Math.floor(s / 60)
-    const sec = Math.floor(s % 60)
-    return `${m}:${sec.toString().padStart(2, '0')}`
+    return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}`
   }
 
-  const [markingDone, setMarkingDone] = useState(false)
-  const [marked, setMarked] = useState(isCompleted)
-
-  const TYPE_LABEL: Record<string, string> = {
-    text: 'Reading',
-    guide: 'Step-by-Step Guide',
-    case_study: 'Case Study',
-    workflow: 'Workflow',
-  }
-  const TYPE_COLOR: Record<string, string> = {
-    text: 'bg-blue-500/10 text-blue-600',
-    guide: 'bg-green-500/10 text-green-600',
-    case_study: 'bg-amber-500/10 text-amber-600',
-    workflow: 'bg-purple-500/10 text-purple-600',
-  }
-
-  function handleMarkComplete() {
+  async function handleMarkComplete() {
     setMarkingDone(true)
-    setTimeout(() => {
+    try {
+      await api.post(`/learning/topics/${topicId}/complete`, { timeSpentSeconds: Math.round(audioTime) })
+    } catch {
+      // best-effort — still show complete locally
+    } finally {
       setMarked(true)
       setMarkingDone(false)
-    }, 600)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-6 md:px-10">
+        <div className="h-8 w-24 animate-pulse rounded bg-muted" />
+        <div className="h-16 animate-pulse rounded-xl bg-muted" />
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      </div>
+    )
+  }
+
+  if (gone || !topic) return notFound()
+
+  const currentIndex = navTopics.findIndex(t => t.id === topicId)
+  const prevTopic    = currentIndex > 0 ? navTopics[currentIndex - 1] : null
+  const nextTopic    = currentIndex < navTopics.length - 1 ? navTopics[currentIndex + 1] : null
+
+  const TYPE_LABEL: Record<string, string> = {
+    text: 'Reading', guide: 'Step-by-Step Guide', case_study: 'Case Study', workflow: 'Workflow',
+  }
+  const TYPE_COLOR: Record<string, string> = {
+    text: 'bg-blue-500/10 text-blue-600', guide: 'bg-green-500/10 text-green-600',
+    case_study: 'bg-amber-500/10 text-amber-600', workflow: 'bg-purple-500/10 text-purple-600',
   }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
-      {/* Back */}
       <Link
         href={`/learn/${roleSlug}`}
         className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}
       >
-        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> {role.title}
+        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Back to curriculum
       </Link>
 
       {/* Header */}
       <div className="space-y-2">
-        {mod && (
-          <p className="text-xs font-medium text-muted-foreground">{mod.title}</p>
-        )}
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-heading text-xl font-bold leading-tight text-foreground">{topic.title}</h1>
           {marked && <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-semibold', TYPE_COLOR[topic.contentType])}>
-            {TYPE_LABEL[topic.contentType]}
+          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-semibold', TYPE_COLOR[topic.content_type])}>
+            {TYPE_LABEL[topic.content_type]}
           </span>
-          <span className="text-xs text-muted-foreground">{topic.estimatedMinutes} min read</span>
+          {topic.estimated_minutes && (
+            <span className="text-xs text-muted-foreground">{topic.estimated_minutes} min read</span>
+          )}
         </div>
       </div>
 
-      {/* ── Audio player ─────────────────────────────────────────────────────── */}
+      {/* Audio player */}
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {/* Header row */}
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
           <Volume2 className="h-3.5 w-3.5 text-primary" />
           <p className="flex-1 text-[13px] font-medium text-foreground">Read aloud</p>
@@ -270,48 +303,35 @@ export default function TopicPage({ params }: Props) {
             {formatTime(audioTime)} / {formatTime(totalSeconds)}
           </p>
         </div>
-
-        {/* Progress bar */}
         <div className="h-1 w-full bg-muted">
           <div
             className="h-full bg-primary transition-all duration-1000"
             style={{ width: `${Math.min((audioTime / totalSeconds) * 100, 100)}%` }}
           />
         </div>
-
-        {/* Controls — two rows to fit 320px screens */}
         <div className="px-4 py-3 space-y-2">
-          {/* Row 1: transport controls */}
           <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => setAudioTime(t => Math.max(0, t - 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Back 10s"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
-
             <Button
               size="sm"
               variant={audioPlaying ? 'default' : 'outline'}
               onClick={() => setAudioPlaying(p => !p)}
               className="h-9 w-9 rounded-full p-0"
             >
-              {audioPlaying
-                ? <Pause className="h-4 w-4" />
-                : <Play className="h-4 w-4" />}
+              {audioPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
-
             <button
               onClick={() => setAudioTime(t => Math.min(totalSeconds, t + 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title="Forward 10s"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <RotateCw className="h-4 w-4" />
             </button>
           </div>
-
-          {/* Row 2: speed selector */}
           <div className="flex items-center justify-center gap-1">
             {SPEEDS.map(s => (
               <button
@@ -336,19 +356,10 @@ export default function TopicPage({ params }: Props) {
 
       {/* Mark complete */}
       {!marked ? (
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={handleMarkComplete}
-          disabled={markingDone}
-        >
-          {markingDone ? (
-            'Saving…'
-          ) : (
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4" /> Mark as complete
-            </span>
-          )}
+        <Button className="w-full" size="lg" onClick={handleMarkComplete} disabled={markingDone}>
+          {markingDone
+            ? 'Saving…'
+            : <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4" /> Mark as complete</span>}
         </Button>
       ) : (
         <div className="flex items-center justify-center gap-2 rounded-xl border border-green-500/20 bg-green-500/5 py-3">
@@ -357,7 +368,7 @@ export default function TopicPage({ params }: Props) {
         </div>
       )}
 
-      {/* Prev / Next navigation */}
+      {/* Prev / Next */}
       <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
         {prevTopic && (
           <Link
