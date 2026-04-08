@@ -116,6 +116,22 @@ export interface MockBusinessMember {
   certificates: number
 }
 
+export interface MockJobMatch {
+  id: string
+  roleTitle: string
+  roleCategory: string
+  employer: string | null     // null = employer chose to remain anonymous
+  locationCity: string
+  payMin: number | null
+  payMax: number | null
+  startDate: string | null
+  certificationRequired: boolean
+  requirements: string | null
+  postedAt: string
+  status: 'pending' | 'accepted' | 'declined'
+  matchScore: number
+}
+
 export interface MockHireRequest {
   id: string
   roleSlug: string
@@ -896,6 +912,54 @@ export const MOCK_BUSINESS_MEMBERS: MockBusinessMember[] = [
   { id: 'mem-5', name: 'Ebele Okwu', phone: '+2348035555555', jobTitle: 'Cashier', assignedRoleSlug: 'cashier', assignedRoleTitle: 'Cashier', status: 'invited', invitedAt: '2026-04-01T09:00:00Z', joinedAt: null, completedTopics: 0, totalTopics: 8, certificates: 0 },
   { id: 'mem-6', name: 'Festus Bello', phone: '+2348036666666', jobTitle: 'Store Attendant', assignedRoleSlug: 'cashier', assignedRoleTitle: 'Cashier', status: 'active', invitedAt: '2026-03-15T09:00:00Z', joinedAt: '2026-03-16T14:00:00Z', completedTopics: 2, totalTopics: 8, certificates: 0 },
   { id: 'mem-7', name: 'Grace Adeleke', phone: '+2348037777777', jobTitle: 'Cashier', assignedRoleSlug: 'cashier', assignedRoleTitle: 'Cashier', status: 'active', invitedAt: '2026-03-20T09:00:00Z', joinedAt: '2026-03-21T09:00:00Z', completedTopics: 7, totalTopics: 8, certificates: 0 },
+]
+
+export const MOCK_JOB_MATCHES: MockJobMatch[] = [
+  {
+    id: 'match-1',
+    roleTitle: 'Cashier',
+    roleCategory: 'Retail & Store Operations',
+    employer: 'Shoprite Nigeria',
+    locationCity: 'Lagos',
+    payMin: 55000,
+    payMax: 70000,
+    startDate: '2026-05-15',
+    certificationRequired: true,
+    requirements: 'Min 6 months retail experience. InTrainin Cashier certificate preferred.',
+    postedAt: '2026-04-05T10:00:00Z',
+    status: 'pending',
+    matchScore: 94,
+  },
+  {
+    id: 'match-2',
+    roleTitle: 'Store Attendant',
+    roleCategory: 'Retail & Store Operations',
+    employer: null,
+    locationCity: 'Lagos',
+    payMin: 45000,
+    payMax: null,
+    startDate: '2026-05-01',
+    certificationRequired: false,
+    requirements: 'Reliable and punctual. Willingness to work weekends.',
+    postedAt: '2026-04-04T08:30:00Z',
+    status: 'pending',
+    matchScore: 87,
+  },
+  {
+    id: 'match-3',
+    roleTitle: 'Cashier',
+    roleCategory: 'Retail & Store Operations',
+    employer: 'Prince Ebeano Supermarket',
+    locationCity: 'Lekki',
+    payMin: 50000,
+    payMax: 60000,
+    startDate: null,
+    certificationRequired: true,
+    requirements: 'Must have active InTrainin certification. Immediate start available.',
+    postedAt: '2026-04-02T09:00:00Z',
+    status: 'accepted',
+    matchScore: 91,
+  },
 ]
 
 export const MOCK_HIRE_REQUESTS: MockHireRequest[] = [
