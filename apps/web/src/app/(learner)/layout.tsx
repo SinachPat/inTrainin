@@ -25,6 +25,20 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
   const [avatarOpen, setAvatarOpen] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
 
+  // Restore sidebar state from localStorage on first client mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('learner-sidebar-collapsed')
+      if (saved !== null) setCollapsed(saved === 'true')
+    } catch {}
+  }, [])
+
+  // Persist sidebar state on every change
+  function setCollapsedPersisted(val: boolean) {
+    setCollapsed(val)
+    try { localStorage.setItem('learner-sidebar-collapsed', String(val)) } catch {}
+  }
+
   // Close avatar menu on route change
   useEffect(() => { setAvatarOpen(false) }, [pathname])
 
@@ -57,7 +71,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
         {/* Logo — whole row is the expand button when collapsed */}
         {collapsed ? (
           <button
-            onClick={() => setCollapsed(false)}
+            onClick={() => setCollapsedPersisted(false)}
             title="Expand sidebar"
             aria-label="Expand sidebar"
             className="group flex h-14 w-full shrink-0 items-center justify-center border-b border-border transition-colors hover:bg-muted/50"
@@ -76,7 +90,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
               InTrainin
             </span>
             <button
-              onClick={() => setCollapsed(true)}
+              onClick={() => setCollapsedPersisted(true)}
               aria-label="Collapse sidebar"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
@@ -168,8 +182,11 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           <span className="font-heading text-sm font-semibold tracking-tight">InTrainin</span>
         </Link>
 
-        {/* Avatar with dropdown */}
-        <div ref={avatarRef} className="relative">
+        {/* Theme + Avatar */}
+        <div className="flex items-center gap-1">
+          <ThemeToggle iconOnly />
+          {/* Avatar with dropdown */}
+          <div ref={avatarRef} className="relative">
           <button
             onClick={() => setAvatarOpen(o => !o)}
             aria-label="Account menu"
@@ -205,11 +222,12 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
               </div>
             </div>
           )}
+          </div>
         </div>
       </header>
 
       {/* ── Main content — only this element scrolls ─────────────────────── */}
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+      <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {children}
       </main>
 

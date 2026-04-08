@@ -18,7 +18,9 @@ app.use('*', logger())
 app.use(
   '*',
   cors({
-    origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    // CORS_ORIGIN is set in the API's own .env — not NEXT_PUBLIC_APP_URL,
+    // which is a Next.js build-time prefix that has no meaning in this process.
+    origin:      process.env.CORS_ORIGIN ?? 'http://localhost:3000',
     credentials: true,
   }),
 )

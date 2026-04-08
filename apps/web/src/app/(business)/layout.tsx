@@ -123,6 +123,20 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
   const [avatarOpen, setAvatarOpen] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
 
+  // Restore sidebar state from localStorage on first client mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('business-sidebar-collapsed')
+      if (saved !== null) setCollapsed(saved === 'true')
+    } catch {}
+  }, [])
+
+  // Persist sidebar state on every change
+  function setCollapsedPersisted(val: boolean) {
+    setCollapsed(val)
+    try { localStorage.setItem('business-sidebar-collapsed', String(val)) } catch {}
+  }
+
   // Close avatar menu on route change
   useEffect(() => { setAvatarOpen(false) }, [pathname])
 
@@ -150,7 +164,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         {/* Brand header — whole row is the expand button when collapsed */}
         {collapsed ? (
           <button
-            onClick={() => setCollapsed(false)}
+            onClick={() => setCollapsedPersisted(false)}
             title="Expand sidebar"
             aria-label="Expand sidebar"
             className="group flex h-14 w-full shrink-0 items-center justify-center border-b border-sidebar-border transition-colors hover:bg-muted/50"
@@ -170,7 +184,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
               <Badge variant="secondary" className="mt-0.5 h-4 px-1.5 text-[10px]">{MOCK_BIZ.plan}</Badge>
             </div>
             <button
-              onClick={() => setCollapsed(true)}
+              onClick={() => setCollapsedPersisted(true)}
               aria-label="Collapse sidebar"
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
@@ -197,6 +211,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="shrink-0 text-[10px]">{MOCK_BIZ.plan}</Badge>
+            <ThemeToggle iconOnly />
 
             {/* Owner avatar with dropdown */}
             <div ref={avatarRef} className="relative">
@@ -239,7 +254,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* ── Page content ───────────────────────────────────────────────── */}
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
+        <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>

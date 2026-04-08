@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
+    "@intrainin/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.49.4",
     "hono": "^4.7.0",
     "zod": "^3.24.0"
   },
