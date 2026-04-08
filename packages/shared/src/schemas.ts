@@ -1,268 +1,578 @@
 import { z } from 'zod'
 
-// ─── Primitives ───────────────────────────────────────────────────────────────
+// =============================================================================
+// Primitives
+// =============================================================================
 
-const uuid = z.string().uuid()
+const uuid    = z.string().uuid()
 const isoDate = z.string().datetime()
-const kobo = z.number().int().nonnegative() // Nigerian Naira, stored in kobo (1 NGN = 100 kobo)
+/** Nigerian phone: +234XXXXXXXXXX or 0XXXXXXXXXX — 10–15 digits, optional leading + */
+const phone   = z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number')
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// =============================================================================
+// Enums  (aligned 1-to-1 with database.types.ts string literals)
+// =============================================================================
 
-export const UserRoleSchema = z.enum(['learner', 'business_owner', 'admin'])
-export type UserRole = z.infer<typeof UserRoleSchema>
+export const AccountTypeSchema = z.enum(['learner', 'business', 'admin'])
+export type AccountType = z.infer<typeof AccountTypeSchema>
 
 export const AccountStatusSchema = z.enum(['active', 'suspended', 'pending_verification'])
 export type AccountStatus = z.infer<typeof AccountStatusSchema>
 
-export const TopicContentTypeSchema = z.enum(['guide', 'case_study', 'workflow', 'test'])
-export type TopicContentType = z.infer<typeof TopicContentTypeSchema>
+export const ContentTypeSchema = z.enum(['text', 'guide', 'case_study', 'workflow'])
+export type ContentType = z.infer<typeof ContentTypeSchema>
 
-export const AttemptStatusSchema = z.enum(['in_progress', 'passed', 'failed'])
-export type AttemptStatus = z.infer<typeof AttemptStatusSchema>
+export const TestTypeSchema = z.enum(['module', 'final'])
+export type TestType = z.infer<typeof TestTypeSchema>
 
-export const JobStatusSchema = z.enum(['open', 'filled', 'closed'])
-export type JobStatus = z.infer<typeof JobStatusSchema>
+export const EnrollmentStatusSchema = z.enum(['active', 'completed', 'paused'])
+export type EnrollmentStatus = z.infer<typeof EnrollmentStatusSchema>
 
-export const HireRequestStatusSchema = z.enum(['pending', 'accepted', 'rejected', 'withdrawn'])
-export type HireRequestStatus = z.infer<typeof HireRequestStatusSchema>
+export const TopicStatusSchema = z.enum(['not_started', 'in_progress', 'completed'])
+export type TopicStatus = z.infer<typeof TopicStatusSchema>
 
-export const BusinessPlanSchema = z.enum(['free', 'starter', 'enterprise'])
-export type BusinessPlan = z.infer<typeof BusinessPlanSchema>
+export const PaymentTypeSchema = z.enum(['individual', 'enterprise', 'free_trial'])
+export type PaymentType = z.infer<typeof PaymentTypeSchema>
 
-// ─── User ─────────────────────────────────────────────────────────────────────
+export const AvailabilitySchema = z.enum(['immediate', 'two_weeks', 'one_month'])
+export type Availability = z.infer<typeof AvailabilitySchema>
+
+export const EmploymentTypeSchema = z.enum(['full_time', 'part_time', 'contract', 'any'])
+export type EmploymentType = z.infer<typeof EmploymentTypeSchema>
+
+export const MatchStatusSchema = z.enum([
+  'pending', 'accepted', 'declined', 'shortlisted', 'hired', 'rejected',
+])
+export type MatchStatus = z.infer<typeof MatchStatusSchema>
+
+export const MemberStatusSchema = z.enum(['invited', 'active', 'removed'])
+export type MemberStatus = z.infer<typeof MemberStatusSchema>
+
+export const HireStatusSchema = z.enum(['open', 'filled', 'closed', 'draft'])
+export type HireStatus = z.infer<typeof HireStatusSchema>
+
+export const ProgressionTypeSchema = z.enum(['next', 'adjacent'])
+export type ProgressionType = z.infer<typeof ProgressionTypeSchema>
+
+export const SubscriptionPlanSchema = z.enum(['starter', 'growth', 'business', 'enterprise_plus'])
+export type SubscriptionPlan = z.infer<typeof SubscriptionPlanSchema>
+
+// =============================================================================
+// JSONB sub-type schemas
+// These validate the structured JSONB columns stored in the database.
+// =============================================================================
+
+export const NotificationPrefsSchema = z.object({
+  push:  z.boolean(),
+  sms:   z.boolean(),
+  email: z.boolean(),
+})
+export type NotificationPrefs = z.infer<typeof NotificationPrefsSchema>
+
+export const ContentSectionSchema = z.object({
+  heading: z.string().min(1),
+  body:    z.string().min(1),
+})
+export type ContentSection = z.infer<typeof ContentSectionSchema>
+
+export const ContentStepSchema = z.object({
+  step:        z.number().int().positive(),
+  title:       z.string().min(1),
+  description: z.string().min(1),
+})
+export type ContentStep = z.infer<typeof ContentStepSchema>
+
+/**
+ * Structured body of a topic — shape varies by content_type.
+ *
+ * 'text'       → sections + key_points
+ * 'guide'      → steps
+ * 'workflow'   → steps
+ * 'case_study' → scenario, what_went_wrong, correct_response, what_not_to_do, learning_outcome
+ *
+ * All fields are optional at the schema level so the same schema covers every
+ * content type. Stricter per-type validation is enforced at write-time in the
+ * API domain handler (learning/topics).
+ */
+export const ContentBodySchema = z.object({
+  // text & guide
+  sections:               z.array(ContentSectionSchema).optional(),
+  key_points:             z.array(z.string()).optional(),
+  estimated_read_minutes: z.number().int().positive().optional(),
+  // guide & workflow
+  steps:                  z.array(ContentStepSchema).optional(),
+  // case_study
+  scenario:               z.string().optional(),
+  what_went_wrong:        z.string().optional(),
+  correct_response:       z.record(z.string(), z.string()).optional(),
+  what_not_to_do:         z.array(z.string()).optional(),
+  learning_outcome:       z.string().optional(),
+})
+export type ContentBody = z.infer<typeof ContentBodySchema>
+
+/** A single MCQ stored as JSONB inside tests.questions */
+export const QuestionItemSchema = z.object({
+  id:          z.string().min(1),
+  question:    z.string().min(1),
+  options:     z.array(z.string()).min(2).max(5),
+  correct:     z.number().int().nonnegative(), // index into options[]
+  explanation: z.string(),
+})
+export type QuestionItem = z.infer<typeof QuestionItemSchema>
+
+export const NotificationDataSchema = z
+  .object({
+    hire_request_id: z.string().optional(),
+    role_id:         z.string().optional(),
+    role_title:      z.string().optional(),
+    certificate_id:  z.string().optional(),
+    badge_slug:      z.string().optional(),
+  })
+  .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]))
+export type NotificationData = z.infer<typeof NotificationDataSchema>
+
+export const BadgeTriggerValueSchema = z.object({
+  count:          z.number().int().optional(), // module_completed, roles_enrolled, certificate_issued
+  days:           z.number().int().optional(), // streak_days
+  min_pct:        z.number().optional(),       // test_score
+  attempt_number: z.number().int().optional(), // test_score (first attempt only)
+})
+export type BadgeTriggerValue = z.infer<typeof BadgeTriggerValueSchema>
+
+// =============================================================================
+// Core entity schemas
+// All fields are camelCase (application domain). The API layer maps to/from
+// the snake_case columns stored in Supabase.
+// =============================================================================
+
+// ── User ──────────────────────────────────────────────────────────────────────
 
 export const UserSchema = z.object({
-  id: uuid,
-  email: z.string().email(),
-  phone: z.string().nullable(),
-  fullName: z.string().min(1).nullable(),
-  avatarUrl: z.string().url().nullable(),
-  role: UserRoleSchema,
-  status: AccountStatusSchema,
-  createdAt: isoDate,
-  updatedAt: isoDate,
+  id:                     uuid,
+  phone:                  phone.nullable(),
+  email:                  z.string().email().nullable(),
+  fullName:               z.string().min(1),
+  locationCity:           z.string().nullable(),
+  locationState:          z.string().nullable(),
+  careerGoalRoleId:       uuid.nullable(),
+  accountType:            AccountTypeSchema,
+  avatarUrl:              z.string().url().nullable(),
+  xpTotal:                z.number().int().nonnegative(),
+  streakCurrent:          z.number().int().nonnegative(),
+  streakLastActivityDate: z.string().nullable(),
+  fcmToken:               z.string().nullable(),
+  notificationPrefs:      NotificationPrefsSchema,
+  createdAt:              isoDate,
+  updatedAt:              isoDate,
+  deletedAt:              isoDate.nullable(),
 })
 export type User = z.infer<typeof UserSchema>
 
-// ─── Category ─────────────────────────────────────────────────────────────────
+// ── Category ──────────────────────────────────────────────────────────────────
 
 export const CategorySchema = z.object({
-  id: uuid,
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().nullable(),
-  iconUrl: z.string().url().nullable(),
+  id:           uuid,
+  name:         z.string().min(1),
+  slug:         z.string().min(1),
+  iconName:     z.string().nullable(),
+  displayOrder: z.number().int().nonnegative(),
+  createdAt:    isoDate,
 })
 export type Category = z.infer<typeof CategorySchema>
 
-// ─── Role ─────────────────────────────────────────────────────────────────────
+// ── Role ──────────────────────────────────────────────────────────────────────
 
 export const RoleSchema = z.object({
-  id: uuid,
-  categoryId: uuid,
-  title: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().min(1),
-  sector: z.string().min(1),
-  estimatedHours: z.number().positive(),
-  priceKobo: kobo, // 0 = free
-  moduleCount: z.number().int().nonnegative(),
-  publishedAt: isoDate.nullable(),
+  id:                    uuid,
+  categoryId:            uuid,
+  title:                 z.string().min(1),
+  slug:                  z.string().min(1),
+  description:           z.string().nullable(),
+  priceNgn:              z.number().int().nonnegative(), // 0 = free
+  estimatedHours:        z.number().positive().nullable(),
+  isPublished:           z.boolean(),
+  freePreviewModuleCount: z.number().int().nonnegative(),
+  phase:                 z.number().int().positive(),
+  sanityId:              z.string().nullable(),
+  createdAt:             isoDate,
+  updatedAt:             isoDate,
 })
 export type Role = z.infer<typeof RoleSchema>
 
-// ─── Module ───────────────────────────────────────────────────────────────────
+// ── Module ────────────────────────────────────────────────────────────────────
 
 export const ModuleSchema = z.object({
-  id: uuid,
-  roleId: uuid,
-  title: z.string().min(1),
-  description: z.string().nullable(),
-  order: z.number().int().nonnegative(),
+  id:          uuid,
+  roleId:      uuid,
+  title:       z.string().min(1),
+  orderIndex:  z.number().int().nonnegative(),
+  isPublished: z.boolean(),
+  createdAt:   isoDate,
 })
 export type Module = z.infer<typeof ModuleSchema>
 
-// ─── Topic ────────────────────────────────────────────────────────────────────
+// ── Topic ─────────────────────────────────────────────────────────────────────
 
 export const TopicSchema = z.object({
-  id: uuid,
-  moduleId: uuid,
-  title: z.string().min(1),
-  contentType: TopicContentTypeSchema,
+  id:               uuid,
+  moduleId:         uuid,
+  title:            z.string().min(1),
+  contentType:      ContentTypeSchema,
+  contentBody:      ContentBodySchema.nullable(),
+  sanityId:         z.string().nullable(),
+  orderIndex:       z.number().int().nonnegative(),
   estimatedMinutes: z.number().int().positive(),
-  order: z.number().int().nonnegative(),
-  isGated: z.boolean().default(false), // true = requires prior topics complete
+  isPublished:      z.boolean(),
+  createdAt:        isoDate,
 })
 export type Topic = z.infer<typeof TopicSchema>
 
-// ─── Test ─────────────────────────────────────────────────────────────────────
-
-export const TestQuestionSchema = z.object({
-  id: uuid,
-  testId: uuid,
-  text: z.string().min(1),
-  options: z.array(z.string()).min(2).max(5),
-  correctIndex: z.number().int().nonnegative(),
-  explanation: z.string().nullable(),
-  order: z.number().int().nonnegative(),
-})
-export type TestQuestion = z.infer<typeof TestQuestionSchema>
+// ── Test ──────────────────────────────────────────────────────────────────────
 
 export const TestSchema = z.object({
-  id: uuid,
-  topicId: uuid,
-  title: z.string().min(1),
-  passingScorePct: z.number().int().min(1).max(100).default(70),
+  id:               uuid,
+  moduleId:         uuid.nullable(), // null for final exams
+  roleId:           uuid.nullable(), // set for final exams
+  testType:         TestTypeSchema,
+  title:            z.string().min(1),
+  questions:        z.array(QuestionItemSchema).min(1),
+  passMarkPct:      z.number().int().min(1).max(100),
   timeLimitMinutes: z.number().int().positive().nullable(),
-  maxAttempts: z.number().int().positive().default(3),
-  cooldownHours: z.number().int().nonnegative().default(24),
-  questions: z.array(TestQuestionSchema),
+  cooldownHours:    z.number().int().nonnegative(),
+  createdAt:        isoDate,
 })
 export type Test = z.infer<typeof TestSchema>
 
-// ─── Enrollment ───────────────────────────────────────────────────────────────
+// ── Role Progression ──────────────────────────────────────────────────────────
+
+export const RoleProgressionSchema = z.object({
+  id:              uuid,
+  fromRoleId:      uuid,
+  toRoleId:        uuid,
+  progressionType: ProgressionTypeSchema,
+  displayOrder:    z.number().int().nonnegative(),
+})
+export type RoleProgression = z.infer<typeof RoleProgressionSchema>
+
+// ── Enrollment ────────────────────────────────────────────────────────────────
 
 export const EnrollmentSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  roleId: uuid,
-  progressPct: z.number().min(0).max(100).default(0),
-  enrolledAt: isoDate,
-  completedAt: isoDate.nullable(),
-  paymentReference: z.string().nullable(), // Paystack reference if paid
+  id:               uuid,
+  userId:           uuid,
+  roleId:           uuid,
+  status:           EnrollmentStatusSchema,
+  paymentReference: z.string().nullable(),
+  paymentType:      PaymentTypeSchema.nullable(),
+  enrolledAt:       isoDate,
+  completedAt:      isoDate.nullable(),
 })
 export type Enrollment = z.infer<typeof EnrollmentSchema>
 
-// ─── Topic Progress ───────────────────────────────────────────────────────────
+// ── Topic Progress ────────────────────────────────────────────────────────────
 
 export const TopicProgressSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  topicId: uuid,
-  completedAt: isoDate.nullable(),
-  timeSpentSeconds: z.number().int().nonnegative().default(0),
+  id:               uuid,
+  userId:           uuid,
+  topicId:          uuid,
+  status:           TopicStatusSchema,
+  startedAt:        isoDate.nullable(),
+  completedAt:      isoDate.nullable(),
+  timeSpentSeconds: z.number().int().nonnegative(),
 })
 export type TopicProgress = z.infer<typeof TopicProgressSchema>
 
-// ─── Test Attempt ─────────────────────────────────────────────────────────────
+// ── Test Attempt ──────────────────────────────────────────────────────────────
+
+/** A single answer as stored in test_attempts.answers (JSONB array) */
+export const TestAnswerSchema = z.object({
+  questionId:   z.string(),
+  selected:     z.number().int().nonnegative(), // index into options[]
+  selectedText: z.string(),
+})
+export type TestAnswer = z.infer<typeof TestAnswerSchema>
 
 export const TestAttemptSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  testId: uuid,
-  topicId: uuid,
-  status: AttemptStatusSchema,
-  score: z.number().min(0).max(100),
-  answers: z.record(z.string(), z.number()), // { questionId: selectedIndex }
-  startedAt: isoDate,
-  completedAt: isoDate.nullable(),
-  cooldownUntil: isoDate.nullable(),
+  id:            uuid,
+  userId:        uuid,
+  testId:        uuid,
+  scorePct:      z.number().min(0).max(100),
+  passed:        z.boolean(),
+  attemptNumber: z.number().int().positive(),
+  answers:       z.array(TestAnswerSchema),
+  takenAt:       isoDate,
 })
 export type TestAttempt = z.infer<typeof TestAttemptSchema>
 
-// ─── Certificate ──────────────────────────────────────────────────────────────
+// ── Badge ─────────────────────────────────────────────────────────────────────
+
+export const BadgeSchema = z.object({
+  id:           uuid,
+  slug:         z.string().min(1),
+  name:         z.string().min(1),
+  description:  z.string().nullable(),
+  iconUrl:      z.string().url().nullable(),
+  triggerType:  z.string().min(1),
+  triggerValue: BadgeTriggerValueSchema.nullable(),
+})
+export type Badge = z.infer<typeof BadgeSchema>
+
+export const UserBadgeSchema = z.object({
+  id:       uuid,
+  userId:   uuid,
+  badgeId:  uuid,
+  earnedAt: isoDate,
+})
+export type UserBadge = z.infer<typeof UserBadgeSchema>
+
+// ── Certificate ───────────────────────────────────────────────────────────────
 
 export const CertificateSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  roleId: uuid,
+  id:               uuid,
+  userId:           uuid,
+  roleId:           uuid,
+  enrollmentId:     uuid,
   verificationCode: z.string().min(8),
-  imageUrl: z.string().url().nullable(), // Cloudinary URL
-  issuedAt: isoDate,
+  issuedAt:         isoDate,
+  imageUrl:         z.string().url().nullable(),
+  isRevoked:        z.boolean(),
 })
 export type Certificate = z.infer<typeof CertificateSchema>
 
-// ─── Job Hub: Worker Profile ──────────────────────────────────────────────────
-
-export const JobHubProfileSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  isVisible: z.boolean().default(true),
-  preferredLocation: z.string().nullable(),
-  preferredSectors: z.array(z.string()).default([]),
-  expectedSalaryKobo: kobo.nullable(),
-  bio: z.string().max(500).nullable(),
-  updatedAt: isoDate,
-})
-export type JobHubProfile = z.infer<typeof JobHubProfileSchema>
-
-// ─── Job Match ────────────────────────────────────────────────────────────────
-
-export const JobMatchSchema = z.object({
-  id: uuid,
-  userId: uuid,
-  jobId: uuid,
-  matchScore: z.number().min(0).max(1), // 0–1 relevance score
-  matchedAt: isoDate,
-  seenAt: isoDate.nullable(),
-})
-export type JobMatch = z.infer<typeof JobMatchSchema>
-
-// ─── Hire Request ─────────────────────────────────────────────────────────────
-
-export const HireRequestSchema = z.object({
-  id: uuid,
-  businessId: uuid,
-  workerId: uuid,
-  roleId: uuid,
-  message: z.string().max(1000).nullable(),
-  status: HireRequestStatusSchema,
-  createdAt: isoDate,
-  updatedAt: isoDate,
-})
-export type HireRequest = z.infer<typeof HireRequestSchema>
-
-// ─── Business ─────────────────────────────────────────────────────────────────
+// ── Business ──────────────────────────────────────────────────────────────────
 
 export const BusinessSchema = z.object({
-  id: uuid,
-  ownerId: uuid,
-  name: z.string().min(1),
-  logoUrl: z.string().url().nullable(),
-  sector: z.string().nullable(),
-  location: z.string().nullable(),
-  plan: BusinessPlanSchema.default('free'),
-  planExpiresAt: isoDate.nullable(),
-  createdAt: isoDate,
+  id:                    uuid,
+  ownerUserId:           uuid,
+  name:                  z.string().min(1),
+  category:              z.string().nullable(),
+  sizeRange:             z.string().nullable(),
+  locationCity:          z.string().nullable(),
+  locationState:         z.string().nullable(),
+  subscriptionPlan:      SubscriptionPlanSchema.nullable(),
+  subscriptionStartsAt:  isoDate.nullable(),
+  subscriptionExpiresAt: isoDate.nullable(),
+  seatLimit:             z.number().int().positive(),
+  paymentReference:      z.string().nullable(),
+  createdAt:             isoDate,
+  updatedAt:             isoDate,
 })
 export type Business = z.infer<typeof BusinessSchema>
 
-// ─── Business Member ─────────────────────────────────────────────────────────
+// ── Business Member ───────────────────────────────────────────────────────────
 
 export const BusinessMemberSchema = z.object({
-  id: uuid,
-  businessId: uuid,
-  userId: uuid,
-  assignedRoleId: uuid.nullable(), // Which InTrainin role they're assigned to train for
-  invitedAt: isoDate,
-  joinedAt: isoDate.nullable(),
+  id:             uuid,
+  businessId:     uuid,
+  userId:         uuid.nullable(),   // null until the invite is accepted
+  invitedPhone:   phone.nullable(),
+  invitedEmail:   z.string().email().nullable(),
+  assignedRoleId: uuid.nullable(),
+  jobTitle:       z.string().nullable(),
+  status:         MemberStatusSchema,
+  invitedAt:      isoDate,
+  joinedAt:       isoDate.nullable(),
 })
 export type BusinessMember = z.infer<typeof BusinessMemberSchema>
 
-// ─── Request/Response Schemas (API boundary) ──────────────────────────────────
+// ── Job Hub Profile ───────────────────────────────────────────────────────────
 
-export const SignupRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  fullName: z.string().min(1),
-  phone: z.string().optional(),
-  role: z.enum(['learner', 'business_owner']),
+export const JobHubProfileSchema = z.object({
+  id:                    uuid,
+  userId:                uuid,
+  isSubscribed:          z.boolean(),
+  subscriptionPlan:      z.string().nullable(),
+  subscriptionStartsAt:  isoDate.nullable(),
+  subscriptionExpiresAt: isoDate.nullable(),
+  preferredRoles:        z.array(z.string()),
+  locationCity:          z.string().nullable(),
+  locationState:         z.string().nullable(),
+  availability:          AvailabilitySchema.nullable(),
+  employmentTypePref:    EmploymentTypeSchema.nullable(),
+  isVisible:             z.boolean(),
+  createdAt:             isoDate,
+  updatedAt:             isoDate,
 })
-export type SignupRequest = z.infer<typeof SignupRequestSchema>
+export type JobHubProfile = z.infer<typeof JobHubProfileSchema>
 
-export const LoginRequestSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+// ── Hire Request ──────────────────────────────────────────────────────────────
+
+export const HireRequestSchema = z.object({
+  id:                   uuid,
+  businessId:           uuid,
+  roleId:               uuid,
+  locationCity:         z.string().min(1),
+  locationState:        z.string().nullable(),
+  positionsCount:       z.number().int().positive(),
+  payMin:               z.number().int().nonnegative().nullable(),
+  payMax:               z.number().int().nonnegative().nullable(),
+  startDate:            z.string().nullable(),
+  requirements:         z.string().nullable(),
+  certificationRequired: z.boolean(),
+  status:               HireStatusSchema,
+  postedAt:             isoDate,
+  expiresAt:            isoDate.nullable(),
+  paymentReference:     z.string().nullable(),
 })
-export type LoginRequest = z.infer<typeof LoginRequestSchema>
+export type HireRequest = z.infer<typeof HireRequestSchema>
+
+// ── Job Match ─────────────────────────────────────────────────────────────────
+
+export const JobMatchSchema = z.object({
+  id:               uuid,
+  hireRequestId:    uuid,
+  userId:           uuid,
+  matchScore:       z.number().min(0).max(100),
+  status:           MatchStatusSchema,
+  workerNotifiedAt: isoDate.nullable(),
+  createdAt:        isoDate,
+  updatedAt:        isoDate,
+})
+export type JobMatch = z.infer<typeof JobMatchSchema>
+
+// ── Notification ──────────────────────────────────────────────────────────────
+
+export const NotificationSchema = z.object({
+  id:        uuid,
+  userId:    uuid,
+  type:      z.string().min(1),
+  title:     z.string().min(1),
+  body:      z.string().nullable(),
+  data:      NotificationDataSchema.nullable(),
+  isRead:    z.boolean(),
+  createdAt: isoDate,
+})
+export type Notification = z.infer<typeof NotificationSchema>
+
+// =============================================================================
+// API Request Schemas
+// One schema per API action. These are validated at the Hono route boundary
+// before any domain logic runs.
+// =============================================================================
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+/** Step 1 — request an OTP to be sent via SMS */
+export const RequestOtpSchema = z.object({
+  phone: phone,
+})
+export type RequestOtpInput = z.infer<typeof RequestOtpSchema>
+
+/** Step 2 — verify the 6-digit OTP */
+export const VerifyOtpSchema = z.object({
+  phone: phone,
+  code:  z.string().length(6, 'OTP must be exactly 6 digits'),
+})
+export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>
+
+/** Step 3 — complete profile after first-time OTP verification */
+export const CompleteProfileSchema = z.object({
+  fullName:         z.string().min(1, 'Full name is required').max(120),
+  locationCity:     z.string().min(1, 'City is required'),
+  accountType:      z.enum(['learner', 'business']),
+  // Learner-only: the role they want to pursue
+  careerGoalRoleId: uuid.optional(),
+  // Business-only: the name of the business being registered
+  businessName:     z.string().min(1).max(200).optional(),
+}).refine(
+  data =>
+    data.accountType !== 'business' || (data.businessName && data.businessName.length > 0),
+  { message: 'Business name is required for business accounts', path: ['businessName'] },
+)
+export type CompleteProfileInput = z.infer<typeof CompleteProfileSchema>
+
+/** Update notification preferences */
+export const UpdateNotificationPrefsSchema = NotificationPrefsSchema
+export type UpdateNotificationPrefsInput = z.infer<typeof UpdateNotificationPrefsSchema>
+
+// ── Enrollment & Payment ──────────────────────────────────────────────────────
 
 export const EnrolRequestSchema = z.object({
-  roleId: uuid,
-  paymentReference: z.string().optional(),
+  roleId:           uuid,
+  paymentReference: z.string().optional(), // Paystack reference; absent for free roles
+  paymentType:      PaymentTypeSchema.optional(),
 })
 export type EnrolRequest = z.infer<typeof EnrolRequestSchema>
 
-export const SubmitTestRequestSchema = z.object({
-  answers: z.record(z.string(), z.number()),
+// ── Learning Progress ─────────────────────────────────────────────────────────
+
+/** Sent when a learner marks a topic complete */
+export const CompleteTopicSchema = z.object({
+  timeSpentSeconds: z.number().int().nonnegative(),
 })
-export type SubmitTestRequest = z.infer<typeof SubmitTestRequestSchema>
+export type CompleteTopicInput = z.infer<typeof CompleteTopicSchema>
+
+// ── Assessment ────────────────────────────────────────────────────────────────
+
+/** Sent when a learner submits a completed test */
+export const SubmitTestSchema = z.object({
+  answers: z.array(TestAnswerSchema).min(1),
+})
+export type SubmitTestInput = z.infer<typeof SubmitTestSchema>
+
+// ── Job Hub ───────────────────────────────────────────────────────────────────
+
+export const UpdateJobHubProfileSchema = z.object({
+  availability:       AvailabilitySchema.optional(),
+  employmentTypePref: EmploymentTypeSchema.optional(),
+  preferredRoles:     z.array(z.string()).optional(),
+  locationCity:       z.string().optional(),
+  locationState:      z.string().optional(),
+  isVisible:          z.boolean().optional(),
+})
+export type UpdateJobHubProfileInput = z.infer<typeof UpdateJobHubProfileSchema>
+
+/** Worker accepts or declines a job match */
+export const RespondToMatchSchema = z.object({
+  status: z.enum(['accepted', 'declined']),
+})
+export type RespondToMatchInput = z.infer<typeof RespondToMatchSchema>
+
+// ── Business ──────────────────────────────────────────────────────────────────
+
+export const InviteMemberSchema = z.object({
+  phone:          phone,
+  jobTitle:       z.string().min(1, 'Job title is required').max(100),
+  assignedRoleId: uuid.optional(),
+})
+export type InviteMemberInput = z.infer<typeof InviteMemberSchema>
+
+export const PostHireRequestSchema = z
+  .object({
+    roleId:                uuid,
+    locationCity:          z.string().min(1, 'Location is required'),
+    locationState:         z.string().optional(),
+    positionsCount:        z.number().int().positive().default(1),
+    payMin:                z.number().int().nonnegative().optional(),
+    payMax:                z.number().int().nonnegative().optional(),
+    startDate:             z.string().optional(), // ISO date string YYYY-MM-DD
+    requirements:          z.string().max(1000).optional(),
+    certificationRequired: z.boolean().default(false),
+  })
+  .refine(
+    data => !data.payMin || !data.payMax || data.payMin <= data.payMax,
+    { message: 'Minimum pay cannot exceed maximum pay', path: ['payMin'] },
+  )
+export type PostHireRequestInput = z.infer<typeof PostHireRequestSchema>
+
+export const UpdateHireRequestSchema = PostHireRequestSchema.innerType().partial().extend({
+  status: HireStatusSchema.optional(),
+})
+export type UpdateHireRequestInput = z.infer<typeof UpdateHireRequestSchema>
+
+// =============================================================================
+// API Response envelope
+// Every API endpoint returns { success: true, data: T } or { success: false, error: string }
+// =============================================================================
+
+export const ApiSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    success: z.literal(true),
+    data:    dataSchema,
+  })
+
+export const ApiErrorSchema = z.object({
+  success: z.literal(false),
+  error:   z.string(),
+  code:    z.string().optional(), // machine-readable error code e.g. "COOLDOWN_ACTIVE"
+})
+export type ApiError = z.infer<typeof ApiErrorSchema>
