@@ -126,7 +126,7 @@ export default function ProfilePage() {
             { label: 'Certificates', value: MOCK_CERTIFICATES.length },
             { label: 'Badges', value: MOCK_BADGES.length },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-border bg-muted/40 py-3 text-center">
+            <div key={label} className="rounded-lg bg-muted py-3 text-center">
               <p className="font-heading text-xl font-bold text-foreground">{value}</p>
               <p className="text-[11px] text-muted-foreground">{label}</p>
             </div>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="mt-3 flex flex-wrap gap-2">
             {MOCK_BADGES.map(badge => (
-              <div key={badge.slug} className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5">
+              <div key={badge.slug} className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
                 <span className="text-base">{badge.icon}</span>
                 <div>
                   <p className="text-xs font-semibold text-foreground">{badge.name}</p>

@@ -32,7 +32,7 @@ export default function RolesPage() {
         {CATEGORIES.map((cat) => (
           <span
             key={cat}
-            className="rounded-full border border-border px-3.5 py-1.5 text-xs font-medium text-muted-foreground"
+            className="rounded-full border border-foreground/20 px-3.5 py-1.5 text-xs font-medium text-foreground/70 hover:border-foreground/30 hover:text-foreground transition-colors cursor-pointer"
           >
             {cat}
           </span>
@@ -45,11 +45,11 @@ export default function RolesPage() {
           <Link
             key={role.slug}
             href={`/roles/${role.slug}`}
-            className="group flex flex-col rounded-xl border border-border bg-background p-5 transition-all hover:border-foreground/20 hover:shadow-sm"
+            className="group flex flex-col rounded-xl bg-card p-5 shadow-card transition-shadow hover:shadow-md"
           >
             <div className="mb-4 flex items-start justify-between gap-2">
               <span className="text-2xl leading-none">{role.icon}</span>
-              <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-foreground/70">
                 {role.category}
               </span>
             </div>
@@ -76,7 +76,7 @@ export default function RolesPage() {
       </div>
 
       {/* Bottom CTA */}
-      <div className="mt-12 rounded-xl border border-border bg-muted/40 px-6 py-8 text-center">
+      <div className="mt-12 rounded-xl border border-border bg-muted px-6 py-8 text-center">
         <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Coming soon
         </p>

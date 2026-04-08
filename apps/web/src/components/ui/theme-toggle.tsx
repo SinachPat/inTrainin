@@ -13,7 +13,7 @@ const STORAGE_KEY = 'intrainin-dark'
  * key read by /public/theme-init.js on first paint. Toggling applies/removes
  * the `.dark` class on <html> immediately without a page reload.
  */
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className, iconOnly }: { className?: string; iconOnly?: boolean }) {
   const [dark, setDark] = useState(false)
 
   // Sync initial state from the DOM (theme-init.js may have already set it)
@@ -28,6 +28,22 @@ export function ThemeToggle({ className }: { className?: string }) {
     try {
       localStorage.setItem(STORAGE_KEY, String(next))
     } catch {}
+  }
+
+  if (iconOnly) {
+    return (
+      <button
+        onClick={toggle}
+        aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={dark ? 'Light mode' : 'Dark mode'}
+        className={cn(
+          'flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+          className,
+        )}
+      >
+        {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+      </button>
+    )
   }
 
   return (
