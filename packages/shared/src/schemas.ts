@@ -4,10 +4,31 @@ import { z } from 'zod'
 // Primitives
 // =============================================================================
 
-const uuid    = z.string().uuid()
-const isoDate = z.string().datetime()
-/** Nigerian phone: +234XXXXXXXXXX or 0XXXXXXXXXX — 10–15 digits, optional leading + */
-const phone   = z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number')
+const uuid = z.string().uuid()
+
+/**
+ * Full ISO-8601 datetime with timezone offset — used for timestamps stored by
+ * the database (created_at, updated_at, enrolled_at, etc.)
+ * Example: "2024-03-15T10:30:00Z"
+ */
+const isoDateTime = z.string().datetime({ offset: true })
+
+/**
+ * Calendar date only — used for human-entered date fields like startDate on
+ * hire requests or streakLastActivityDate on users.
+ * Example: "2024-03-15"
+ */
+const isoDateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+
+/**
+ * Nigerian mobile phone number.
+ * Accepts international format (+2348012345678) or local format (08012345678).
+ * Country code 234 + 10 digits, or leading 0 + 10 digits.
+ */
+const phone = z.string().regex(
+  /^(\+234|0)[0-9]{10}$/,
+  'Invalid phone number — use +2348012345678 or 08012345678 format',
+)
 
 // =============================================================================
 // Enums  (aligned 1-to-1 with database.types.ts string literals)
@@ -120,6 +141,11 @@ export const QuestionItemSchema = z.object({
 })
 export type QuestionItem = z.infer<typeof QuestionItemSchema>
 
+/**
+ * Notification payload — known fields are strongly typed; any additional
+ * event-specific fields pass through as primitives via .catchall().
+ * Intentionally open-ended so new notification types don't require schema changes.
+ */
 export const NotificationDataSchema = z
   .object({
     hire_request_id: z.string().optional(),
@@ -159,12 +185,12 @@ export const UserSchema = z.object({
   avatarUrl:              z.string().url().nullable(),
   xpTotal:                z.number().int().nonnegative(),
   streakCurrent:          z.number().int().nonnegative(),
-  streakLastActivityDate: z.string().nullable(),
+  streakLastActivityDate: isoDateOnly.nullable(),
   fcmToken:               z.string().nullable(),
   notificationPrefs:      NotificationPrefsSchema,
-  createdAt:              isoDate,
-  updatedAt:              isoDate,
-  deletedAt:              isoDate.nullable(),
+  createdAt:              isoDateTime,
+  updatedAt:              isoDateTime,
+  deletedAt:              isoDateTime.nullable(),
 })
 export type User = z.infer<typeof UserSchema>
 
@@ -176,7 +202,7 @@ export const CategorySchema = z.object({
   slug:         z.string().min(1),
   iconName:     z.string().nullable(),
   displayOrder: z.number().int().nonnegative(),
-  createdAt:    isoDate,
+  createdAt:    isoDateTime,
 })
 export type Category = z.infer<typeof CategorySchema>
 
@@ -194,8 +220,8 @@ export const RoleSchema = z.object({
   freePreviewModuleCount: z.number().int().nonnegative(),
   phase:                 z.number().int().positive(),
   sanityId:              z.string().nullable(),
-  createdAt:             isoDate,
-  updatedAt:             isoDate,
+  createdAt:             isoDateTime,
+  updatedAt:             isoDateTime,
 })
 export type Role = z.infer<typeof RoleSchema>
 
@@ -207,7 +233,7 @@ export const ModuleSchema = z.object({
   title:       z.string().min(1),
   orderIndex:  z.number().int().nonnegative(),
   isPublished: z.boolean(),
-  createdAt:   isoDate,
+  createdAt:   isoDateTime,
 })
 export type Module = z.infer<typeof ModuleSchema>
 
@@ -223,7 +249,7 @@ export const TopicSchema = z.object({
   orderIndex:       z.number().int().nonnegative(),
   estimatedMinutes: z.number().int().positive(),
   isPublished:      z.boolean(),
-  createdAt:        isoDate,
+  createdAt:        isoDateTime,
 })
 export type Topic = z.infer<typeof TopicSchema>
 
@@ -239,7 +265,7 @@ export const TestSchema = z.object({
   passMarkPct:      z.number().int().min(1).max(100),
   timeLimitMinutes: z.number().int().positive().nullable(),
   cooldownHours:    z.number().int().nonnegative(),
-  createdAt:        isoDate,
+  createdAt:        isoDateTime,
 })
 export type Test = z.infer<typeof TestSchema>
 
@@ -263,8 +289,8 @@ export const EnrollmentSchema = z.object({
   status:           EnrollmentStatusSchema,
   paymentReference: z.string().nullable(),
   paymentType:      PaymentTypeSchema.nullable(),
-  enrolledAt:       isoDate,
-  completedAt:      isoDate.nullable(),
+  enrolledAt:       isoDateTime,
+  completedAt:      isoDateTime.nullable(),
 })
 export type Enrollment = z.infer<typeof EnrollmentSchema>
 
@@ -275,8 +301,8 @@ export const TopicProgressSchema = z.object({
   userId:           uuid,
   topicId:          uuid,
   status:           TopicStatusSchema,
-  startedAt:        isoDate.nullable(),
-  completedAt:      isoDate.nullable(),
+  startedAt:        isoDateTime.nullable(),
+  completedAt:      isoDateTime.nullable(),
   timeSpentSeconds: z.number().int().nonnegative(),
 })
 export type TopicProgress = z.infer<typeof TopicProgressSchema>
@@ -299,7 +325,7 @@ export const TestAttemptSchema = z.object({
   passed:        z.boolean(),
   attemptNumber: z.number().int().positive(),
   answers:       z.array(TestAnswerSchema),
-  takenAt:       isoDate,
+  takenAt:       isoDateTime,
 })
 export type TestAttempt = z.infer<typeof TestAttemptSchema>
 
@@ -320,7 +346,7 @@ export const UserBadgeSchema = z.object({
   id:       uuid,
   userId:   uuid,
   badgeId:  uuid,
-  earnedAt: isoDate,
+  earnedAt: isoDateTime,
 })
 export type UserBadge = z.infer<typeof UserBadgeSchema>
 
@@ -332,7 +358,7 @@ export const CertificateSchema = z.object({
   roleId:           uuid,
   enrollmentId:     uuid,
   verificationCode: z.string().min(8),
-  issuedAt:         isoDate,
+  issuedAt:         isoDateTime,
   imageUrl:         z.string().url().nullable(),
   isRevoked:        z.boolean(),
 })
@@ -349,12 +375,12 @@ export const BusinessSchema = z.object({
   locationCity:          z.string().nullable(),
   locationState:         z.string().nullable(),
   subscriptionPlan:      SubscriptionPlanSchema.nullable(),
-  subscriptionStartsAt:  isoDate.nullable(),
-  subscriptionExpiresAt: isoDate.nullable(),
+  subscriptionStartsAt:  isoDateTime.nullable(),
+  subscriptionExpiresAt: isoDateTime.nullable(),
   seatLimit:             z.number().int().positive(),
   paymentReference:      z.string().nullable(),
-  createdAt:             isoDate,
-  updatedAt:             isoDate,
+  createdAt:             isoDateTime,
+  updatedAt:             isoDateTime,
 })
 export type Business = z.infer<typeof BusinessSchema>
 
@@ -369,8 +395,8 @@ export const BusinessMemberSchema = z.object({
   assignedRoleId: uuid.nullable(),
   jobTitle:       z.string().nullable(),
   status:         MemberStatusSchema,
-  invitedAt:      isoDate,
-  joinedAt:       isoDate.nullable(),
+  invitedAt:      isoDateTime,
+  joinedAt:       isoDateTime.nullable(),
 })
 export type BusinessMember = z.infer<typeof BusinessMemberSchema>
 
@@ -381,16 +407,16 @@ export const JobHubProfileSchema = z.object({
   userId:                uuid,
   isSubscribed:          z.boolean(),
   subscriptionPlan:      z.string().nullable(),
-  subscriptionStartsAt:  isoDate.nullable(),
-  subscriptionExpiresAt: isoDate.nullable(),
+  subscriptionStartsAt:  isoDateTime.nullable(),
+  subscriptionExpiresAt: isoDateTime.nullable(),
   preferredRoles:        z.array(z.string()),
   locationCity:          z.string().nullable(),
   locationState:         z.string().nullable(),
   availability:          AvailabilitySchema.nullable(),
   employmentTypePref:    EmploymentTypeSchema.nullable(),
   isVisible:             z.boolean(),
-  createdAt:             isoDate,
-  updatedAt:             isoDate,
+  createdAt:             isoDateTime,
+  updatedAt:             isoDateTime,
 })
 export type JobHubProfile = z.infer<typeof JobHubProfileSchema>
 
@@ -405,12 +431,12 @@ export const HireRequestSchema = z.object({
   positionsCount:       z.number().int().positive(),
   payMin:               z.number().int().nonnegative().nullable(),
   payMax:               z.number().int().nonnegative().nullable(),
-  startDate:            z.string().nullable(),
+  startDate:            isoDateOnly.nullable(),
   requirements:         z.string().nullable(),
   certificationRequired: z.boolean(),
   status:               HireStatusSchema,
-  postedAt:             isoDate,
-  expiresAt:            isoDate.nullable(),
+  postedAt:             isoDateTime,
+  expiresAt:            isoDateTime.nullable(),
   paymentReference:     z.string().nullable(),
 })
 export type HireRequest = z.infer<typeof HireRequestSchema>
@@ -423,9 +449,9 @@ export const JobMatchSchema = z.object({
   userId:           uuid,
   matchScore:       z.number().min(0).max(100),
   status:           MatchStatusSchema,
-  workerNotifiedAt: isoDate.nullable(),
-  createdAt:        isoDate,
-  updatedAt:        isoDate,
+  workerNotifiedAt: isoDateTime.nullable(),
+  createdAt:        isoDateTime,
+  updatedAt:        isoDateTime,
 })
 export type JobMatch = z.infer<typeof JobMatchSchema>
 
@@ -439,7 +465,7 @@ export const NotificationSchema = z.object({
   body:      z.string().nullable(),
   data:      NotificationDataSchema.nullable(),
   isRead:    z.boolean(),
-  createdAt: isoDate,
+  createdAt: isoDateTime,
 })
 export type Notification = z.infer<typeof NotificationSchema>
 
@@ -473,11 +499,15 @@ export const CompleteProfileSchema = z.object({
   careerGoalRoleId: uuid.optional(),
   // Business-only: the name of the business being registered
   businessName:     z.string().min(1).max(200).optional(),
-}).refine(
-  data =>
-    data.accountType !== 'business' || (data.businessName && data.businessName.length > 0),
-  { message: 'Business name is required for business accounts', path: ['businessName'] },
-)
+}).superRefine((data, ctx) => {
+  if (data.accountType === 'business' && !data.businessName?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Business name is required for business accounts',
+      path: ['businessName'],
+    })
+  }
+})
 export type CompleteProfileInput = z.infer<typeof CompleteProfileSchema>
 
 /** Update notification preferences */
@@ -536,27 +566,40 @@ export const InviteMemberSchema = z.object({
 })
 export type InviteMemberInput = z.infer<typeof InviteMemberSchema>
 
-export const PostHireRequestSchema = z
-  .object({
-    roleId:                uuid,
-    locationCity:          z.string().min(1, 'Location is required'),
-    locationState:         z.string().optional(),
-    positionsCount:        z.number().int().positive().default(1),
-    payMin:                z.number().int().nonnegative().optional(),
-    payMax:                z.number().int().nonnegative().optional(),
-    startDate:             z.string().optional(), // ISO date string YYYY-MM-DD
-    requirements:          z.string().max(1000).optional(),
-    certificationRequired: z.boolean().default(false),
-  })
-  .refine(
-    data => !data.payMin || !data.payMax || data.payMin <= data.payMax,
-    { message: 'Minimum pay cannot exceed maximum pay', path: ['payMin'] },
-  )
+/**
+ * Base shape shared by both PostHireRequest and UpdateHireRequest.
+ * Defined separately so .partial() and .extend() can be called on the raw
+ * ZodObject — .refine() wraps it in ZodEffects which has no .partial() method.
+ */
+const HireRequestBaseSchema = z.object({
+  roleId:                uuid,
+  locationCity:          z.string().min(1, 'Location is required'),
+  locationState:         z.string().optional(),
+  positionsCount:        z.number().int().positive().default(1),
+  payMin:                z.number().int().nonnegative().optional(),
+  payMax:                z.number().int().nonnegative().optional(),
+  startDate:             isoDateOnly.optional(),
+  requirements:          z.string().max(1000).optional(),
+  certificationRequired: z.boolean().default(false),
+})
+
+/** Shared pay-range invariant — reused by both create and update schemas */
+const payRangeRefinement = (data: { payMin?: number; payMax?: number }) =>
+  !data.payMin || !data.payMax || data.payMin <= data.payMax
+
+export const PostHireRequestSchema = HireRequestBaseSchema.refine(payRangeRefinement, {
+  message: 'Minimum pay cannot exceed maximum pay',
+  path: ['payMin'],
+})
 export type PostHireRequestInput = z.infer<typeof PostHireRequestSchema>
 
-export const UpdateHireRequestSchema = PostHireRequestSchema.innerType().partial().extend({
-  status: HireStatusSchema.optional(),
-})
+export const UpdateHireRequestSchema = HireRequestBaseSchema
+  .partial()
+  .extend({ status: HireStatusSchema.optional() })
+  .refine(payRangeRefinement, {
+    message: 'Minimum pay cannot exceed maximum pay',
+    path: ['payMin'],
+  })
 export type UpdateHireRequestInput = z.infer<typeof UpdateHireRequestSchema>
 
 // =============================================================================
@@ -564,6 +607,15 @@ export type UpdateHireRequestInput = z.infer<typeof UpdateHireRequestSchema>
 // Every API endpoint returns { success: true, data: T } or { success: false, error: string }
 // =============================================================================
 
+/**
+ * Factory that builds a typed API success response schema.
+ * This is a function, NOT a schema — call it with a data schema to produce one.
+ *
+ * Usage:
+ *   const UserResponseSchema = ApiSuccessSchema(UserSchema)
+ *   type UserResponse = z.infer<typeof UserResponseSchema>
+ *   // → { success: true; data: User }
+ */
 export const ApiSuccessSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
     success: z.literal(true),
