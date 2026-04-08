@@ -103,6 +103,18 @@ export type HireStatus      = 'open' | 'filled' | 'closed' | 'draft'
 export type SubscriptionPlan = 'starter' | 'growth' | 'business' | 'enterprise_plus'
 
 // =============================================================================
+// Relationship helper — required by Supabase JS ≥ 2.65 for all table types
+// =============================================================================
+
+type Relationship = {
+  foreignKeyName: string
+  columns: string[]
+  isOneToOne?: boolean
+  referencedRelation: string
+  referencedColumns: string[]
+}
+
+// =============================================================================
 // Database type — consumed by createClient<Database>()
 // =============================================================================
 
@@ -131,14 +143,25 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
         }
-        Insert: Omit<
-          Database['public']['Tables']['users']['Row'],
-          'xp_total' | 'streak_current' | 'created_at' | 'updated_at'
-        > & {
+        Insert: {
+          id?: string
+          phone?: string | null
+          email?: string | null
+          full_name: string
+          location_city?: string | null
+          location_state?: string | null
+          career_goal_role_id?: string | null
+          account_type?: AccountType
+          avatar_url?: string | null
           xp_total?: number
           streak_current?: number
+          streak_last_activity_date?: string | null
+          fcm_token?: string | null
+          notification_prefs?: NotificationPrefs
+          deleted_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── categories ──────────────────────────────────────────────────────────
@@ -151,8 +174,15 @@ export interface Database {
           display_order: number
           created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['categories']['Row'], 'created_at'>
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          icon_name?: string | null
+          display_order?: number
+        }
         Update: Partial<Database['public']['Tables']['categories']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── roles ────────────────────────────────────────────────────────────────
@@ -172,15 +202,29 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['roles']['Row'],
-          'is_published' | 'free_preview_module_count' | 'phase' | 'created_at' | 'updated_at'
-        > & {
+        Insert: {
+          id?: string
+          category_id: string
+          title: string
+          slug: string
+          description?: string | null
+          price_ngn: number
+          estimated_hours?: number | null
           is_published?: boolean
           free_preview_module_count?: number
           phase?: number
+          sanity_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['roles']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "roles_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── modules ──────────────────────────────────────────────────────────────
@@ -193,11 +237,23 @@ export interface Database {
           is_published: boolean
           created_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['modules']['Row'],
-          'is_published' | 'created_at'
-        > & { is_published?: boolean }
+        Insert: {
+          id?: string
+          role_id: string
+          title: string
+          order_index: number
+          is_published?: boolean
+        }
         Update: Partial<Database['public']['Tables']['modules']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "modules_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── topics ───────────────────────────────────────────────────────────────
@@ -214,14 +270,27 @@ export interface Database {
           is_published: boolean
           created_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['topics']['Row'],
-          'estimated_minutes' | 'is_published' | 'created_at'
-        > & {
+        Insert: {
+          id?: string
+          module_id: string
+          title: string
+          content_type: ContentType
+          content_body?: ContentBody | null
+          sanity_id?: string | null
+          order_index: number
           estimated_minutes?: number
           is_published?: boolean
         }
         Update: Partial<Database['public']['Tables']['topics']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "topics_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── tests ────────────────────────────────────────────────────────────────
@@ -238,15 +307,34 @@ export interface Database {
           cooldown_hours: number
           created_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['tests']['Row'],
-          'questions' | 'pass_mark_pct' | 'cooldown_hours' | 'created_at'
-        > & {
+        Insert: {
+          id?: string
+          module_id?: string | null
+          role_id?: string | null
+          test_type: TestType
+          title: string
           questions?: QuestionItem[]
           pass_mark_pct?: number
+          time_limit_minutes?: number | null
           cooldown_hours?: number
         }
         Update: Partial<Database['public']['Tables']['tests']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "tests_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tests_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── role_progressions ────────────────────────────────────────────────────
@@ -258,11 +346,15 @@ export interface Database {
           progression_type: ProgressionType
           display_order: number
         }
-        Insert: Omit<
-          Database['public']['Tables']['role_progressions']['Row'],
-          'display_order'
-        > & { display_order?: number }
+        Insert: {
+          id?: string
+          from_role_id: string
+          to_role_id: string
+          progression_type: ProgressionType
+          display_order?: number
+        }
         Update: Partial<Database['public']['Tables']['role_progressions']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── enrollments ──────────────────────────────────────────────────────────
@@ -277,11 +369,32 @@ export interface Database {
           enrolled_at: string
           completed_at: string | null
         }
-        Insert: Omit<
-          Database['public']['Tables']['enrollments']['Row'],
-          'status' | 'enrolled_at'
-        > & { status?: EnrollmentStatus }
+        Insert: {
+          id?: string
+          user_id: string
+          role_id: string
+          status?: EnrollmentStatus
+          payment_reference?: string | null
+          payment_type?: PaymentType | null
+          completed_at?: string | null
+        }
         Update: Partial<Database['public']['Tables']['enrollments']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── topic_progress ───────────────────────────────────────────────────────
@@ -295,14 +408,32 @@ export interface Database {
           completed_at: string | null
           time_spent_seconds: number
         }
-        Insert: Omit<
-          Database['public']['Tables']['topic_progress']['Row'],
-          'status' | 'time_spent_seconds'
-        > & {
+        Insert: {
+          id?: string
+          user_id: string
+          topic_id: string
           status?: TopicStatus
+          started_at?: string | null
+          completed_at?: string | null
           time_spent_seconds?: number
         }
         Update: Partial<Database['public']['Tables']['topic_progress']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "topic_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topic_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── test_attempts ────────────────────────────────────────────────────────
@@ -317,11 +448,32 @@ export interface Database {
           answers: Array<{ question_id: string; selected: number; selected_text: string }>
           taken_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['test_attempts']['Row'],
-          'attempt_number' | 'taken_at'
-        > & { attempt_number?: number }
+        Insert: {
+          id?: string
+          user_id: string
+          test_id: string
+          score_pct: number
+          passed: boolean
+          answers: Array<{ question_id: string; selected: number; selected_text: string }>
+          attempt_number?: number
+        }
         Update: never   // attempts are immutable once recorded
+        Relationships: [
+          {
+            foreignKeyName: "test_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_attempts_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          }
+        ]
       }
 
       // ── badges ───────────────────────────────────────────────────────────────
@@ -335,8 +487,17 @@ export interface Database {
           trigger_type: string
           trigger_value: BadgeTriggerValue | null
         }
-        Insert: Omit<Database['public']['Tables']['badges']['Row'], never>
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          description?: string | null
+          icon_url?: string | null
+          trigger_type: string
+          trigger_value?: BadgeTriggerValue | null
+        }
         Update: Partial<Database['public']['Tables']['badges']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── user_badges ──────────────────────────────────────────────────────────
@@ -347,8 +508,14 @@ export interface Database {
           badge_id: string
           earned_at: string
         }
-        Insert: Omit<Database['public']['Tables']['user_badges']['Row'], 'earned_at'>
+        Insert: {
+          id?: string
+          user_id: string
+          badge_id: string
+          earned_at?: string
+        }
         Update: never   // badge awards are immutable
+        Relationships: Relationship[]
       }
 
       // ── businesses ───────────────────────────────────────────────────────────
@@ -369,11 +536,22 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['businesses']['Row'],
-          'seat_limit' | 'created_at' | 'updated_at'
-        > & { seat_limit?: number }
+        Insert: {
+          id?: string
+          owner_user_id: string
+          name: string
+          category?: string | null
+          size_range?: string | null
+          location_city?: string | null
+          location_state?: string | null
+          subscription_plan?: SubscriptionPlan | null
+          subscription_starts_at?: string | null
+          subscription_expires_at?: string | null
+          seat_limit?: number
+          payment_reference?: string | null
+        }
         Update: Partial<Database['public']['Tables']['businesses']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── business_members ─────────────────────────────────────────────────────
@@ -390,11 +568,19 @@ export interface Database {
           invited_at: string
           joined_at: string | null
         }
-        Insert: Omit<
-          Database['public']['Tables']['business_members']['Row'],
-          'status' | 'invited_at'
-        > & { status?: MemberStatus }
+        Insert: {
+          id?: string
+          business_id: string
+          user_id?: string | null
+          invited_phone?: string | null
+          invited_email?: string | null
+          assigned_role_id?: string | null
+          job_title?: string | null
+          status?: MemberStatus
+          joined_at?: string | null
+        }
         Update: Partial<Database['public']['Tables']['business_members']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── certificates ─────────────────────────────────────────────────────────
@@ -409,17 +595,20 @@ export interface Database {
           image_url: string | null
           is_revoked: boolean
         }
-        Insert: Omit<
-          Database['public']['Tables']['certificates']['Row'],
-          'verification_code' | 'issued_at' | 'is_revoked'
-        > & {
+        Insert: {
+          id?: string
+          user_id: string
+          role_id: string
+          enrollment_id: string
           verification_code?: string
+          image_url?: string | null
           is_revoked?: boolean
         }
-        Update: Pick<
-          Database['public']['Tables']['certificates']['Row'],
-          'image_url' | 'is_revoked'
-        >
+        Update: {
+          image_url?: string | null
+          is_revoked?: boolean
+        }
+        Relationships: Relationship[]
       }
 
       // ── job_hub_profiles ─────────────────────────────────────────────────────
@@ -440,15 +629,22 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['job_hub_profiles']['Row'],
-          'is_subscribed' | 'preferred_roles' | 'is_visible' | 'created_at' | 'updated_at'
-        > & {
+        Insert: {
+          id?: string
+          user_id: string
           is_subscribed?: boolean
+          subscription_plan?: string | null
+          subscription_starts_at?: string | null
+          subscription_expires_at?: string | null
           preferred_roles?: string[]
+          location_city?: string | null
+          location_state?: string | null
+          availability?: Availability | null
+          employment_type_pref?: EmploymentType | null
           is_visible?: boolean
         }
         Update: Partial<Database['public']['Tables']['job_hub_profiles']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── hire_requests ─────────────────────────────────────────────────────────
@@ -470,15 +666,24 @@ export interface Database {
           expires_at: string | null
           payment_reference: string | null
         }
-        Insert: Omit<
-          Database['public']['Tables']['hire_requests']['Row'],
-          'positions_count' | 'certification_required' | 'status' | 'posted_at'
-        > & {
+        Insert: {
+          id?: string
+          business_id: string
+          role_id: string
+          location_city: string
+          location_state?: string | null
           positions_count?: number
+          pay_min?: number | null
+          pay_max?: number | null
+          start_date?: string | null
+          requirements?: string | null
           certification_required?: boolean
           status?: HireStatus
+          expires_at?: string | null
+          payment_reference?: string | null
         }
         Update: Partial<Database['public']['Tables']['hire_requests']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── job_matches ───────────────────────────────────────────────────────────
@@ -493,11 +698,16 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['job_matches']['Row'],
-          'status' | 'created_at' | 'updated_at'
-        > & { status?: MatchStatus }
+        Insert: {
+          id?: string
+          hire_request_id: string
+          user_id: string
+          match_score: number
+          status?: MatchStatus
+          worker_notified_at?: string | null
+        }
         Update: Partial<Database['public']['Tables']['job_matches']['Insert']>
+        Relationships: Relationship[]
       }
 
       // ── notifications ─────────────────────────────────────────────────────────
@@ -512,20 +722,25 @@ export interface Database {
           is_read: boolean
           created_at: string
         }
-        Insert: Omit<
-          Database['public']['Tables']['notifications']['Row'],
-          'is_read' | 'created_at'
-        > & { is_read?: boolean }
-        Update: Pick<Database['public']['Tables']['notifications']['Row'], 'is_read'>
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          title: string
+          body?: string | null
+          data?: NotificationData | null
+          is_read?: boolean
+        }
+        Update: {
+          is_read?: boolean
+        }
+        Relationships: Relationship[]
       }
     }
 
     Views: Record<string, never>
 
-    Functions: {
-      // Placeholder — add Supabase RPC function types here as they are created
-      // e.g. get_user_progress: { Args: { p_user_id: string }; Returns: {...} }
-    }
+    Functions: Record<string, never>
 
     Enums: Record<string, never>
   }

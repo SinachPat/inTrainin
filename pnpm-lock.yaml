@@ -38,6 +38,12 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.0
         version: 1.19.13(hono@4.12.12)
+      '@hono/zod-validator':
+        specifier: ^0.4.3
+        version: 0.4.3(hono@4.12.12)(zod@3.25.76)
+      '@intrainin/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@intrainin/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -47,6 +53,9 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.12
+      jose:
+        specifier: ^5.9.6
+        version: 5.10.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76
@@ -144,6 +153,9 @@ importers:
         specifier: ^2.49.0
         version: 2.101.1
     devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.39
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -1367,6 +1379,12 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/zod-validator@0.4.3':
+    resolution: {integrity: sha512-xIgMYXDyJ4Hj6ekm9T9Y27s080Nl9NXHcJkOvkXPhubOLj8hZkOL8pDnnXfvCf5xEE8Q4oMFenQUZZREUY2gqQ==}
+    peerDependencies:
+      hono: '>=3.9.0'
+      zod: ^3.19.1
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -4980,6 +4998,9 @@ packages:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
 
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
   jose@6.2.2:
     resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
 
@@ -8427,6 +8448,11 @@ snapshots:
   '@hono/node-server@1.19.13(hono@4.12.12)':
     dependencies:
       hono: 4.12.12
+
+  '@hono/zod-validator@0.4.3(hono@4.12.12)(zod@3.25.76)':
+    dependencies:
+      hono: 4.12.12
+      zod: 3.25.76
 
   '@humanfs/core@0.19.1': {}
 
@@ -12428,6 +12454,8 @@ snapshots:
   jiti@2.4.2: {}
 
   jiti@2.6.1: {}
+
+  jose@5.10.0: {}
 
   jose@6.2.2: {}
 
