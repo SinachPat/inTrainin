@@ -19,9 +19,28 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://intrainin.vercel.app",
+  ),
   title: "InTrainin | Role-Based Learning Platform",
   description:
     "InTrainin is a web-first progressive learning platform helping informal sector workers get trained, certified, and matched to better jobs.",
+  openGraph: {
+    title: "InTrainin | Role-Based Learning Platform",
+    description:
+      "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
+    url: "/",
+    siteName: "InTrainin",
+    images: [{ url: "/og.png", width: 2842, height: 1696, alt: "InTrainin — Get trained. Get certified. Get hired." }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "InTrainin | Role-Based Learning Platform",
+    description:
+      "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({

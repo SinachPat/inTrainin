@@ -27,7 +27,9 @@
       "Bash(node --input-type=module)",
       "Bash(node -e \"const pkg = require\\('/Users/USER/Desktop/intrainin/packages/shared/package.json'\\); console.log\\(JSON.stringify\\(pkg, null, 2\\)\\)\")",
       "Bash(node --loader tsx/esm packages/shared/src/index.ts)",
-      "Bash(pnpm --filter @intrainin/web typecheck)"
+      "Bash(pnpm --filter @intrainin/web typecheck)",
+      "Bash(ls -lt ~/Desktop/*.png)",
+      "Bash(python3 -c ':*)"
     ]
   }
 }
