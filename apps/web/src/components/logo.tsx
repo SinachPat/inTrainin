@@ -2,35 +2,33 @@ import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 /**
- * The InTrainin logo mark — two stacked rectangles from the brand identity.
- * Rendered as inline SVG so it scales perfectly and requires no image request.
+ * The InTrainin logo mark — two sharp-cornered rectangles from the brand identity.
+ * Top: a square block. Bottom: a thin full-width bar. No rounded corners.
+ * Rendered as inline SVG — scales perfectly, no image request needed.
  *
  * Usage:
- *   <LogoMark size={28} />               — icon only, fills with currentColor
- *   <LogoMark size={28} className="..." />
+ *   <LogoMark size={28} />
+ *   <LogoMark size={16} className="text-primary-foreground" />
  */
 export function LogoMark({ size = 28, className }: { size?: number; className?: string }) {
-  // Proportions derived from the brand identity sheet
-  const w = size
-  const topH    = Math.round(size * 0.58)   // ~58% of height for the main block
-  const barH    = Math.round(size * 0.21)   // ~21% for the bottom bar
-  const barW    = Math.round(size * 0.72)   // bar is slightly narrower than full width
-  const gap     = Math.round(size * 0.12)   // gap between block and bar
-  const totalH  = topH + gap + barH
-
+  // Fixed viewBox; scale via the size prop
+  // Proportions traced directly from the brand identity sheet:
+  //   top block  — full width, ~65% of total height (near-square)
+  //   gap        — ~12% of total height
+  //   bottom bar — full width, ~23% of total height (thin)
   return (
     <svg
-      width={w}
-      height={totalH}
-      viewBox={`0 0 ${w} ${totalH}`}
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
       className={className}
     >
-      {/* Main block */}
-      <rect x={0} y={0} width={w} height={topH} rx={Math.round(size * 0.08)} />
-      {/* Bottom bar */}
-      <rect x={0} y={topH + gap} width={barW} height={barH} rx={Math.round(size * 0.06)} />
+      {/* Top block — sharp corners, near-square */}
+      <rect x="0" y="0" width="20" height="13" rx="0" />
+      {/* Bottom bar — sharp corners, full width, thin */}
+      <rect x="0" y="15.5" width="20" height="4.5" rx="0" />
     </svg>
   )
 }

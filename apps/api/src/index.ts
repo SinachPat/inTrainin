@@ -15,12 +15,23 @@ const app = new Hono()
 // ─── Global middleware ────────────────────────────────────────────────────────
 
 app.use('*', logger())
+// CORS_ORIGIN supports a single origin or a comma-separated list, e.g.:
+//   https://intrainin.vercel.app
+//   https://intrainin.vercel.app,https://www.intrainin.com
+const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim().replace(/\/$/, '')) // trim spaces and trailing slashes
+
+console.info('[cors] allowed origins:', allowedOrigins)
+
 app.use(
   '*',
   cors({
-    // CORS_ORIGIN is set in the API's own .env — not NEXT_PUBLIC_APP_URL,
-    // which is a Next.js build-time prefix that has no meaning in this process.
-    origin:      process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: (origin) => {
+      if (!origin) return allowedOrigins[0]            // non-browser requests
+      const clean = origin.replace(/\/$/, '')
+      return allowedOrigins.includes(clean) ? clean : null
+    },
     credentials: true,
   }),
 )
