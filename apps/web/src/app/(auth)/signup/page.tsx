@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check } from 'lucide-react'
+import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check, GraduationCap, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -270,7 +270,9 @@ function SignupContent() {
             className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🎓</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <GraduationCap className="h-5 w-5" />
+              </span>
               <div>
                 <p className="font-semibold text-foreground">I&apos;m a learner / job seeker</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">Get trained, certified, and matched to jobs</p>
@@ -282,17 +284,32 @@ function SignupContent() {
             className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🏢</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Building2 className="h-5 w-5" />
+              </span>
               <div>
                 <p className="font-semibold text-foreground">I&apos;m a business owner / manager</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">Train your team and hire certified workers</p>
               </div>
             </div>
           </button>
-          <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">Sign in</Link>
-          </p>
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-center text-xs text-muted-foreground">Already have an account?</p>
+            <div className="flex gap-2">
+              <Link
+                href="/login"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <GraduationCap className="h-3.5 w-3.5" /> Learner sign in
+              </Link>
+              <Link
+                href="/login?type=business"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <Building2 className="h-3.5 w-3.5" /> Business sign in
+              </Link>
+            </div>
+          </div>
         </div>
       )}
 

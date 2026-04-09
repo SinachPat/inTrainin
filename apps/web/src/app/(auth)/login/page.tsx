@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowRight, Phone, Shield, ChevronLeft,
-  User, MapPin, Briefcase,
+  User, MapPin, Briefcase, GraduationCap, Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -285,7 +285,9 @@ function LoginContent() {
             className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🎓</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <GraduationCap className="h-5 w-5" />
+              </span>
               <div>
                 <p className="font-semibold text-foreground">I&apos;m a learner / job seeker</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">Get trained, certified, and matched to jobs</p>
@@ -297,7 +299,9 @@ function LoginContent() {
             className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl">🏢</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Building2 className="h-5 w-5" />
+              </span>
               <div>
                 <p className="font-semibold text-foreground">I&apos;m a business owner / manager</p>
                 <p className="mt-0.5 text-sm text-muted-foreground">Train your team and hire certified workers</p>

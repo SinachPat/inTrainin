@@ -137,7 +137,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
                 />
                 <span
                   className={cn(
-                    'overflow-hidden whitespace-nowrap transition-[opacity,width] duration-200',
+                    'overflow-hidden whitespace-nowrap text-sm transition-[opacity,width] duration-200',
                     collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
                   )}
                 >
