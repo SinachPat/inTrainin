@@ -3,14 +3,14 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check, GraduationCap, Building2 } from 'lucide-react'
+import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check, GraduationCap, Building2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 import { LogoMark } from '@/components/logo'
 
-type Step = 'type' | 'phone' | 'otp' | 'profile'
+type Step = 'type' | 'phone' | 'otp' | 'convert' | 'profile'
 type AccountType = 'learner' | 'business'
 
 // Slugs match lib/roles.ts ROLES array exactly
@@ -130,7 +130,15 @@ function SignupContent() {
       const { accessToken, refreshToken, profileComplete, accountType: returnedType } = verifyRes.data
 
       if (profileComplete) {
-        // Returning user at the signup page — log them in and route home
+        // Returning user — but if their DB type doesn't match their signup intent,
+        // show a conversion confirmation before proceeding.
+        if (accountType === 'business' && returnedType !== 'business' && returnedType !== 'admin') {
+          setPendingTokens({ accessToken, refreshToken })
+          setStep('convert')
+          return
+        }
+
+        // Returning user with matching type — log them in and route home
         const meRes = await api.get<{
           data: { user: { id: string; full_name: string; account_type: string; phone: string } }
         }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
@@ -212,7 +220,7 @@ function SignupContent() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const stepIndex  = { type: 0, phone: 1, otp: 2, profile: 3 }[step]
+  const stepIndex  = { type: 0, phone: 1, otp: 2, convert: 2, profile: 3 }[step]
   const totalSteps = 3
 
   return (
@@ -239,10 +247,15 @@ function SignupContent() {
             <h1 className="font-heading text-2xl font-bold">Check your phone</h1>
             <p className="mt-1 text-sm text-muted-foreground">We sent a code to {formatPhoneDisplay(phone)}</p>
           </>
+        ) : step === 'convert' ? (
+          <>
+            <h1 className="font-heading text-2xl font-bold">Number already in use</h1>
+            <p className="mt-1 text-sm text-muted-foreground">This number is registered to a learner account</p>
+          </>
         ) : (
           <>
-            <h1 className="font-heading text-2xl font-bold">Almost done</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Tell us a bit about yourself</p>
+            <h1 className="font-heading text-2xl font-bold">Set up your business</h1>
+            <p className="mt-1 text-sm text-muted-foreground">A few details and you&apos;re ready to go</p>
           </>
         )}
       </div>
@@ -408,6 +421,42 @@ function SignupContent() {
             </button>
           </p>
         </form>
+      )}
+
+      {/* ── Convert step ────────────────────────────────────────────────── */}
+      {step === 'convert' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+              <div className="space-y-2 text-sm">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">
+                  This will convert your learner account
+                </p>
+                <ul className="space-y-1 text-amber-800 dark:text-amber-300">
+                  <li>• Your learner dashboard and training progress will no longer be accessible</li>
+                  <li>• Certificates you&apos;ve earned will remain on record, but won&apos;t be visible from your account</li>
+                  <li>• You&apos;ll get a new business dashboard to manage your team and post hire requests</li>
+                </ul>
+                <p className="text-amber-700 dark:text-amber-400">
+                  This action cannot be undone. If you need both accounts, use a different phone number for the business account.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Button className="w-full" size="lg" onClick={() => setStep('profile')}>
+            <span className="flex items-center gap-1.5">
+              Yes, convert to business <ArrowRight className="h-4 w-4" />
+            </span>
+          </Button>
+          <Link
+            href="/login"
+            className="flex w-full items-center justify-center rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+          >
+            Keep my learner account
+          </Link>
+        </div>
       )}
 
       {/* ── Profile step ────────────────────────────────────────────────── */}
