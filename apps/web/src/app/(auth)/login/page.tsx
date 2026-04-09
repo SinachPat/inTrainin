@@ -34,6 +34,10 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('next')
 
+  // ?type=business shows a business-specific heading — purely cosmetic, routing
+  // is always determined by account_type from the DB after OTP verify.
+  const typeHint = searchParams.get('type') === 'business' ? 'business' : 'learner'
+
   const [step, setStep]         = useState<Step>('phone')
   const [phone, setPhone]       = useState('')
   const [otp, setOtp]           = useState(['', '', '', '', '', ''])
@@ -179,10 +183,15 @@ function LoginContent() {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   const headings: Record<Step, { title: string; sub: string }> = {
-    phone:   { title: 'Welcome back',        sub: 'Sign in with your phone number' },
-    otp:     { title: 'Check your phone',    sub: `We sent a code to ${formatPhoneDisplay(phone)}` },
-    type:    { title: 'One more thing',      sub: 'How will you be using InTrainin?' },
-    profile: { title: 'Almost done',         sub: 'Tell us a bit about yourself' },
+    phone:   {
+      title: 'Welcome back',
+      sub: typeHint === 'business'
+        ? 'Sign in to your business dashboard'
+        : 'Sign in with your phone number',
+    },
+    otp:     { title: 'Check your phone',  sub: `We sent a code to ${formatPhoneDisplay(phone)}` },
+    type:    { title: 'One more thing',    sub: 'How will you be using InTrainin?' },
+    profile: { title: 'Almost done',       sub: 'Tell us a bit about yourself' },
   }
 
   return (
@@ -295,6 +304,10 @@ function LoginContent() {
               </div>
             </div>
           </button>
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-primary hover:underline">Sign in instead</Link>
+          </p>
         </div>
       )}
 
@@ -348,6 +361,10 @@ function LoginContent() {
               </span>
             )}
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-primary hover:underline">Sign in instead</Link>
+          </p>
         </form>
       )}
     </div>

@@ -329,6 +329,15 @@ function SignupContent() {
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? 'Sending code…' : <span className="flex items-center gap-1.5">Continue <ArrowRight className="h-4 w-4" /></span>}
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{' '}
+            <Link
+              href={accountType === 'business' ? '/login?type=business' : '/login'}
+              className="font-medium text-primary hover:underline"
+            >
+              Sign in
+            </Link>
+          </p>
         </form>
       )}
 
