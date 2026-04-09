@@ -190,18 +190,35 @@ jobhub.post(
     const input  = c.req.valid('json')
     const db     = createServerClient()
 
-    // Look up the business owned by this user
-    const { data: biz } = await db
+    // Look up the business owned by this user. If it's missing (can happen when
+    // migration 005 wasn't applied yet and the upsert in profile/complete silently
+    // failed), auto-create it using the owner's name as a placeholder.
+    let { data: biz } = await db
       .from('businesses')
       .select('id')
       .eq('owner_user_id', userId)
       .maybeSingle()
 
     if (!biz) {
-      return c.json(
-        { success: false, error: 'No business profile found', code: ERROR_CODES.NOT_FOUND },
-        404,
-      )
+      const { data: owner } = await db
+        .from('users')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle()
+
+      const { data: created } = await db
+        .from('businesses')
+        .insert({ owner_user_id: userId, name: owner?.full_name ?? 'My Business' })
+        .select('id')
+        .single()
+
+      if (!created) {
+        return c.json(
+          { success: false, error: 'No business profile found', code: ERROR_CODES.NOT_FOUND },
+          404,
+        )
+      }
+      biz = created
     }
 
     const { data: request, error } = await db

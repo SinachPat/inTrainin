@@ -161,14 +161,16 @@ auth.post(
       return c.json({ success: false, error: userError.message }, 500)
     }
 
-    // Business accounts: ensure a businesses row exists
+    // Business accounts: ensure a businesses row exists.
+    // Use insert (not upsert) so this works even before migration 005 applies the
+    // owner_user_id unique constraint. Unique-violation (23505) means the row
+    // already exists — that's fine. Any other error is a real problem.
     if (body.accountType === 'business' && body.businessName) {
-      const { error: bizError } = await db.from('businesses').upsert(
+      const { error: bizError } = await db.from('businesses').insert(
         { owner_user_id: userId, name: body.businessName.trim() },
-        { onConflict: 'owner_user_id', ignoreDuplicates: true },
       )
-      if (bizError) {
-        console.error('[auth/profile/complete] businesses upsert error:', bizError.message)
+      if (bizError && bizError.code !== '23505') {
+        console.error('[auth/profile/complete] businesses insert error:', bizError.message)
       }
     }
 
