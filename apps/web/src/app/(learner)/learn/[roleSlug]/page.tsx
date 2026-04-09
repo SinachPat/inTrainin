@@ -118,13 +118,13 @@ export default function RoleCurriculumPage() {
   if (enrolled === false) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 md:px-10">
-        <Link href="/roles" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
+        <Link href="/explore" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
           <ArrowLeft className="mr-1 h-3.5 w-3.5" /> All roles
         </Link>
         <div className="rounded-xl border border-border bg-card p-6 text-center space-y-4">
           <h1 className="font-heading text-xl font-bold">{role.title}</h1>
           {role.description && <p className="text-sm text-muted-foreground">{role.description}</p>}
-          <Link href={`/roles/${role.slug}`} className={cn(buttonVariants(), 'w-full justify-center')}>
+          <Link href={`/explore/${role.slug}`} className={cn(buttonVariants(), 'w-full justify-center')}>
             Enroll — ₦{role.price_ngn.toLocaleString()} <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>

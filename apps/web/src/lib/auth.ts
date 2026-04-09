@@ -100,7 +100,8 @@ export async function signOut(): Promise<void> {
   // Best-effort server-side invalidation — ignore errors
   const token = getAccessToken()
   if (token) {
-    fetch('/api/proxy/auth/logout', {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+    fetch(`${base}/auth/logout`, {
       method:  'POST',
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {})

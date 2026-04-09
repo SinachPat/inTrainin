@@ -145,7 +145,7 @@ export default function CertificatesPage() {
         <BookOpen className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
         <p className="text-sm font-semibold text-foreground">Earn more certificates</p>
         <p className="mt-1 text-xs text-muted-foreground">Explore 15+ roles across 7 categories</p>
-        <Link href="/roles" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3')}>
+        <Link href="/explore" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3')}>
           Browse roles
         </Link>
       </section>
