@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 /**
- * Edge middleware — redirects unauthenticated users to /login.
+ * Edge proxy — redirects unauthenticated users to /login.
  *
  * Reads the `intrainin_has_session` cookie, which is written client-side by
  * setSession() in lib/auth.ts. The cookie carries no sensitive data — it is
- * purely a signal for this middleware. The actual JWT lives in localStorage.
+ * purely a signal for this proxy. The actual JWT lives in localStorage.
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const hasSession = req.cookies.has('intrainin_has_session')
   if (!hasSession) {
     const login = new URL('/login', req.url)

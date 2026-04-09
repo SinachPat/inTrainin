@@ -214,7 +214,7 @@ function SignupContent() {
         data: { user: { phone: string | null } }
       }>('/auth/me', { headers: { Authorization: `Bearer ${tokens.accessToken}` } }).catch(() => null)
 
-      const canonicalPhone = meRes?.data.user.phone ?? normalizePhone(phone) || null
+      const canonicalPhone = (meRes?.data.user.phone ?? normalizePhone(phone)) || null
 
       setSession({
         accessToken: tokens.accessToken,
