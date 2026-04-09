@@ -33,7 +33,15 @@
       "Bash(sips -g all /Users/USER/Desktop/intrainin/apps/web/public/og.png)",
       "Bash(sips -Z 1200 /Users/USER/Desktop/intrainin/apps/web/public/og.png --out /tmp/og_resized.png)",
       "Bash(sips -s format jpeg -s formatOptions 85 /tmp/og_resized.png --out /Users/USER/Desktop/intrainin/apps/web/public/og.jpg)",
-      "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/og.jpg)"
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/og.jpg)",
+      "Bash(node -e \"require\\('canvas'\\)\")",
+      "Bash(node -e \"require\\('sharp'\\)\")",
+      "Bash(node --experimental-vm-modules scripts/generate-og.mjs)",
+      "Bash(npx playwright:*)",
+      "Bash(node -e \"require.resolve\\('playwright'\\)\")",
+      "Bash(playwright --version)",
+      "Bash(npm root:*)",
+      "Bash(ls /Users/USER/Desktop/intrainin/apps/web/public/og*)"
     ]
   }
 }

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    background: #1A0800;
+    font-family: 'Inter', -apple-system, 'Helvetica Neue', sans-serif;
+    position: relative;
+  }
+
+  /* Dot grid — matches the website's background texture */
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,102,0,0.18) 1.5px, transparent 1.5px);
+    background-size: 36px 36px;
+  }
+
+  /* Warm radial glow from the right */
+  .glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 55% 70% at 85% 50%, rgba(255,102,0,0.13) 0%, transparent 100%),
+      radial-gradient(ellipse 40% 60% at 15% 80%, rgba(255,60,0,0.06) 0%, transparent 100%);
+  }
+
+  /* ── Layout ── */
+  .canvas {
+    position: relative;
+    z-index: 1;
+    width: 1200px;
+    height: 630px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    padding: 56px 64px 52px 72px;
+    gap: 0 40px;
+  }
+
+  /* ── Left column ── */
+  .left {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* Logo */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .logo-mark {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .logo-mark .sq {
+    width: 24px;
+    height: 19px;
+    background: #FF6600;
+    border-radius: 3px;
+  }
+
+  .logo-mark .bar {
+    width: 24px;
+    height: 7px;
+    background: rgba(255, 102, 0, 0.38);
+    border-radius: 2px;
+  }
+
+  .logo-text {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: -0.4px;
+  }
+
+  /* Headline */
+  .headline {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 20px 0 12px;
+  }
+
+  .headline .line {
+    font-size: 90px;
+    font-weight: 900;
+    line-height: 1.0;
+    letter-spacing: -3.5px;
+    display: block;
+  }
+
+  .white  { color: #FFFFFF; }
+  .orange { color: #FF6600; }
+  .dim    { color: rgba(255,255,255,0.88); }
+
+  /* Bottom meta */
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tagline {
+    font-size: 17px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.42);
+    letter-spacing: 0.1px;
+  }
+
+  .url {
+    font-size: 15px;
+    font-weight: 600;
+    color: rgba(255, 102, 0, 0.55);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  /* ── Right column — role cards ── */
+  .right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 102, 0, 0.16);
+    border-radius: 16px;
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    transition: none;
+  }
+
+  .card.active {
+    background: rgba(255, 102, 0, 0.10);
+    border-color: rgba(255, 102, 0, 0.45);
+  }
+
+  .card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 102, 0, 0.14);
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .card.active .card-icon {
+    background: rgba(255, 102, 0, 0.22);
+  }
+
+  .card-body { flex: 1; min-width: 0; }
+
+  .card-role {
+    font-size: 14px;
+    font-weight: 600;
+    color: #FFFFFF;
+    white-space: nowrap;
+  }
+
+  .card-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.38);
+    margin-top: 3px;
+  }
+
+  .card-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #FF6600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card-check svg {
+    width: 11px;
+    height: 11px;
+    stroke: white;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* XP pill on the active card */
+  .xp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 102, 0, 0.18);
+    border: 1px solid rgba(255, 102, 0, 0.35);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #FF8533;
+    margin-top: 4px;
+  }
+
+  /* Vertical divider line */
+  .divider {
+    position: absolute;
+    left: 858px;
+    top: 80px;
+    bottom: 80px;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, rgba(255,102,0,0.15) 30%, rgba(255,102,0,0.15) 70%, transparent);
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="divider"></div>
+
+  <div class="canvas">
+    <!-- Left -->
+    <div class="left">
+      <div class="logo">
+        <div class="logo-mark">
+          <div class="sq"></div>
+          <div class="bar"></div>
+        </div>
+        <span class="logo-text">InTrainin</span>
+      </div>
+
+      <div class="headline">
+        <span class="line white">Get trained.</span>
+        <span class="line orange">Get certified.</span>
+        <span class="line dim">Get hired.</span>
+      </div>
+
+      <div class="meta">
+        <span class="tagline">Role-based learning for Nigeria's workforce</span>
+        <span class="url">intrainin.com</span>
+      </div>
+    </div>
+
+    <!-- Right — role cards -->
+    <div class="right">
+      <div class="card">
+        <div class="card-icon">🏪</div>
+        <div class="card-body">
+          <div class="card-role">Store Attendant</div>
+          <div class="card-sub">5 modules · 3h 15m</div>
+        </div>
+        <div class="card-check">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+      </div>
+
+      <div class="card active">
+        <div class="card-icon">👨‍🍳</div>
+        <div class="card-body">
+          <div class="card-role">Cook / Kitchen Hand</div>
+          <div class="xp-pill">⚡ 340 XP earned</div>
+        </div>
+        <div class="card-check">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-body">
+          <div class="card-role">Security Guard</div>
+          <div class="card-sub">3 modules · 1h 45m</div>
+        </div>
+        <div class="card-check">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">✂️</div>
+        <div class="card-body">
+          <div class="card-role">Barber</div>
+          <div class="card-sub">4 modules · 2h 10m</div>
+        </div>
+        <div class="card-check">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
