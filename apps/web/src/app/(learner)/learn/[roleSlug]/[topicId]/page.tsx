@@ -161,6 +161,17 @@ function CaseStudyContent({ body }: { body: ContentBody }) {
   )
 }
 
+// ── Dispatcher ───────────────────────────────────────────────────────────────
+
+function TopicContentRenderer({ topic }: { topic: ApiTopic }) {
+  switch (topic.content_type) {
+    case 'guide':      return <GuideContent      body={topic.content_body} />
+    case 'workflow':   return <WorkflowContent   body={topic.content_body} />
+    case 'case_study': return <CaseStudyContent  body={topic.content_body} />
+    default:           return <TextContent       body={topic.content_body} />
+  }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TopicPage({ params }: Props) {
