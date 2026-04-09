@@ -31,7 +31,7 @@ export const metadata: Metadata = {
       "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
     url: "/",
     siteName: "InTrainin",
-    images: [{ url: "/og.png", width: 2842, height: 1696, alt: "InTrainin — Get trained. Get certified. Get hired." }],
+    images: [{ url: "/og.jpg", width: 1200, height: 716, alt: "InTrainin — Get trained. Get certified. Get hired." }],
     type: "website",
   },
   twitter: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     title: "InTrainin | Role-Based Learning Platform",
     description:
       "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 
