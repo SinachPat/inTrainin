@@ -317,8 +317,20 @@ learning.post(
       )
     }
 
-    // Don't overwrite a completed row — preserve the original completed_at
-    // and time_spent_seconds recorded during the learner's first completion.
+    // If already completed, return the existing row unchanged — preserve the
+    // original completed_at and time_spent_seconds from the first completion.
+    const { data: existing } = await db
+      .from('topic_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('topic_id', topicId)
+      .eq('status', 'completed')
+      .maybeSingle()
+
+    if (existing) {
+      return c.json({ success: true, data: { progress: existing } })
+    }
+
     const { data: progress, error } = await db
       .from('topic_progress')
       .upsert(
@@ -329,7 +341,7 @@ learning.post(
           completed_at:       new Date().toISOString(),
           time_spent_seconds: timeSpentSeconds,
         },
-        { onConflict: 'user_id,topic_id', ignoreDuplicates: true },
+        { onConflict: 'user_id,topic_id' },
       )
       .select()
       .single()

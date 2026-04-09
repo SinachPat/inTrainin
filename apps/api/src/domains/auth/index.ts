@@ -102,7 +102,7 @@ auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
 
   // If the upsert failed and profile is null, fall back to auth metadata
   // so a new business signup isn't misrouted to the learner dashboard.
-  const accountType = profile?.account_type
+  const returnedAccountType = profile?.account_type
     ?? (rawType === 'business' || rawType === 'admin' ? rawType : 'learner')
 
   return c.json({
@@ -112,7 +112,7 @@ auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
       refreshToken:    data.session.refresh_token,
       expiresIn:       data.session.expires_in,
       profileComplete,
-      accountType,
+      accountType:     returnedAccountType,
     },
   })
 })
