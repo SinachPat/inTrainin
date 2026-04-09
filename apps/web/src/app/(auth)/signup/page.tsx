@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check } from 'lucide-react'
@@ -34,7 +34,7 @@ function normalizePhone(raw: string): string {
   return digits
 }
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>('type')
@@ -540,5 +540,13 @@ export default function SignupPage() {
         </form>
       )}
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupContent />
+    </Suspense>
   )
 }
