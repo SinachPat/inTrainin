@@ -107,6 +107,27 @@
   .orange { color: #FF6600; }
   .dim    { color: rgba(255,255,255,0.88); }
 
+  /* CTA button */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #FF6600;
+    color: #FFFFFF;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.1px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    width: fit-content;
+    margin-top: 4px;
+  }
+
+  .cta-arrow {
+    font-size: 18px;
+    line-height: 1;
+  }
+
   /* Bottom meta */
   .meta {
     display: flex;
@@ -254,9 +275,12 @@
         <span class="line dim">Get hired.</span>
       </div>
 
-      <div class="meta">
-        <span class="tagline">Role-based learning for Nigeria's workforce</span>
-        <span class="url">intrainin.com</span>
+      <div>
+        <div class="cta">Get started <span class="cta-arrow">→</span></div>
+        <div class="meta" style="margin-top: 20px;">
+          <span class="tagline">Role-based learning for Nigeria's workforce</span>
+          <span class="url">intrainin.com</span>
+        </div>
       </div>
     </div>
 

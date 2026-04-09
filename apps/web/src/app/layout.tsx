@@ -22,13 +22,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "https://intrainin.vercel.app",
   ),
-  title: "InTrainin | Role-Based Learning Platform",
+  title: "InTrainin | Get Trained, Certified & Hired in Nigeria",
   description:
-    "InTrainin is a web-first progressive learning platform helping informal sector workers get trained, certified, and matched to better jobs.",
+    "InTrainin helps Nigeria's informal sector workers get trained in role-specific skills, earn verifiable certificates, and get matched to real jobs — for free.",
   openGraph: {
-    title: "InTrainin | Role-Based Learning Platform",
+    title: "InTrainin | Get Trained, Certified & Hired in Nigeria",
     description:
-      "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
+      "Nigeria's role-based learning platform for informal sector workers. Get trained, earn a verifiable certificate, and get matched to real jobs — start free today.",
     url: "/",
     siteName: "InTrainin",
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "InTrainin — Get trained. Get certified. Get hired." }],
@@ -36,9 +36,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "InTrainin | Role-Based Learning Platform",
+    title: "InTrainin | Get Trained, Certified & Hired in Nigeria",
     description:
-      "Get trained, certified, and hired. Role-based learning for informal sector workers across Nigeria.",
+      "Nigeria's role-based learning platform for informal sector workers. Get trained, earn a verifiable certificate, and get matched to real jobs — start free today.",
     images: ["/og.png"],
   },
 };
