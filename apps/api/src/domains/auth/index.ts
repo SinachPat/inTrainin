@@ -125,15 +125,21 @@ auth.post(
     const body   = c.req.valid('json')
     const db     = createServerClient()
 
+    // Upsert (not update) — ensures the row exists even if the otp/verify upsert
+    // silently failed (e.g. DB schema not yet migrated). Update would be a no-op
+    // on a missing row without returning an error, leaving user as null below.
     const { error: userError } = await db
       .from('users')
-      .update({
-        full_name:           body.fullName.trim(),
-        location_city:       body.locationCity,
-        account_type:        body.accountType,
-        career_goal_role_id: body.careerGoalRoleId ?? null,
-      })
-      .eq('id', userId)
+      .upsert(
+        {
+          id:                  userId,
+          full_name:           body.fullName.trim(),
+          location_city:       body.locationCity,
+          account_type:        body.accountType,
+          career_goal_role_id: body.careerGoalRoleId ?? null,
+        },
+        { onConflict: 'id' },
+      )
 
     if (userError) {
       return c.json({ success: false, error: userError.message }, 500)
@@ -158,11 +164,16 @@ auth.post(
       },
     })
 
-    const { data: user } = await db
+    const { data: user, error: selectError } = await db
       .from('users')
       .select('id, full_name, location_city, account_type, career_goal_role_id, created_at')
       .eq('id', userId)
       .single()
+
+    if (selectError || !user) {
+      console.error('[auth/profile/complete] user select failed:', selectError?.message)
+      return c.json({ success: false, error: 'Profile saved but user record not found — check DB migration' }, 500)
+    }
 
     return c.json({ success: true, data: { user } })
   },

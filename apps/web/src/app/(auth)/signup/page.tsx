@@ -202,6 +202,8 @@ export default function SignupPage() {
       })
 
       const user = profileRes.data.user
+      if (!user) throw new Error('Profile setup failed — user record missing. Check DB migration.')
+
       const normalizedPhone = normalizePhone(phone)
 
       setSession({
