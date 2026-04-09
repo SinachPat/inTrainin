@@ -54,7 +54,8 @@ export const authMiddleware: MiddlewareHandler<{ Variables: AuthVariables }> = c
       const { userId, userRole } = await verifySupabaseJwt(token)
       c.set('userId',   userId)
       c.set('userRole', userRole)
-    } catch {
+    } catch (err) {
+      console.error('[auth] JWT verify failed:', err instanceof Error ? err.message : err)
       return c.json({ success: false, error: 'Invalid or expired token' }, 401)
     }
 

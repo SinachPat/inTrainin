@@ -129,7 +129,7 @@ export default function SignupPage() {
           profileComplete: boolean
           accountType: string
         }
-      }>('/auth/otp/verify', { phone: e164Phone, token: otpString })
+      }>('/auth/otp/verify', { phone: e164Phone, code: otpString })
 
       const { accessToken, refreshToken, profileComplete, accountType: returnedAccountType } = verifyRes.data
 
@@ -154,8 +154,11 @@ export default function SignupPage() {
         })
         router.push(returnedAccountType === 'business' || returnedAccountType === 'admin' ? '/admin' : '/dashboard')
       } else {
-        // New user — store tokens and advance to profile step
-        setPendingTokens({ accessToken, refreshToken })
+        // New user — persist tokens to sessionStorage so they survive any re-render,
+        // then advance to profile step
+        const tokens = { accessToken, refreshToken }
+        setPendingTokens(tokens)
+        try { sessionStorage.setItem('intrainin_temp_tokens', JSON.stringify(tokens)) } catch {}
         setStep('profile')
       }
     } catch (err: unknown) {
@@ -170,7 +173,14 @@ export default function SignupPage() {
     e.preventDefault()
     if (!profile.fullName.trim()) { setError('Enter your full name'); return }
     if (accountType === 'business' && !bizName.trim()) { setError('Enter your business name'); return }
-    if (!pendingTokens) { setError('Session expired. Please start over.'); return }
+    let tokens = pendingTokens
+    if (!tokens) {
+      try {
+        const stored = sessionStorage.getItem('intrainin_temp_tokens')
+        if (stored) tokens = JSON.parse(stored)
+      } catch {}
+    }
+    if (!tokens) { setError('Session expired. Please start over.'); return }
     setError('')
     setLoading(true)
     try {
@@ -188,15 +198,15 @@ export default function SignupPage() {
         success: boolean
         data: { user: { id: string; full_name: string; account_type: string } }
       }>('/auth/profile/complete', body, {
-        headers: { Authorization: `Bearer ${pendingTokens.accessToken}` },
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
       })
 
       const user = profileRes.data.user
       const normalizedPhone = normalizePhone(phone)
 
       setSession({
-        accessToken: pendingTokens.accessToken,
-        refreshToken: pendingTokens.refreshToken,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
         user: {
           id: user.id,
           fullName: user.full_name,

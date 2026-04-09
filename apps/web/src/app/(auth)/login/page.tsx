@@ -102,7 +102,7 @@ export default function LoginPage() {
           profileComplete: boolean
           accountType: string
         }
-      }>('/auth/otp/verify', { phone: e164Phone, token: otpString })
+      }>('/auth/otp/verify', { phone: e164Phone, code: otpString })
 
       const { accessToken, refreshToken, profileComplete, accountType } = verifyRes.data
 
