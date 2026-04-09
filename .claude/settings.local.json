@@ -44,7 +44,8 @@
       "Bash(ls /Users/USER/Desktop/intrainin/apps/web/public/og*)",
       "Bash('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless=new --screenshot=/Users/USER/Desktop/intrainin/apps/web/public/og.png --window-size=1200,630 --hide-scrollbars --disable-gpu file:///Users/USER/Desktop/intrainin/scripts/og-image.html)",
       "Bash(grep -v \"^$\")",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(pnpm --filter @intrainin/api build)"
     ]
   }
 }
