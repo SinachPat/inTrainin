@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { Menu, X } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { useEffect, useRef, useState } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -49,14 +49,7 @@ export function SiteHeader() {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-8">
           {/* Logo */}
           <Link href="/" className="shrink-0" onClick={() => setOpen(false)}>
-            <Image
-              src="/logo.png"
-              alt="InTrainin"
-              width={140}
-              height={36}
-              className="h-8 w-auto [filter:brightness(0)_saturate(100%)_invert(11%)_sepia(100%)_saturate(900%)_hue-rotate(-15deg)_brightness(0.8)] dark:[filter:none]"
-              priority
-            />
+            <Logo height={32} />
           </Link>
 
           {/* Nav — desktop only */}

@@ -7,6 +7,7 @@ import { LayoutDashboard, Compass, Award, User, Briefcase, LogOut, ChevronLeft, 
 import { cn } from '@/lib/utils'
 import { signOut } from '@/lib/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { LogoMark } from '@/components/logo'
 
 const NAV = [
   { href: '/dashboard',    label: 'Home',    icon: LayoutDashboard },
@@ -85,15 +86,15 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
             aria-label="Expand sidebar"
             className="group flex h-14 w-full shrink-0 items-center justify-center border-b border-border transition-colors hover:bg-muted/50"
           >
-            <span className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
-              <span className="transition-opacity duration-150 group-hover:opacity-0">IT</span>
+            <span className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <LogoMark size={16} className="transition-opacity duration-150 group-hover:opacity-0" />
               <ChevronRight className="absolute h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
             </span>
           </button>
         ) : (
           <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
-              IT
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <LogoMark size={16} />
             </span>
             <span className="flex-1 font-heading text-sm font-semibold tracking-tight text-foreground">
               InTrainin
@@ -185,8 +186,8 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       {/* ── Mobile top bar ───────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur md:hidden">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[10px] font-bold text-primary-foreground">
-            IT
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <LogoMark size={16} />
           </span>
           <span className="font-heading text-sm font-semibold tracking-tight">InTrainin</span>
         </Link>

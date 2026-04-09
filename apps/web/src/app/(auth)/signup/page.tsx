@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { setSession } from '@/lib/auth'
+import { LogoMark } from '@/components/logo'
 
 type Step = 'type' | 'phone' | 'otp' | 'profile'
 type AccountType = 'learner' | 'business'
@@ -235,8 +236,8 @@ function SignupContent() {
     <div className="space-y-8">
       {/* Brand */}
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-          <span className="font-heading text-lg font-bold text-primary-foreground">IT</span>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <LogoMark size={26} />
         </div>
         {step === 'type' ? (
           <>
