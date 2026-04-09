@@ -10,7 +10,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 const NAV = [
   { href: '/dashboard',    label: 'Home',    icon: LayoutDashboard },
-  { href: '/roles',        label: 'Explore', icon: Compass },
+  { href: '/explore',      label: 'Explore', icon: Compass },
   { href: '/certificates', label: 'Certs',   icon: Award },
   { href: '/job-hub',      label: 'Jobs',    icon: Briefcase },
   { href: '/profile',      label: 'Profile', icon: User },

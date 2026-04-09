@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function RolePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ExploreRolePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const role = getRoleBySlug(slug);
   if (!role) notFound();
@@ -40,7 +40,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
 
       {/* Back link */}
       <Link
-        href="/roles"
+        href="/explore"
         className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 mb-5 text-muted-foreground")}
       >
         <ArrowLeft className="mr-1.5 size-3.5" />
@@ -66,7 +66,6 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
             <p className="mb-5 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
               {role.about}
             </p>
-            {/* Stats bar */}
             <div className="flex flex-wrap gap-3 sm:gap-5">
               {[
                 { icon: BookOpen, label: `${role.modules.length} modules` },
@@ -107,32 +106,23 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                     key={mod.num}
                     className={cn(
                       "flex items-center gap-3 rounded-xl border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4",
-                      isFree
-                        ? "border-primary/30 bg-card shadow-card"
-                        : "border-border bg-card"
+                      isFree ? "border-primary/30 bg-card shadow-card" : "border-border bg-card"
                     )}
                   >
-                    {/* Number */}
                     <div
                       className={cn(
                         "flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                        isFree
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
+                        isFree ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                       )}
                     >
                       {mod.num}
                     </div>
-
-                    {/* Title + topics */}
                     <div className="min-w-0 flex-1">
                       <p className={cn("text-sm font-semibold", isLocked ? "text-muted-foreground" : "text-foreground")}>
                         {mod.title}
                       </p>
                       <p className="text-xs text-muted-foreground">{mod.topics} topics</p>
                     </div>
-
-                    {/* Badge */}
                     {isFree ? (
                       <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-foreground">
                         Free preview
@@ -143,8 +133,6 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                   </div>
                 );
               })}
-
-              {/* Final exam row */}
               <div className="flex items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
                   <Award className="size-4 text-muted-foreground" />
@@ -173,9 +161,8 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                 <p className="text-sm text-muted-foreground">
                   Pass the Final Exam and your{" "}
                   <strong className="text-foreground">{role.title}</strong> certificate is generated
-                  instantly — with a unique verification ID that employers can check at{" "}
-                  <span className="font-mono text-xs">intrainin.com/verify</span>. Share via
-                  WhatsApp, LinkedIn, or direct link.
+                  instantly — with a unique verification ID employers can check at{" "}
+                  <span className="font-mono text-xs">intrainin.com/verify</span>.
                 </p>
               </div>
             </div>
@@ -186,7 +173,6 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
         {/* ── Sticky sidebar CTA ───────────────────────────────────────── */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <div className="overflow-hidden rounded-xl bg-card shadow-card">
-            {/* Price header */}
             <div className="border-b border-border px-4 py-4 sm:px-6 sm:py-5">
               <div className="mb-1 flex items-end gap-1.5">
                 <span className="text-2xl font-bold text-foreground sm:text-3xl">{role.price}</span>
@@ -196,8 +182,6 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                 Full curriculum · module tests · certificate
               </p>
             </div>
-
-            {/* Enroll CTA */}
             <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5">
               <Link
                 href="/signup"
@@ -216,8 +200,6 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
                 No subscription · one payment · access forever
               </p>
             </div>
-
-            {/* Includes */}
             <div className="border-t border-border px-4 py-4 sm:px-6 sm:py-5">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 This course includes
@@ -253,7 +235,7 @@ export default async function RolePage({ params }: { params: Promise<{ slug: str
             .map((r) => (
               <Link
                 key={r.slug}
-                href={`/roles/${r.slug}`}
+                href={`/explore/${r.slug}`}
                 className="group flex items-center gap-3 rounded-xl bg-card p-4 shadow-card transition-shadow hover:shadow-md"
               >
                 <span className="text-2xl leading-none">{r.icon}</span>

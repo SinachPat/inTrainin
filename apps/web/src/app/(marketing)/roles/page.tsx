@@ -6,9 +6,15 @@ import { ROLES, getTotalTopics } from "@/lib/roles";
 
 const CATEGORIES = [...new Set(ROLES.map((r) => r.category))];
 
-export default function RolesPage() {
+export const metadata = {
+  title: "Role Catalogue | InTrainin",
+  description:
+    "Browse 15+ structured job-role curricula — cashier, waiter, barista, dispatch rider and more. Module 1 of every role is free.",
+};
+
+export default function PublicRolesPage() {
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 md:py-12 md:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 md:py-16 md:px-8">
 
       {/* Header */}
       <div className="mb-8 border-b border-border pb-6 md:mb-10 md:pb-8">
@@ -67,7 +73,7 @@ export default function RolesPage() {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-foreground">{role.price}</span>
                 <span className="rounded-lg bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground">
-                  Enroll
+                  View
                 </span>
               </div>
             </div>
@@ -85,10 +91,10 @@ export default function RolesPage() {
         </p>
         <p className="mx-auto mb-6 max-w-md text-sm text-muted-foreground">
           New role curricula are added regularly. Module 1 of every role is always free —
-          no account required to preview.
+          create a free account to start today.
         </p>
         <Link href="/signup" className={cn(buttonVariants({ size: "sm" }))}>
-          Get notified when new roles launch
+          Create free account
         </Link>
       </div>
 
