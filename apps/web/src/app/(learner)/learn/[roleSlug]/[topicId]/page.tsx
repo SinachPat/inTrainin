@@ -248,10 +248,10 @@ export default function TopicPage({ params }: Props) {
     setMarkingDone(true)
     try {
       await api.post(`/learning/topics/${topicId}/complete`, { timeSpentSeconds: Math.round(audioTime) })
-    } catch {
-      // best-effort — still show complete locally
-    } finally {
       setMarked(true)
+    } catch {
+      // leave topic as incomplete so the user can retry
+    } finally {
       setMarkingDone(false)
     }
   }

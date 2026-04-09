@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
-import { signOut } from '@/lib/auth'
+import { signOut, patchSessionUser } from '@/lib/auth'
 
 interface ApiUser {
   id: string
@@ -52,14 +52,23 @@ export default function ProfilePage() {
     const trimmed = draftName.trim() || name
     setName(trimmed)
     setEditingName(false)
-    // Best-effort update — fire and forget
-    api.post('/auth/profile/complete', { fullName: trimmed, accountType: user?.account_type ?? 'learner', locationCity: user?.location_city ?? '' }).catch(() => {})
+    try {
+      await api.post('/auth/profile/complete', {
+        fullName:     trimmed,
+        accountType:  user?.account_type ?? 'learner',
+        locationCity: user?.location_city ?? '',
+      })
+      // Keep localStorage in sync so the sidebar reflects the new name immediately
+      patchSessionUser({ fullName: trimmed })
+    } catch {
+      // best-effort — UI already shows updated name
+    }
   }
 
   async function toggleNotif(key: keyof typeof notifPrefs) {
     const next = { ...notifPrefs, [key]: !notifPrefs[key] }
     setNotifPrefs(next)
-    api.put('/notifications/preferences', next).catch(() => {})
+    api.put('/auth/notifications', next).catch(() => {})
   }
 
   async function handleSignOut() {

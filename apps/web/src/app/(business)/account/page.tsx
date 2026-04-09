@@ -100,7 +100,7 @@ export default function BusinessAccountPage() {
       setDraftName(profileRes.data.profile.name)
       if (subRes) setSubscription(subRes.data)
       if (membersRes) setMembersData(membersRes.data)
-      if (userRes) setNotifPrefs(userRes.data.user.notification_prefs)
+      if (userRes) setNotifPrefs(userRes.data.user.notification_prefs ?? { push: true, sms: true, email: false })
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
     } finally {

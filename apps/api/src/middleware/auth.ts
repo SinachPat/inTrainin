@@ -30,8 +30,17 @@ export const authMiddleware: MiddlewareHandler<{ Variables: AuthVariables }> = c
       return c.json({ success: false, error: 'Invalid or expired token' }, 401)
     }
 
+    // Read account_type from public.users — the canonical source of truth.
+    // JWT metadata can be updated by profile/complete and is not tamper-proof
+    // for role-escalation checks.
+    const { data: userRow } = await db
+      .from('users')
+      .select('account_type')
+      .eq('id', user.id)
+      .maybeSingle()
+
     const metadata = user.user_metadata as Record<string, unknown> | undefined
-    const userRole = (metadata?.account_type ?? 'learner') as AccountType
+    const userRole = ((userRow?.account_type ?? metadata?.account_type ?? 'learner')) as AccountType
 
     c.set('userId',   user.id)
     c.set('userRole', userRole)

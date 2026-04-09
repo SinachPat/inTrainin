@@ -100,6 +100,11 @@ auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
 
   const profileComplete = Boolean(profile?.full_name?.trim() && profile?.location_city)
 
+  // If the upsert failed and profile is null, fall back to auth metadata
+  // so a new business signup isn't misrouted to the learner dashboard.
+  const accountType = profile?.account_type
+    ?? (rawType === 'business' || rawType === 'admin' ? rawType : 'learner')
+
   return c.json({
     success: true,
     data: {
@@ -107,7 +112,7 @@ auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
       refreshToken:    data.session.refresh_token,
       expiresIn:       data.session.expires_in,
       profileComplete,
-      accountType:     profile?.account_type ?? 'learner',
+      accountType,
     },
   })
 })
@@ -125,6 +130,17 @@ auth.post(
     const body   = c.req.valid('json')
     const db     = createServerClient()
 
+    // Resolve career goal: prefer explicit UUID, fall back to looking up by slug
+    let careerGoalRoleId = body.careerGoalRoleId ?? null
+    if (!careerGoalRoleId && body.careerGoalRoleSlug && body.careerGoalRoleSlug !== 'other') {
+      const { data: roleRow } = await db
+        .from('roles')
+        .select('id')
+        .eq('slug', body.careerGoalRoleSlug)
+        .single()
+      careerGoalRoleId = roleRow?.id ?? null
+    }
+
     // Upsert (not update) — ensures the row exists even if the otp/verify upsert
     // silently failed (e.g. DB schema not yet migrated). Update would be a no-op
     // on a missing row without returning an error, leaving user as null below.
@@ -136,7 +152,7 @@ auth.post(
           full_name:           body.fullName.trim(),
           location_city:       body.locationCity,
           account_type:        body.accountType,
-          career_goal_role_id: body.careerGoalRoleId ?? null,
+          career_goal_role_id: careerGoalRoleId,
         },
         { onConflict: 'id' },
       )
@@ -185,15 +201,14 @@ auth.get('/me', authMiddleware, async (c) => {
   const userId = c.get('userId')
   const db     = createServerClient()
 
-  const { data: user, error } = await db
-    .from('users')
-    .select(`
+  const [{ data: user, error }, { data: authUserData }] = await Promise.all([
+    db.from('users').select(`
       id, phone, email, full_name, location_city, location_state,
       account_type, avatar_url, xp_total, streak_current,
       streak_last_activity_date, notification_prefs, created_at
-    `)
-    .eq('id', userId)
-    .single()
+    `).eq('id', userId).single(),
+    db.auth.admin.getUserById(userId),
+  ])
 
   if (error || !user) {
     return c.json(
@@ -202,7 +217,11 @@ auth.get('/me', authMiddleware, async (c) => {
     )
   }
 
-  return c.json({ success: true, data: { user } })
+  // public.users.phone may be null if profile/complete ran before the OTP upsert
+  // committed. The phone is always canonical in auth.users, so fall back there.
+  const phone = user.phone ?? authUserData.user?.phone ?? null
+
+  return c.json({ success: true, data: { user: { ...user, phone } } })
 })
 
 // ─── POST /auth/logout ────────────────────────────────────────────────────────

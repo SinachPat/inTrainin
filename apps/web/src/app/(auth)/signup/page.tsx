@@ -173,6 +173,7 @@ function SignupContent() {
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!profile.fullName.trim()) { setError('Enter your full name'); return }
+    if (!profile.city) { setError('Select your city'); return }
     if (accountType === 'business' && !bizName.trim()) { setError('Enter your business name'); return }
     let tokens = pendingTokens
     if (!tokens) {
@@ -193,7 +194,9 @@ function SignupContent() {
       if (accountType === 'business') {
         body.businessName = bizName.trim()
       }
-      // careerGoalRoleId left out — will be wired in a future layer (only have slug, not UUID)
+      if (accountType === 'learner' && profile.careerGoalSlug && profile.careerGoalSlug !== 'other') {
+        body.careerGoalRoleSlug = profile.careerGoalSlug
+      }
 
       const profileRes = await api.post<{
         success: boolean
@@ -205,7 +208,13 @@ function SignupContent() {
       const user = profileRes.data.user
       if (!user) throw new Error('Profile setup failed — user record missing. Check DB migration.')
 
-      const normalizedPhone = normalizePhone(phone)
+      // Fetch /auth/me to get the canonical phone (phone state may be empty
+      // when the user arrived via the needsProfile=1 redirect flow).
+      const meRes = await api.get<{
+        data: { user: { phone: string | null } }
+      }>('/auth/me', { headers: { Authorization: `Bearer ${tokens.accessToken}` } }).catch(() => null)
+
+      const canonicalPhone = meRes?.data.user.phone ?? normalizePhone(phone) || null
 
       setSession({
         accessToken: tokens.accessToken,
@@ -214,7 +223,7 @@ function SignupContent() {
           id: user.id,
           fullName: user.full_name,
           accountType: user.account_type as 'learner' | 'business' | 'admin',
-          phone: normalizedPhone || null,
+          phone: canonicalPhone,
         },
       })
 

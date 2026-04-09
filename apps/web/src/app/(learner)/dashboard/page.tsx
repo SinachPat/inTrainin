@@ -190,7 +190,7 @@ export default function LearnerDashboardPage() {
             <section>
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-[13px] font-semibold text-foreground">My Roles</h2>
-                <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+                <Link href="/explore" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
                   Browse all <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
@@ -236,13 +236,13 @@ export default function LearnerDashboardPage() {
           <section>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[13px] font-semibold text-foreground">Explore roles</h2>
-              <Link href="/roles" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+              <Link href="/explore" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
                 See all <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {SUGGESTED_ROLES.map((role) => (
-                <Link key={role.slug} href={`/roles/${role.slug}`} className="group block">
+                <Link key={role.slug} href={`/explore/${role.slug}`} className="group block">
                   <div className="h-full rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
                     <span className="text-2xl leading-none">{role.icon}</span>
                     <p className="mt-3 text-[13px] font-medium text-foreground">{role.title}</p>

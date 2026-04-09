@@ -7,11 +7,12 @@ import { z } from 'zod'
 const uuid = z.string().uuid()
 
 /**
- * Full ISO-8601 datetime with timezone offset — used for timestamps stored by
- * the database (created_at, updated_at, enrolled_at, etc.)
- * Example: "2024-03-15T10:30:00Z"
+ * ISO-8601 datetime — used for timestamps returned by the database.
+ * Supabase returns timestamptz values as "2024-03-15T10:30:00" (no offset suffix)
+ * when the stored value is UTC, so we allow strings without an explicit offset.
+ * Example: "2024-03-15T10:30:00" or "2024-03-15T10:30:00Z"
  */
-const isoDateTime = z.string().datetime({ offset: true })
+const isoDateTime = z.string().datetime({ offset: false })
 
 /**
  * Calendar date only — used for human-entered date fields like startDate on
@@ -503,8 +504,9 @@ export const CompleteProfileSchema = z.object({
   fullName:         z.string().min(1, 'Full name is required').max(120),
   locationCity:     z.string().min(1, 'City is required'),
   accountType:      z.enum(['learner', 'business']),
-  // Learner-only: the role they want to pursue
-  careerGoalRoleId: uuid.optional(),
+  // Learner-only: the role they want to pursue — either UUID or slug accepted
+  careerGoalRoleId:   uuid.optional(),
+  careerGoalRoleSlug: z.string().optional(),
   // Business-only: the name of the business being registered
   businessName:     z.string().min(1).max(200).optional(),
 }).superRefine((data, ctx) => {

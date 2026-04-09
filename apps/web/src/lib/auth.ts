@@ -54,6 +54,20 @@ export function getSession(): SessionUser | null {
   }
 }
 
+/**
+ * Updates only the user fields in the stored session without touching tokens.
+ * Use after profile mutations (name change, etc.) so the sidebar stays in sync.
+ */
+export function patchSessionUser(patch: Partial<SessionUser>): void {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem(SESSION_USER_KEY)
+    if (!raw) return
+    const current = JSON.parse(raw) as SessionUser
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify({ ...current, ...patch }))
+  } catch {}
+}
+
 /** Throws if no session — use in page-level guards. */
 export function requireSession(): SessionUser {
   const session = getSession()

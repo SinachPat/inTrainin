@@ -16,6 +16,7 @@ class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
+    public data?: unknown,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -47,14 +48,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let errMsg = res.statusText
     let code: string | undefined
+    let data: unknown
     try {
-      const body = await res.json() as { error?: string; code?: string }
+      const body = await res.json() as { error?: string; code?: string; data?: unknown }
       errMsg = body.error ?? errMsg
       code   = body.code
+      data   = body.data
     } catch {
       errMsg = await res.text().catch(() => errMsg)
     }
-    throw new ApiError(res.status, errMsg, code)
+    throw new ApiError(res.status, errMsg, code, data)
   }
 
   return res.json() as Promise<T>

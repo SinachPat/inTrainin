@@ -229,21 +229,27 @@ learning.get('/topics/:id', authMiddleware, async (c) => {
 
   const roleId = (topic.modules as { role_id: string } | null)?.role_id
 
-  if (roleId) {
-    const { data: enrolment } = await db
-      .from('enrollments')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('role_id', roleId)
-      .eq('status', 'active')
-      .maybeSingle()
+  // roleId must always be present — a null means a DB integrity problem
+  if (!roleId) {
+    return c.json(
+      { success: false, error: 'Topic configuration error', code: ERROR_CODES.NOT_FOUND },
+      500,
+    )
+  }
 
-    if (!enrolment) {
-      return c.json(
-        { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
-        403,
-      )
-    }
+  const { data: enrolment } = await db
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('role_id', roleId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!enrolment) {
+    return c.json(
+      { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
+      403,
+    )
   }
 
   const { data: progress } = await db
@@ -290,22 +296,29 @@ learning.post(
 
     const roleId = (topic.modules as { role_id: string } | null)?.role_id
 
-    if (roleId) {
-      const { data: enrolment } = await db
-        .from('enrollments')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('role_id', roleId)
-        .maybeSingle()
-
-      if (!enrolment) {
-        return c.json(
-          { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
-          403,
-        )
-      }
+    if (!roleId) {
+      return c.json(
+        { success: false, error: 'Topic configuration error', code: ERROR_CODES.NOT_FOUND },
+        500,
+      )
     }
 
+    const { data: enrolment } = await db
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('role_id', roleId)
+      .maybeSingle()
+
+    if (!enrolment) {
+      return c.json(
+        { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
+        403,
+      )
+    }
+
+    // Don't overwrite a completed row — preserve the original completed_at
+    // and time_spent_seconds recorded during the learner's first completion.
     const { data: progress, error } = await db
       .from('topic_progress')
       .upsert(
@@ -316,7 +329,7 @@ learning.post(
           completed_at:       new Date().toISOString(),
           time_spent_seconds: timeSpentSeconds,
         },
-        { onConflict: 'user_id,topic_id' },
+        { onConflict: 'user_id,topic_id', ignoreDuplicates: true },
       )
       .select()
       .single()

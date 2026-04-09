@@ -128,10 +128,14 @@ certificates.post('/issue', authMiddleware, async (c) => {
   if (issueError) return c.json({ success: false, error: issueError.message }, 500)
 
   // Mark enrollment as completed
-  await db
+  const { error: enrollmentUpdateError } = await db
     .from('enrollments')
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', enrolment.id)
+
+  if (enrollmentUpdateError) {
+    console.error('[certificates/issue] enrollment status update failed:', enrollmentUpdateError.message)
+  }
 
   // Fire-and-forget: gamification failure must never break the response
   Promise.all([

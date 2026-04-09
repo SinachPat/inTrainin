@@ -104,9 +104,8 @@ export default function TestPage({ params }: Props) {
         if (e instanceof ApiError && e.status === 401) {
           window.location.replace('/login')
         } else if (e instanceof ApiError && e.status === 429) {
-          const body = e.message  // cooldown info comes through the error
-          // Try to parse cooldownEndsAt from the error code context
-          setCooldown(null)
+          const d = e.data as { cooldownEndsAt?: string } | undefined
+          setCooldown(d?.cooldownEndsAt ?? null)
           setTestState('cooldown')
         } else if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
           setTestState('error')
@@ -135,7 +134,11 @@ export default function TestPage({ params }: Props) {
       setTestState('result')
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) {
+        const d = e.data as { cooldownEndsAt?: string } | undefined
+        setCooldown(d?.cooldownEndsAt ?? null)
         setTestState('cooldown')
+      } else {
+        setTestState('error')
       }
     } finally {
       setSubmitting(false)

@@ -210,13 +210,20 @@ business.delete('/members/:id', authMiddleware, requireRole('business'), async (
     )
   }
 
-  const { error } = await db
+  const { data: removed, error } = await db
     .from('business_members')
     .update({ status: 'removed' })
     .eq('id', memberId)
     .eq('business_id', biz.id)
+    .select('id')
+    .single()
 
-  if (error) return c.json({ success: false, error: error.message }, 500)
+  if (error || !removed) {
+    return c.json(
+      { success: false, error: 'Member not found', code: ERROR_CODES.NOT_FOUND },
+      404,
+    )
+  }
 
   return c.json({ success: true })
 })
@@ -387,47 +394,18 @@ business.get('/subscription', authMiddleware, requireRole('business'), async (c)
 
 // ─── POST /business/subscribe ──────────────────────────────────────────────────
 // Protected (business) — activate a subscription after payment.
-// TODO Layer 8: verify Paystack payment reference before activating.
+// Blocked until Layer 8 (Paystack verification) is implemented.
+// Accepting unverified payment references would let anyone activate any plan for free.
 
 business.post('/subscribe', authMiddleware, requireRole('business'), async (c) => {
-  const userId = c.get('userId')
-  const db     = createServerClient()
-
-  let body: { plan?: string; paymentReference?: string; seats?: number }
-  try { body = await c.req.json() } catch { body = {} }
-
-  if (!body.plan || !body.paymentReference) {
-    return c.json({ success: false, error: 'plan and paymentReference are required' }, 400)
-  }
-
-  const seatsByPlan: Record<string, number> = {
-    starter:         10,
-    growth:          30,
-    business:        50,
-    enterprise_plus: 200,
-  }
-
-  const seatLimit = seatsByPlan[body.plan] ?? 10
-  const now       = new Date()
-  const expiresAt = new Date(now)
-  expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-
-  const { data: biz, error } = await db
-    .from('businesses')
-    .update({
-      subscription_plan:       body.plan as 'starter' | 'growth' | 'business' | 'enterprise_plus',
-      subscription_starts_at:  now.toISOString(),
-      subscription_expires_at: expiresAt.toISOString(),
-      seat_limit:              body.seats ?? seatLimit,
-      payment_reference:       body.paymentReference,
-    })
-    .eq('owner_user_id', userId)
-    .select('id, subscription_plan, subscription_expires_at, seat_limit')
-    .single()
-
-  if (error) return c.json({ success: false, error: error.message }, 500)
-
-  return c.json({ success: true, data: { subscription: biz } })
+  return c.json(
+    {
+      success: false,
+      error:   'Payment processing is not yet available. Please check back soon.',
+      code:    'PAYMENT_NOT_CONFIGURED',
+    },
+    501,
+  )
 })
 
 export { business as businessRouter }

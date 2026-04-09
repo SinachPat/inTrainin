@@ -354,7 +354,7 @@ jobhub.get(
 
     const { data: request } = await db
       .from('hire_requests')
-      .select('id')
+      .select('id, role_id')
       .eq('id', requestId)
       .eq('business_id', biz.id)
       .maybeSingle()
@@ -384,10 +384,10 @@ jobhub.get(
       userIds.length
         ? db.from('job_hub_profiles').select('user_id, location_city, availability').in('user_id', userIds)
         : Promise.resolve({ data: [] }),
-      userIds.length
+      userIds.length && request.role_id
         ? db.from('certificates')
             .select('user_id')
-            .eq('role_id', (await db.from('hire_requests').select('role_id').eq('id', requestId).single()).data!.role_id)
+            .eq('role_id', request.role_id)
             .eq('is_revoked', false)
             .in('user_id', userIds)
         : Promise.resolve({ data: [] }),
@@ -426,9 +426,9 @@ jobhub.patch(
     let body: { status?: string }
     try { body = await c.req.json() } catch { body = {} }
 
-    const validStatuses = ['shortlisted', 'hired', 'rejected', 'pending']
+    const validStatuses = ['shortlisted', 'hired', 'rejected']
     if (!body.status || !validStatuses.includes(body.status)) {
-      return c.json({ success: false, error: 'Invalid status' }, 400)
+      return c.json({ success: false, error: 'Invalid status — must be shortlisted, hired, or rejected' }, 400)
     }
 
     // Verify the match belongs to a hire request owned by this business
@@ -459,9 +459,18 @@ jobhub.patch(
       )
     }
 
+    // Verify the hire request belongs to this business
+    const hireReq = match.hire_requests as { business_id: string }
+    if (hireReq.business_id !== biz.id) {
+      return c.json(
+        { success: false, error: 'Match not found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
     const { data: updated, error } = await db
       .from('job_matches')
-      .update({ status: body.status as 'pending' | 'shortlisted' | 'hired' | 'rejected' })
+      .update({ status: body.status as 'shortlisted' | 'hired' | 'rejected' })
       .eq('id', matchId)
       .select('id, status')
       .single()

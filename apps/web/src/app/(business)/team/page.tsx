@@ -60,8 +60,8 @@ function InviteModal({
     setSending(true)
     setError('')
     try {
-      await api.post('/business/members', {
-        phone:    `+234${phone.trim()}`,
+      await api.post('/business/members/invite', {
+        phone:    `+234${phone.trim().replace(/^0/, '')}`,
         jobTitle: jobTitle.trim() || undefined,
         roleId:   roleId || undefined,
       })
