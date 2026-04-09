@@ -428,7 +428,7 @@ export default function HirePage() {
 
         {/* ── How it works ──────────────────────────────────────────────── */}
         <Card size="sm" className="border-primary/20 bg-linear-to-br from-primary/5 to-transparent">
-          <CardContent className="p-5">
+          <CardContent className="px-6 py-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-primary">How it works</p>
             <div className="grid gap-3 sm:grid-cols-3">
               {[
