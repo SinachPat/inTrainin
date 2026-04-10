@@ -8,7 +8,6 @@ import {
   Check,
   Lock,
   Flame,
-  Zap,
   ChevronRight,
   MapPin,
   CheckCircle2,
@@ -73,7 +72,7 @@ export function FeatureTabs() {
                 "Final Certification Exam per role",
                 "Audio read-aloud in English",
                 "Progress saved at topic level — resume anytime",
-                "XP points and streak rewards",
+                "Gamified learning — streaks, badges, and challenges",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-foreground">
                   <Check className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -147,7 +146,7 @@ export function FeatureTabs() {
                   <Flame className="size-3 text-primary" /> 5-day streak
                 </span>
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Zap className="size-3 text-primary" /> 340 XP
+                  🏅 Module 2 badge earned
                 </span>
               </div>
             </div>
@@ -168,9 +167,8 @@ export function FeatureTabs() {
                 Proof that follows<br />you everywhere
               </h3>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Pass the Final Exam and a verifiable digital certificate is generated instantly —
-                no admin approval needed. Share it on WhatsApp, LinkedIn, or send the link
-                directly to employers.
+                Pass the Final Exam and a verifiable digital certificate is generated instantly.
+                Share it on WhatsApp, LinkedIn, or send the link directly to employers.
               </p>
             </div>
             <ul className="flex flex-col gap-2.5">

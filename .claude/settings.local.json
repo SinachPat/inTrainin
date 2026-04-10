@@ -54,7 +54,9 @@
       "Bash(node ../../node_modules/typescript/bin/tsc --noEmit)",
       "Bash(timeout 90 node /Users/USER/Desktop/intrainin/node_modules/typescript/bin/tsc --noEmit)",
       "Bash(node /Users/USER/Desktop/intrainin/node_modules/typescript/bin/tsc --noEmit)",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(grep -E ':\\\\s*\"[^\"]{0,20}\"')",
+      "Bash(grep -E '^\\\\s+|\\\\s+$|  ')"
     ]
   }
 }

@@ -25,12 +25,6 @@ import { cn } from "@/lib/utils";
 
 const CITIES = ["Lagos", "Abuja", "Enugu", "Kano", "Port Harcourt"];
 
-const STATS = [
-  { value: "15+", label: "Roles at launch" },
-  { value: "7", label: "Industry categories" },
-  { value: "40+", label: "Curricula planned" },
-  { value: "5", label: "Cities in Phase 1" },
-];
 
 const TESTIMONIALS = [
   {
@@ -58,15 +52,31 @@ const TESTIMONIALS = [
 
 const PRICING = [
   {
+    name: "Pay as you learn",
+    price: "₦600",
+    period: "module",
+    description: "Pay one module at a time. Complete all 5 modules and the final exam for ~₦3,000 total.",
+    cta: "Start a module",
+    href: "/roles",
+    features: [
+      "No upfront cost — pay as you go",
+      "Access one module at a time",
+      "Module test included",
+      "Final Exam unlocks after all modules",
+      "Verifiable certificate on completion",
+    ],
+    highlight: false,
+  },
+  {
     name: "Individual Course",
     price: "₦2,500",
-    period: "per role",
-    description: "Full curriculum access for one role — modules, tests, and your certificate.",
+    period: "role",
+    description: "Pay once, get full access to the complete role curriculum — all modules, tests, and your certificate.",
     cta: "Browse roles",
     href: "/roles",
     features: [
-      "Complete role curriculum",
-      "Module tests + Final Exam",
+      "Complete role curriculum upfront",
+      "All module tests + Final Exam",
       "Verifiable digital certificate",
       "Audio read-aloud",
       "Progress saved forever",
@@ -76,7 +86,7 @@ const PRICING = [
   {
     name: "Job Hub",
     price: "₦1,000",
-    period: "per month",
+    period: "month",
     description: "Passive job matching. Get alerts when employers post roles that fit your profile.",
     cta: "Start matching",
     href: "/job-hub",
@@ -92,7 +102,7 @@ const PRICING = [
   {
     name: "Enterprise",
     price: "₦15,000",
-    period: "per month",
+    period: "month",
     description: "Train your entire team. Bulk enroll, track progress, and hire from one dashboard.",
     cta: "Talk to us",
     href: "/business",
@@ -182,14 +192,13 @@ export default function Home() {
               </h1>
 
               <p className="max-w-md text-base leading-relaxed text-muted-foreground">
-                InTrainin is the role-based learning platform for informal sector workers across
-                Nigeria. Structured training, verifiable certificates, and direct job matching —
-                built for the roles that matter.
+                Pick your role. Learn step by step. Earn a certificate that gets you hired —
+                no classroom, no experience required.
               </p>
 
               <div className="flex w-full flex-col gap-3 sm:flex-row">
                 <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto px-8")}>
-                  Start learning free
+                  Get started
                   <ArrowRight className="ml-1 size-4" />
                 </Link>
                 <Link href="/roles" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto px-8")}>
@@ -204,7 +213,7 @@ export default function Home() {
 
             {/* Right: photo + floating card */}
             <div className="relative hidden md:block">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border shadow-xl">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-border shadow-xl">
                 <Image
                   src="/hero.jpg"
                   alt="Nigerian professional handling payment at work"
@@ -226,12 +235,6 @@ export default function Home() {
                       <CheckCircle2 className="size-3.5" /> Verified
                     </div>
                   </div>
-                </div>
-              </div>
-              {/* Floating XP badge */}
-              <div className="absolute -left-4 top-1/3 rounded-lg border border-border bg-background px-3 py-2 shadow-lg">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Zap className="size-3.5 text-primary" /> 340 XP earned
                 </div>
               </div>
             </div>
@@ -270,7 +273,7 @@ export default function Home() {
             Three pillars. One outcome.
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-            Every feature is built around the same goal: getting informal sector workers trained,
+            Every feature is built around the same goal: getting you trained,
             certified, and into better employment faster.
           </p>
         </div>
@@ -395,7 +398,7 @@ export default function Home() {
             <div className="flex flex-col gap-4">
               {[
                 { icon: BookOpen, title: "Structured progression", desc: "Topics unlock in sequence within each module. Module tests unlock only after all topics are done." },
-                { icon: Zap, title: "Gamified motivation", desc: "XP points, daily streaks, and milestone badges keep learners moving through the material." },
+                { icon: Zap, title: "Gamified motivation", desc: "Daily streaks, milestone badges, and challenge-based learning keep you engaged through every module." },
                 { icon: TrendingUp, title: "Resume anywhere", desc: "Progress is saved at the topic level. Learners can close and return from exactly where they left off." },
               ].map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="flex gap-3">
@@ -515,8 +518,8 @@ export default function Home() {
               </h2>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Pass the Final Exam and a verifiable digital certificate is generated instantly.
-                No admin approval, no waiting. Share it on WhatsApp with a job application, post
-                it on LinkedIn, or give an employer the verification link to confirm it in seconds.
+                Share it on WhatsApp with a job application, post it on LinkedIn, or give an
+                employer the verification link to confirm it in seconds.
               </p>
             </div>
             <div className="flex flex-col gap-4">
@@ -635,23 +638,8 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── 9. STATS ─────────────────────────────────────────────────────── */}
-      <Section>
-        <div className="border-b border-border px-4 py-8 text-center md:px-8">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">By the numbers</p>
-          <h2 className="text-2xl font-bold text-foreground md:text-3xl">Built to scale</h2>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-border md:grid-cols-4 md:divide-y-0">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="flex flex-col items-center gap-1 px-4 py-8 md:px-8">
-              <p className="text-4xl font-bold text-foreground">{stat.value}</p>
-              <p className="text-center text-sm text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
 
-      {/* ── 10. BUSINESS SECTION ─────────────────────────────────────────── */}
+      {/* ── 9. BUSINESS SECTION ──────────────────────────────────────────── */}
       <Section>
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Copy */}
@@ -742,7 +730,7 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── 11. TESTIMONIALS ─────────────────────────────────────────────── */}
+      {/* ── 10. TESTIMONIALS ─────────────────────────────────────────────── */}
       <Section>
         <div className="px-4 py-10 md:px-8 md:py-14">
           <div className="mb-8">
@@ -775,17 +763,17 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── 12. PRICING ──────────────────────────────────────────────────── */}
+      {/* ── 11. PRICING ──────────────────────────────────────────────────── */}
       <Section>
         <div className="px-4 py-10 md:px-8 md:py-14">
           <div className="mb-8 text-center">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pricing</p>
             <h2 className="text-2xl font-bold text-foreground md:text-3xl">Pay for what you need</h2>
             <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-              Individual courses from ₦2,500. Job matching from ₦1,000/month. Enterprise plans starting at ₦15,000/month.
+              Start from ₦600 per module — or pay ₦2,500 upfront for the full course. Job matching from ₦1,000/month. Enterprise from ₦15,000/month.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PRICING.map((plan) => (
               <div
                 key={plan.name}
@@ -834,7 +822,7 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ── 13. FINAL CTA ────────────────────────────────────────────────── */}
+      {/* ── 12. FINAL CTA ────────────────────────────────────────────────── */}
       <section
         className="relative w-full border-b border-border"
         style={{
@@ -856,7 +844,7 @@ export default function Home() {
           </p>
           <div className="flex w-full flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link href="/roles" className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto px-8")}>
-              Start learning free
+              Get started
               <ArrowRight className="ml-1 size-4" />
             </Link>
             <Link href="/business" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full sm:w-auto px-8")}>
