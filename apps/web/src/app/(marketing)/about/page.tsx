@@ -327,10 +327,10 @@ export default function AboutPage() {
           Module 1 of every role is free — no payment, no account needed to start. See for yourself what structured role-based learning feels like.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link href="/roles" className={cn(buttonVariants({ size: "sm" }), "bg-background text-primary hover:bg-background/90")}>
+          <Link href="/roles" className={cn(buttonVariants({ size: "sm" }), "bg-foreground text-background hover:bg-foreground/80")}>
             Browse roles <ArrowRight className="ml-1 size-3.5" />
           </Link>
-          <Link href="/business" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10")}>
+          <Link href="/business" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-primary-foreground/50 text-primary-foreground hover:bg-primary-foreground/20 hover:border-primary-foreground/80")}>
             For businesses
           </Link>
         </div>

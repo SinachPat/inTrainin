@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { createServerClient } from '@intrainin/db'
 import {
   UpdateJobHubProfileSchema,
@@ -7,9 +8,13 @@ import {
   PostHireRequestSchema,
   UpdateHireRequestSchema,
   ERROR_CODES,
+  CREDITS_PACKS,
 } from '@intrainin/shared'
 import { authMiddleware, requireRole } from '../../middleware/auth.js'
 import type { AuthVariables } from '../../middleware/auth.js'
+import { paystack } from '../../lib/paystack.js'
+import type { PaystackVerifyData } from '../../lib/paystack.js'
+import { runMatchingForHireRequest } from './matcher.js'
 
 const jobhub = new Hono<{ Variables: AuthVariables }>()
 
@@ -31,6 +36,75 @@ jobhub.get('/credits', authMiddleware, requireRole('learner'), async (c) => {
   return c.json({ success: true, data: { balance } })
 })
 
+// ─── POST /jobhub/credits/purchase ───────────────────────────────────────────
+// Protected (learner) — verify a Paystack payment and top up the credit ledger.
+// The amount paid determines which credits pack is granted; Paystack is the
+// source of truth — we never trust the client's stated pack size.
+
+const PurchaseCreditsSchema = z.object({
+  paymentReference: z.string().min(1),
+})
+
+jobhub.post(
+  '/credits/purchase',
+  authMiddleware,
+  requireRole('learner'),
+  zValidator('json', PurchaseCreditsSchema),
+  async (c) => {
+    const userId          = c.get('userId')
+    const { paymentReference } = c.req.valid('json')
+    const db              = createServerClient()
+
+    // Idempotency — prevent double-granting for the same reference
+    const { data: alreadyUsed } = await db
+      .from('job_hub_credits')
+      .select('id, amount')
+      .eq('user_id', userId)
+      .eq('reference', paymentReference)
+      .eq('reason', 'purchase')
+      .maybeSingle()
+
+    if (alreadyUsed) {
+      return c.json({ success: true, data: { creditsAdded: alreadyUsed.amount, alreadyGranted: true } })
+    }
+
+    // Verify payment with Paystack
+    let txData: PaystackVerifyData
+    try {
+      const result = await paystack.verifyTransaction(paymentReference) as { status: boolean; data: PaystackVerifyData }
+      txData = result.data
+    } catch (err) {
+      console.error('[jobhub/credits/purchase] paystack verify error:', err)
+      return c.json({ success: false, error: 'Payment verification failed', code: ERROR_CODES.PAYMENT_FAILED }, 402)
+    }
+
+    if (txData.status !== 'success') {
+      return c.json(
+        { success: false, error: 'Payment was not successful', code: ERROR_CODES.PAYMENT_FAILED },
+        402,
+      )
+    }
+
+    // Paystack amounts are in kobo — convert to NGN and match to a pack
+    const amountNgn = txData.amount / 100
+    const pack = CREDITS_PACKS.find(p => p.priceNgn === amountNgn)
+    if (!pack) {
+      return c.json(
+        { success: false, error: 'Payment amount does not match any credits pack', code: ERROR_CODES.PAYMENT_FAILED },
+        402,
+      )
+    }
+
+    const { error } = await db
+      .from('job_hub_credits')
+      .insert({ user_id: userId, amount: pack.credits, reason: 'purchase', reference: paymentReference })
+
+    if (error) return c.json({ success: false, error: error.message }, 500)
+
+    return c.json({ success: true, data: { creditsAdded: pack.credits } })
+  },
+)
+
 // ─── POST /jobhub/credits/cron/monthly-grant ─────────────────────────────────
 // Internal — called by a scheduled job (GitHub Actions) on the 1st of each month.
 // Protected by a static CRON_SECRET header; not authenticated via JWT.
@@ -48,18 +122,7 @@ jobhub.post('/credits/cron/monthly-grant', async (c) => {
   monthStart.setUTCHours(0, 0, 0, 0)
   const monthStartISO = monthStart.toISOString()
 
-  // All active learner users
-  const { data: learners, error: learnersError } = await db
-    .from('users')
-    .select('id')
-    .eq('account_type', 'learner')
-
-  if (learnersError) {
-    console.error('[cron/monthly-grant] fetch learners error:', learnersError.message)
-    return c.json({ success: false, error: learnersError.message }, 500)
-  }
-
-  // Users who already got a grant this month
+  // Users who already got a grant this month — fetch once upfront
   const { data: alreadyGranted } = await db
     .from('job_hub_credits')
     .select('user_id')
@@ -68,26 +131,50 @@ jobhub.post('/credits/cron/monthly-grant', async (c) => {
 
   const alreadyGrantedIds = new Set((alreadyGranted ?? []).map(r => r.user_id))
 
-  const toGrant = (learners ?? []).filter(u => !alreadyGrantedIds.has(u.id))
+  // Process learners in pages of 200 to avoid loading all rows into memory at once.
+  // For 10,000 learners this is 50 iterations; each page is a small, fast round-trip.
+  const PAGE_SIZE = 200
+  let page = 0
+  let granted = 0
+  let skipped = 0
+  let done = false
 
-  if (toGrant.length === 0) {
-    return c.json({ success: true, data: { granted: 0, skipped: learners?.length ?? 0 } })
+  while (!done) {
+    const from = page * PAGE_SIZE
+    const { data: learners, error: learnersError } = await db
+      .from('users')
+      .select('id')
+      .eq('account_type', 'learner')
+      .range(from, from + PAGE_SIZE - 1)
+
+    if (learnersError) {
+      console.error('[cron/monthly-grant] fetch learners error:', learnersError.message)
+      return c.json({ success: false, error: learnersError.message }, 500)
+    }
+
+    if (!learners || learners.length === 0) break
+
+    const toGrant = learners.filter(u => !alreadyGrantedIds.has(u.id))
+    skipped += learners.length - toGrant.length
+
+    if (toGrant.length > 0) {
+      const { error: insertError } = await db
+        .from('job_hub_credits')
+        .insert(toGrant.map(u => ({ user_id: u.id, amount: 10, reason: 'monthly_grant' })))
+
+      if (insertError) {
+        console.error('[cron/monthly-grant] insert error:', insertError.message)
+        return c.json({ success: false, error: insertError.message }, 500)
+      }
+      granted += toGrant.length
+    }
+
+    if (learners.length < PAGE_SIZE) done = true
+    page++
   }
 
-  const { error: insertError } = await db
-    .from('job_hub_credits')
-    .insert(toGrant.map(u => ({ user_id: u.id, amount: 10, reason: 'monthly_grant' })))
-
-  if (insertError) {
-    console.error('[cron/monthly-grant] insert error:', insertError.message)
-    return c.json({ success: false, error: insertError.message }, 500)
-  }
-
-  console.log(`[cron/monthly-grant] granted 10 credits to ${toGrant.length} learners`)
-  return c.json({
-    success: true,
-    data: { granted: toGrant.length, skipped: alreadyGrantedIds.size },
-  })
+  console.log(`[cron/monthly-grant] granted 10 credits to ${granted} learners (${skipped} already had grant this month)`)
+  return c.json({ success: true, data: { granted, skipped } })
 })
 
 // ─── GET /jobhub/profile ──────────────────────────────────────────────────────
@@ -233,12 +320,22 @@ jobhub.patch(
         )
       }
 
-      // Deduct 5 credits
+      // Deduct 5 credits. Include the match ID as `reference` so migration 009's
+      // unique index on (user_id, reference) WHERE reason='apply' prevents double-spend
+      // if two requests race — the second insert will fail with a 23505 unique violation,
+      // which we treat as idempotent (credits were already deducted on the first request).
       const { error: deductError } = await db
         .from('job_hub_credits')
-        .insert({ user_id: userId, amount: -5, reason: 'apply' })
+        .insert({ user_id: userId, amount: -5, reason: 'apply', reference: matchId })
 
-      if (deductError) return c.json({ success: false, error: deductError.message }, 500)
+      if (deductError) {
+        if (deductError.code === '23505') {
+          // Unique violation — credits were already deducted for this match (race condition).
+          // Fall through and allow the status update to proceed idempotently.
+        } else {
+          return c.json({ success: false, error: deductError.message }, 500)
+        }
+      }
     }
 
     const { data: updated, error } = await db
@@ -339,6 +436,11 @@ jobhub.post(
       .single()
 
     if (error) return c.json({ success: false, error: error.message }, 500)
+
+    // Fire-and-forget matching — run asynchronously so the response is immediate
+    runMatchingForHireRequest(request.id).catch(e =>
+      console.error('[jobhub/hire-requests] matching failed:', e)
+    )
 
     return c.json({ success: true, data: { request } }, 201)
   },

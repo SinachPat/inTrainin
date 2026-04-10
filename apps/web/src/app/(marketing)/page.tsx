@@ -89,7 +89,7 @@ const PRICING = [
     href: "/job-hub",
     features: [
       "10 free credits on signup",
-      "Top-up from ₦500 for 5 credits",
+      "Top-up from ₦2,000 for 20 credits",
       "Accept or decline from phone",
       "Certified candidates ranked first",
       "Only pay when you apply",
@@ -748,7 +748,7 @@ export default function Home() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pricing</p>
             <h2 className="text-2xl font-bold text-foreground md:text-3xl">Pay for what you need</h2>
             <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-              Start from ₦600 per module — or pay ₦2,500 upfront for the full course. Job Hub credits from ₦500. Enterprise from ₦15,000/month.
+              Start from ₦600 per module — or pay ₦2,500 upfront for the full course. Job Hub credits from ₦2,000 for 20 credits. Enterprise from ₦15,000/month.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

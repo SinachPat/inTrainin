@@ -64,11 +64,18 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Dedicated support',
   ],
   business: [
-    'Up to 50 team members',
+    'Up to 100 team members',
     'Everything in Growth',
     'Analytics dashboard',
     'Bulk enrolments',
     'SLA support',
+  ],
+  enterprise_plus: [
+    'Unlimited team members',
+    'Custom curriculum',
+    'White-label certificates',
+    'SLA support',
+    'Dedicated account manager',
   ],
 }
 

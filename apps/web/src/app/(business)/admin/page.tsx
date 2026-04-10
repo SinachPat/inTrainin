@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Users, Award, Briefcase, TrendingUp, UserPlus,
-  ChevronRight, ArrowRight,
+  ChevronRight, ArrowRight, AlertTriangle, Star,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,24 +33,34 @@ interface ProgressEntry {
   completedTopics: number
 }
 
+interface Analytics {
+  overallCompletionRate: number
+  perRoleStats:  { roleTitle: string; enrolledCount: number; completedCount: number; completionRate: number }[]
+  atRiskMembers: { name: string; role: string | null; completionPct: number; lastActivity: string | null }[]
+  topPerformers: { name: string; role: string | null; completionPct: number; xp: number }[]
+}
+
 export default function BusinessAdminPage() {
-  const [profile, setProfile]   = useState<BizProfile | null>(null)
-  const [members, setMembers]   = useState<Member[]>([])
-  const [progress, setProgress] = useState<ProgressEntry[]>([])
-  const [seatUsed, setSeatUsed] = useState(0)
-  const [loading, setLoading]   = useState(true)
+  const [profile,   setProfile]   = useState<BizProfile | null>(null)
+  const [members,   setMembers]   = useState<Member[]>([])
+  const [progress,  setProgress]  = useState<ProgressEntry[]>([])
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [seatUsed,  setSeatUsed]  = useState(0)
+  const [loading,   setLoading]   = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [profileRes, membersRes, progressRes] = await Promise.all([
+        const [profileRes, membersRes, progressRes, analyticsRes] = await Promise.all([
           api.get<{ success: boolean; data: { profile: BizProfile } }>('/business/profile').catch(() => null),
           api.get<{ success: boolean; data: { members: Member[]; seatLimit: number; seatUsed: number } }>('/business/members').catch(() => null),
           api.get<{ success: boolean; data: { progress: ProgressEntry[] } }>('/business/progress').catch(() => null),
+          api.get<{ success: boolean; data: Analytics }>('/business/analytics').catch(() => null),
         ])
-        if (profileRes)  setProfile(profileRes.data.profile)
-        if (membersRes)  { setMembers(membersRes.data.members); setSeatUsed(membersRes.data.seatUsed) }
-        if (progressRes) setProgress(progressRes.data.progress)
+        if (profileRes)   setProfile(profileRes.data.profile)
+        if (membersRes)   { setMembers(membersRes.data.members); setSeatUsed(membersRes.data.seatUsed) }
+        if (progressRes)  setProgress(progressRes.data.progress)
+        if (analyticsRes) setAnalytics(analyticsRes.data)
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
       } finally {
@@ -221,6 +231,58 @@ export default function BusinessAdminPage() {
               </div>
             )}
           </section>
+
+          {/* ── Analytics ────────────────────────────────────────────────── */}
+          {analytics && (analytics.atRiskMembers.length > 0 || analytics.topPerformers.length > 0) && (
+            <section className="grid gap-4 sm:grid-cols-2">
+
+              {/* At-risk members */}
+              {analytics.atRiskMembers.length > 0 && (
+                <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <p className="text-sm font-semibold text-foreground">At risk ({analytics.atRiskMembers.length})</p>
+                  </div>
+                  <p className="mb-3 text-[11px] text-muted-foreground">No activity in the last 7 days</p>
+                  <div className="space-y-2">
+                    {analytics.atRiskMembers.slice(0, 3).map((m, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-foreground">{m.name}</p>
+                          {m.role && <p className="text-[10px] text-muted-foreground">{m.role}</p>}
+                        </div>
+                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{m.completionPct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top performers */}
+              {analytics.topPerformers.length > 0 && (
+                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    <p className="text-sm font-semibold text-foreground">Top performers</p>
+                  </div>
+                  <div className="space-y-2">
+                    {analytics.topPerformers.slice(0, 3).map((m, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-foreground">{m.name}</p>
+                          {m.role && <p className="text-[10px] text-muted-foreground">{m.role}</p>}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[10px] font-semibold text-foreground">{m.completionPct}%</p>
+                          <p className="text-[9px] text-muted-foreground">{m.xp} XP</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ── Quick actions ─────────────────────────────────────────────── */}
           <section className="grid gap-3 sm:grid-cols-2">

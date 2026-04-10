@@ -10,6 +10,9 @@ import {
 import { authMiddleware } from '../../middleware/auth.js'
 import type { AuthVariables } from '../../middleware/auth.js'
 import { onTopicComplete, onEnrolment } from '../../lib/gamification.js'
+import { paystack } from '../../lib/paystack.js'
+import type { PaystackVerifyData } from '../../lib/paystack.js'
+import { runMatchingForHireRequest } from '../jobhub/matcher.js'
 
 const learning = new Hono<{ Variables: AuthVariables }>()
 
@@ -121,6 +124,14 @@ learning.post(
 
     const isPaid = role.price_ngn > 0
 
+    // Enterprise enrollments (business paying for a worker) must always carry a reference
+    if (paymentType === 'enterprise' && !paymentReference) {
+      return c.json(
+        { success: false, error: 'Enterprise enrollments require a payment reference', code: ERROR_CODES.PAYMENT_FAILED },
+        402,
+      )
+    }
+
     if (isPaid && !paymentReference) {
       const { count: enrolCount } = await db
         .from('enrollments')
@@ -135,7 +146,37 @@ learning.post(
       }
     }
 
-    // TODO Layer 8: verify paymentReference with Paystack before inserting
+    // Verify payment with Paystack before creating the enrollment.
+    // Skipped for free-tier enrolments (no reference) so the free-first-course path still works.
+    if (isPaid && paymentReference) {
+      let txData: PaystackVerifyData
+      try {
+        const result = await paystack.verifyTransaction(paymentReference) as { status: boolean; data: PaystackVerifyData }
+        txData = result.data
+      } catch (err) {
+        console.error('[learning/enrol] paystack verify error:', err)
+        return c.json(
+          { success: false, error: 'Payment verification failed', code: ERROR_CODES.PAYMENT_FAILED },
+          402,
+        )
+      }
+
+      if (txData.status !== 'success') {
+        return c.json(
+          { success: false, error: 'Payment was not successful', code: ERROR_CODES.PAYMENT_FAILED },
+          402,
+        )
+      }
+
+      // Amount check — Paystack returns kobo (1 NGN = 100 kobo)
+      const expectedKobo = role.price_ngn * 100
+      if (txData.amount !== expectedKobo) {
+        return c.json(
+          { success: false, error: 'Payment amount does not match role price', code: ERROR_CODES.PAYMENT_FAILED },
+          402,
+        )
+      }
+    }
 
     const { data: enrolment, error: enrolError } = await db
       .from('enrollments')
@@ -151,8 +192,22 @@ learning.post(
 
     if (enrolError) return c.json({ success: false, error: enrolError.message }, 500)
 
-    // Fire-and-forget: gamification failure must never break the response
+    // Fire-and-forget: gamification + job matching must never break the response
     onEnrolment(db, userId).catch(console.error)
+
+    // Re-run matching for any open hire requests targeting this role
+    db.from('hire_requests')
+      .select('id')
+      .eq('role_id', roleId)
+      .eq('status', 'open')
+      .then(({ data: openReqs }) => {
+        for (const r of openReqs ?? []) {
+          runMatchingForHireRequest(r.id).catch(e =>
+            console.error('[learning/enrol] re-matching failed for', r.id, e)
+          )
+        }
+      })
+      .catch(console.error)
 
     return c.json({ success: true, data: { enrolment } }, 201)
   },
@@ -180,24 +235,35 @@ learning.get('/enrolments', authMiddleware, async (c) => {
 
   if (error) return c.json({ success: false, error: error.message }, 500)
 
-  const withProgress = await Promise.all(
-    (enrolments ?? []).map(async (enr) => {
-      const allTopicIds: string[] = ((enr.roles as { modules: { topics: { id: string }[] }[] } | null)?.modules ?? [])
-        .flatMap(mod => mod.topics.map(t => t.id))
+  // Collect all topic IDs across every enrollment in a single pass, then
+  // fetch completions in ONE query rather than one-per-enrollment (N+1 → 2).
+  type RoleWithModules = { modules: { topics: { id: string }[] }[] } | null
+  const enrolmentTopicIds: string[][] = (enrolments ?? []).map(enr =>
+    ((enr.roles as RoleWithModules)?.modules ?? []).flatMap(mod => mod.topics.map(t => t.id))
+  )
+  const allTopicIds = enrolmentTopicIds.flat()
 
-      const { count: completedCount } = await db
+  const { data: completedRows } = allTopicIds.length > 0
+    ? await db
         .from('topic_progress')
-        .select('id', { count: 'exact', head: true })
+        .select('topic_id')
         .eq('user_id', userId)
         .eq('status', 'completed')
-        .in('topic_id', allTopicIds.length > 0 ? allTopicIds : ['__none__'])
+        .in('topic_id', allTopicIds)
+    : { data: [] }
 
-      return {
-        ...enr,
-        progress: { completedTopics: completedCount ?? 0, totalTopics: allTopicIds.length },
-      }
-    }),
-  )
+  const completedSet = new Set((completedRows ?? []).map(r => r.topic_id))
+
+  const withProgress = (enrolments ?? []).map((enr, idx) => {
+    const topicIds = enrolmentTopicIds[idx]
+    return {
+      ...enr,
+      progress: {
+        completedTopics: topicIds.filter(id => completedSet.has(id)).length,
+        totalTopics:     topicIds.length,
+      },
+    }
+  })
 
   return c.json({ success: true, data: { enrolments: withProgress } })
 })
@@ -242,7 +308,7 @@ learning.get('/topics/:id', authMiddleware, async (c) => {
     .select('id')
     .eq('user_id', userId)
     .eq('role_id', roleId)
-    .eq('status', 'active')
+    .in('status', ['active', 'completed'])  // completed learners can still re-read content
     .maybeSingle()
 
   if (!enrolment) {
@@ -308,6 +374,7 @@ learning.post(
       .select('id')
       .eq('user_id', userId)
       .eq('role_id', roleId)
+      .eq('status', 'active')  // completed/paused enrollments cannot mark new topics
       .maybeSingle()
 
     if (!enrolment) {

@@ -81,25 +81,6 @@ export const MEMBER_STATUS_LABELS: Record<string, string> = {
   removed: 'Removed',
 }
 
-// ── Subscription plans (Job Hub worker) ──────────────────────────────────────
-
-export const JOB_HUB_PLANS = [
-  {
-    key:      'monthly' as const,
-    label:    'Monthly',
-    priceNgn: 1_000,
-    sub:      '/month',
-    billing:  'Billed monthly',
-  },
-  {
-    key:      'annual' as const,
-    label:    'Annual',
-    priceNgn: 8_000,
-    sub:      '/year',
-    billing:  'Save ₦4,000 vs monthly',
-    highlight: true,
-  },
-]
 
 // ── Business subscription plans ───────────────────────────────────────────────
 
@@ -160,6 +141,14 @@ export const NG_CITIES = [
   'Zaria',
 ] as const
 export type NgCity = (typeof NG_CITIES)[number]
+
+// ── Job Hub credit packs (learner credit top-ups via Paystack) ────────────────
+
+export const CREDITS_PACKS = [
+  { credits: 20,  priceNgn: 2_000 },
+  { credits: 50,  priceNgn: 4_500 },
+  { credits: 100, priceNgn: 8_000 },
+] as const satisfies ReadonlyArray<{ credits: number; priceNgn: number }>
 
 // ── API error codes (machine-readable, returned in ApiError.code) ─────────────
 

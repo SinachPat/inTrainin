@@ -140,6 +140,7 @@ export interface Database {
           fcm_token: string | null
           notification_prefs: NotificationPrefs
           job_location_pref: 'onsite' | 'remote' | 'hybrid' | 'any' | null
+          resume_url: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -160,6 +161,7 @@ export interface Database {
           fcm_token?: string | null
           notification_prefs?: NotificationPrefs
           job_location_pref?: 'onsite' | 'remote' | 'hybrid' | 'any' | null
+          resume_url?: string | null
           deleted_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>

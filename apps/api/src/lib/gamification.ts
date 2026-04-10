@@ -61,28 +61,25 @@ async function updateStreak(db: DbClient, userId: string): Promise<void> {
 
 /**
  * Award XP to a user and update their streak.
+ * Uses an RPC for an atomic increment — avoids the read-modify-write race
+ * condition where two concurrent events (e.g. topic complete + test pass)
+ * both read the same stale xp_total and one overwrites the other.
+ * The RPC is defined in migration 009.
  * Returns the new XP total.
  */
 export async function awardXp(db: DbClient, userId: string, xp: number): Promise<number> {
-  // Fetch current XP
-  const { data: user } = await db
-    .from('users')
-    .select('xp_total')
-    .eq('id', userId)
-    .single()
+  const { data, error } = await (db as ReturnType<typeof import('@intrainin/db').createServerClient>)
+    .rpc('increment_user_xp', { p_user_id: userId, p_amount: xp })
 
-  const currentXp = user?.xp_total ?? 0
-  const newXp     = currentXp + xp
-
-  await db
-    .from('users')
-    .update({ xp_total: newXp })
-    .eq('id', userId)
+  if (error) {
+    console.error('[gamification] increment_user_xp RPC error:', error.message)
+    return 0
+  }
 
   // Update streak alongside every XP award
   await updateStreak(db, userId)
 
-  return newXp
+  return (data as number | null) ?? 0
 }
 
 /**
@@ -214,7 +211,10 @@ export async function checkBadges(db: DbClient, userId: string): Promise<void> {
   }
 
   if (toInsert.length > 0) {
-    await db.from('user_badges').insert(toInsert)
+    // ignoreDuplicates handles the race where two concurrent checkBadges calls
+    // both pass the earnedIds check before either has inserted — the second
+    // insert is silently dropped rather than throwing a unique-violation error.
+    await db.from('user_badges').insert(toInsert, { ignoreDuplicates: true })
   }
 }
 

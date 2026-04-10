@@ -233,7 +233,8 @@ auth.get('/me', authMiddleware, async (c) => {
     db.from('users').select(`
       id, phone, email, full_name, location_city, location_state,
       account_type, avatar_url, xp_total, streak_current,
-      streak_last_activity_date, notification_prefs, job_location_pref, created_at
+      streak_last_activity_date, notification_prefs, job_location_pref,
+      resume_url, created_at
     `).eq('id', userId).single(),
     db.auth.admin.getUserById(userId),
   ])
@@ -250,6 +251,35 @@ auth.get('/me', authMiddleware, async (c) => {
   const phone = user.phone ?? authUserData.user?.phone ?? null
 
   return c.json({ success: true, data: { user: { ...user, phone } } })
+})
+
+// ─── POST /auth/refresh ───────────────────────────────────────────────────────
+// Unauthenticated — exchanges a valid refresh token for a new access+refresh pair.
+// Called automatically by api.ts when a request returns 401.
+
+auth.post('/refresh', async (c) => {
+  let body: { refreshToken?: string }
+  try { body = await c.req.json() } catch { body = {} }
+
+  if (!body.refreshToken) {
+    return c.json({ success: false, error: 'refreshToken is required' }, 400)
+  }
+
+  const db = createServerClient()
+  const { data, error } = await db.auth.refreshSession({ refresh_token: body.refreshToken })
+
+  if (error || !data.session) {
+    return c.json({ success: false, error: 'Invalid or expired refresh token' }, 401)
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      accessToken:  data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresIn:    data.session.expires_in,
+    },
+  })
 })
 
 // ─── POST /auth/logout ────────────────────────────────────────────────────────
@@ -287,6 +317,90 @@ auth.put(
     return c.json({ success: true, data: { notificationPrefs: prefs } })
   },
 )
+
+// ─── POST /auth/profile/resume/upload-url ────────────────────────────────────
+// Protected — returns a short-lived signed upload URL for the user's CV/resume.
+// The client uploads directly to Supabase Storage; only the resulting public
+// path is stored on public.users.resume_url.
+
+auth.post('/profile/resume/upload-url', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const db     = createServerClient()
+
+  // File lives at resumes/{userId}/cv.pdf — overwrites on re-upload
+  const path = `${userId}/cv.pdf`
+
+  const { data, error } = await db.storage
+    .from('resumes')
+    .createSignedUploadUrl(path)
+
+  if (error || !data) {
+    return c.json({ success: false, error: error?.message ?? 'Could not create upload URL' }, 500)
+  }
+
+  // After the client uploads, it should call PATCH /auth/profile/resume to
+  // persist the storage path on the user's record.
+  return c.json({
+    success: true,
+    data: {
+      signedUrl: data.signedUrl,
+      token:     data.token,
+      path,
+    },
+  })
+})
+
+// ─── PATCH /auth/profile/resume ───────────────────────────────────────────────
+// Protected — called after a successful direct upload to confirm the path and
+// persist it on public.users.resume_url.
+
+auth.patch('/profile/resume', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const db     = createServerClient()
+
+  let body: { path?: string }
+  try { body = await c.req.json() } catch { body = {} }
+
+  if (!body.path) {
+    return c.json({ success: false, error: 'path is required' }, 400)
+  }
+
+  // Verify the path actually belongs to this user
+  if (!body.path.startsWith(`${userId}/`)) {
+    return c.json({ success: false, error: 'Forbidden' }, 403)
+  }
+
+  const { error } = await db
+    .from('users')
+    .update({ resume_url: body.path })
+    .eq('id', userId)
+
+  if (error) return c.json({ success: false, error: error.message }, 500)
+
+  return c.json({ success: true, data: { resumeUrl: body.path } })
+})
+
+// ─── DELETE /auth/profile/resume ─────────────────────────────────────────────
+// Protected — removes the stored CV from Storage and clears resume_url.
+
+auth.delete('/profile/resume', authMiddleware, async (c) => {
+  const userId = c.get('userId')
+  const db     = createServerClient()
+
+  const path = `${userId}/cv.pdf`
+
+  // Remove from storage (best-effort — don't block on not-found)
+  await db.storage.from('resumes').remove([path])
+
+  const { error } = await db
+    .from('users')
+    .update({ resume_url: null })
+    .eq('id', userId)
+
+  if (error) return c.json({ success: false, error: error.message }, 500)
+
+  return c.json({ success: true, data: { message: 'Resume removed' } })
+})
 
 // ─── GET /auth/users/:id/public ──────────────────────────────────────────────
 // Unauthenticated — returns name, city, role, and earned certificates for a

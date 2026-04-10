@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Briefcase, MapPin, CheckCircle2, XCircle, Clock,
-  ArrowRight, Building2, Star, ChevronRight,
-  Bell, Check, Coins, Plus,
+  ArrowRight, Star, ChevronRight,
+  Bell, Check, Coins, Plus, Loader2,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
+import { getSession } from '@/lib/auth'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,9 +56,9 @@ const EMPLOYMENT_OPTIONS = [
 ]
 
 const CREDIT_PACKAGES = [
-  { credits: 5,  price: '₦500',   label: 'Starter pack' },
-  { credits: 15, price: '₦1,400', label: 'Popular', highlight: true },
-  { credits: 30, price: '₦2,500', label: 'Best value' },
+  { credits: 20,  priceNgn: 2_000, price: '₦2,000',  label: 'Starter pack' },
+  { credits: 50,  priceNgn: 4_500, price: '₦4,500',  label: 'Popular', highlight: true },
+  { credits: 100, priceNgn: 8_000, price: '₦8,000',  label: 'Best value' },
 ]
 
 function timeAgo(iso: string) {
@@ -101,13 +101,79 @@ function CreditPill({ balance, onBuy }: { balance: number; onBuy: () => void }) 
 
 // ── Buy credits modal ─────────────────────────────────────────────────────────
 
-function BuyCreditsSheet({ onClose }: { onClose: () => void }) {
+type PaystackPopInstance = { openIframe: () => void }
+type PaystackPopSetup = (opts: Record<string, unknown>) => PaystackPopInstance
+
+function loadPaystackScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as Window & { PaystackPop?: unknown }).PaystackPop) { resolve(); return }
+    const script = document.createElement('script')
+    script.src = 'https://js.paystack.co/v1/inline.js'
+    script.onload  = () => resolve()
+    script.onerror = () => reject(new Error('Failed to load Paystack'))
+    document.head.appendChild(script)
+  })
+}
+
+function BuyCreditsSheet({ userId, onCreditsPurchased, onClose }: {
+  userId: string
+  onCreditsPurchased: (added: number) => void
+  onClose: () => void
+}) {
+  const [purchasing, setPurchasing] = useState<number | null>(null)
+  const [error, setError]           = useState<string | null>(null)
+
+  async function handleBuy(pkg: typeof CREDIT_PACKAGES[number]) {
+    const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
+    if (!publicKey) {
+      setError('Payment not configured — please contact support.')
+      return
+    }
+    setPurchasing(pkg.credits)
+    setError(null)
+
+    try {
+      await loadPaystackScript()
+    } catch {
+      setPurchasing(null)
+      setError('Could not load payment widget — check your connection and try again.')
+      return
+    }
+
+    const PaystackPop = (window as Window & { PaystackPop: { setup: PaystackPopSetup } }).PaystackPop
+
+    const handler = PaystackPop.setup({
+      key:      publicKey,
+      email:    `${userId}@users.intrainin.com`,
+      amount:   pkg.priceNgn * 100,
+      currency: 'NGN',
+      metadata: { type: 'credits', user_id: userId },
+      onSuccess: async (response: { reference: string }) => {
+        try {
+          const res = await api.post<{ success: boolean; data: { creditsAdded: number } }>(
+            '/jobhub/credits/purchase',
+            { paymentReference: response.reference },
+          )
+          onCreditsPurchased(res.data.creditsAdded)
+          onClose()
+        } catch {
+          setError('Payment succeeded but credits could not be applied — contact support@intrainin.com.')
+        } finally {
+          setPurchasing(null)
+        }
+      },
+      onCancel: () => { setPurchasing(null) },
+    })
+
+    handler.openIframe()
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
       <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <p className="font-semibold text-foreground">Buy credits</p>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+          <button onClick={onClose} disabled={purchasing !== null} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
           Each job application costs <strong className="text-foreground">5 credits</strong>. Credits never expire and roll over monthly.
@@ -116,8 +182,10 @@ function BuyCreditsSheet({ onClose }: { onClose: () => void }) {
           {CREDIT_PACKAGES.map(pkg => (
             <button
               key={pkg.credits}
+              onClick={() => handleBuy(pkg)}
+              disabled={purchasing !== null}
               className={cn(
-                'relative w-full rounded-xl border px-4 py-3 text-left transition-all hover:border-primary/50',
+                'relative w-full rounded-xl border px-4 py-3 text-left transition-all hover:border-primary/50 disabled:opacity-60',
                 pkg.highlight ? 'border-primary bg-primary/5' : 'border-border bg-background',
               )}
             >
@@ -131,14 +199,15 @@ function BuyCreditsSheet({ onClose }: { onClose: () => void }) {
                   <p className="text-sm font-semibold text-foreground">{pkg.credits} credits</p>
                   <p className="text-xs text-muted-foreground">{!pkg.highlight && pkg.label}</p>
                 </div>
-                <p className="text-base font-bold text-foreground">{pkg.price}</p>
+                {purchasing === pkg.credits
+                  ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  : <p className="text-base font-bold text-foreground">{pkg.price}</p>}
               </div>
             </button>
           ))}
         </div>
-        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-center">
-          <p className="text-xs text-muted-foreground">Paystack checkout coming soon · Credits will be applied instantly on payment</p>
-        </div>
+        {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+        <p className="mt-3 text-center text-[11px] text-muted-foreground">Secured by Paystack · Credits applied instantly on payment</p>
       </div>
     </div>
   )
@@ -239,11 +308,12 @@ function MatchCard({ match, creditBalance, onAccept, onDecline }: {
 // ── Main view (always shown — credits replace the subscription gate) ───────────
 
 function JobHubView({
-  profile, initialMatches, initialBalance,
+  profile, initialMatches, initialBalance, userId,
 }: {
   profile: JobHubProfile
   initialMatches: Match[]
   initialBalance: number
+  userId: string
 }) {
   const [matches, setMatches]         = useState(initialMatches)
   const [balance, setBalance]         = useState(initialBalance)
@@ -386,7 +456,13 @@ function JobHubView({
         </div>
       )}
 
-      {showBuy && <BuyCreditsSheet onClose={() => setShowBuy(false)} />}
+      {showBuy && (
+        <BuyCreditsSheet
+          userId={userId}
+          onCreditsPurchased={(added) => setBalance(b => b + added)}
+          onClose={() => setShowBuy(false)}
+        />
+      )}
     </div>
   )
 }
@@ -398,8 +474,10 @@ export default function JobHubPage() {
   const [matches, setMatches]   = useState<Match[]>([])
   const [balance, setBalance]   = useState(0)
   const [loading, setLoading]   = useState(true)
+  const userId = getSession()?.id ?? ''
 
   useEffect(() => {
+    if (!userId) { window.location.replace('/login'); return }
     async function load() {
       try {
         const [profileRes, matchRes, creditsRes] = await Promise.allSettled([
@@ -418,7 +496,7 @@ export default function JobHubPage() {
       }
     }
     load()
-  }, [])
+  }, [userId])
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
@@ -440,7 +518,7 @@ export default function JobHubPage() {
           {[1, 2, 3].map(i => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
         </div>
       ) : profile ? (
-        <JobHubView profile={profile} initialMatches={matches} initialBalance={balance} />
+        <JobHubView profile={profile} initialMatches={matches} initialBalance={balance} userId={userId} />
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
           <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />

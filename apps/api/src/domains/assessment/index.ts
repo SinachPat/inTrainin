@@ -129,6 +129,31 @@ assessment.post(
       )
     }
 
+    // Verify enrolment — same check as GET /tests/:testId but re-applied here
+    // so a direct POST cannot bypass the enrollment gate.
+    const submitRoleId = test.role_id ?? (
+      test.module_id
+        ? (await db.from('modules').select('role_id').eq('id', test.module_id).single()).data?.role_id
+        : null
+    )
+
+    if (submitRoleId) {
+      const { data: enrolment } = await db
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('role_id', submitRoleId)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (!enrolment) {
+        return c.json(
+          { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
+          403,
+        )
+      }
+    }
+
     // ── Score the attempt ─────────────────────────────────────────────────────
     const questions = test.questions ?? []
     const totalQuestions = questions.length

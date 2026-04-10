@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { createServerClient } from '@intrainin/db'
-import { UpdateNotificationPrefsSchema, ERROR_CODES } from '@intrainin/shared'
+import { UpdateNotificationPrefsSchema, ERROR_CODES, BUSINESS_PLANS, CREDITS_PACKS } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
 import { paystackWebhookVerify } from '../../middleware/webhookVerify.js'
 import type { AuthVariables } from '../../middleware/auth.js'
@@ -185,7 +185,8 @@ webhookApp.post(
       return c.json({ success: true, data: { received: true } })
     }
 
-    const reference = event.data?.reference as string | undefined
+    const reference  = event.data?.reference as string | undefined
+    const amountKobo = event.data?.amount    as number | undefined
 
     if (!reference) {
       return c.json({ success: false, error: 'Missing payment reference' }, 400)
@@ -193,22 +194,90 @@ webhookApp.post(
 
     const db = createServerClient()
 
-    // Check enrollments first, then business subscriptions
-    const { data: enrollment } = await db
-      .from('enrollments')
-      .select('id, user_id, role_id, status')
-      .eq('payment_reference', reference)
-      .maybeSingle()
+    // Metadata is set by the client when initialising the Paystack transaction.
+    // Shape: { type: 'enrollment'|'subscription'|'credits', user_id: string,
+    //          role_id?: string (enrollment), plan?: string (subscription) }
+    const metadata = event.data?.metadata as {
+      type?:    string
+      user_id?: string
+      role_id?: string
+      plan?:    string
+    } | undefined
 
-    if (enrollment && enrollment.status !== 'active') {
-      await db
+    const paymentType = metadata?.type
+
+    // ── Enrollment activation ────────────────────────────────────────────────
+    if (!paymentType || paymentType === 'enrollment') {
+      const { data: enrollment } = await db
         .from('enrollments')
-        .update({ status: 'active' })
-        .eq('id', enrollment.id)
+        .select('id, status')
+        .eq('payment_reference', reference)
+        .maybeSingle()
+
+      if (enrollment && enrollment.status !== 'active') {
+        await db
+          .from('enrollments')
+          .update({ status: 'active' })
+          .eq('id', enrollment.id)
+          .then(({ error: e }) => {
+            if (e) console.error('[webhook] enrollment activate error:', e.message)
+          })
+      }
     }
 
-    // Log the raw event for auditing — best effort, don't fail the webhook
-    // TODO Layer 8: also update business subscription on plan payment events
+    // ── Business subscription activation ─────────────────────────────────────
+    if (paymentType === 'subscription' && metadata?.user_id && metadata?.plan) {
+      const planInfo = BUSINESS_PLANS.find(p => p.key === metadata.plan)
+      const amountNgn = amountKobo != null ? amountKobo / 100 : null
+
+      if (planInfo && planInfo.priceNgn > 0 && amountNgn === planInfo.priceNgn) {
+        const now       = new Date()
+        const expiresAt = new Date(now)
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+
+        // Only activate if not already activated (payment_reference not yet set)
+        await db
+          .from('businesses')
+          .update({
+            subscription_plan:       planInfo.key,
+            subscription_starts_at:  now.toISOString(),
+            subscription_expires_at: expiresAt.toISOString(),
+            seat_limit:              planInfo.seats as number,
+            payment_reference:       reference,
+          })
+          .eq('owner_user_id', metadata.user_id)
+          .is('payment_reference', null)
+          .then(({ error: e }) => {
+            if (e) console.error('[webhook] subscription activate error:', e.message)
+          })
+      }
+    }
+
+    // ── Credits purchase ──────────────────────────────────────────────────────
+    if (paymentType === 'credits' && metadata?.user_id && amountKobo != null) {
+      const amountNgn = amountKobo / 100
+      const pack = CREDITS_PACKS.find(p => p.priceNgn === amountNgn)
+
+      if (pack) {
+        // Idempotent — skip if credits already granted for this reference
+        const { data: existing } = await db
+          .from('job_hub_credits')
+          .select('id')
+          .eq('user_id', metadata.user_id)
+          .eq('reference', reference)
+          .eq('reason', 'purchase')
+          .maybeSingle()
+
+        if (!existing) {
+          await db
+            .from('job_hub_credits')
+            .insert({ user_id: metadata.user_id, amount: pack.credits, reason: 'purchase', reference })
+            .then(({ error: e }) => {
+              if (e) console.error('[webhook] credits insert error:', e.message)
+            })
+        }
+      }
+    }
 
     return c.json({ success: true, data: { received: true } })
   },

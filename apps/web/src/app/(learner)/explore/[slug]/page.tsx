@@ -13,6 +13,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ROLES, getRoleBySlug, getTotalTopics } from "@/lib/roles";
+import { EnrollButton } from "./enroll-button";
 
 export function generateStaticParams() {
   return ROLES.map((role) => ({ slug: role.slug }));
@@ -233,18 +234,13 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
             </div>
             <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 sm:py-5">
               <Link
-                href="/signup"
+                href={`/learn/${role.slug}`}
                 className={cn(buttonVariants({ size: "lg" }), "w-full justify-center")}
               >
                 Start Module 1 — free
                 <ArrowRight className="ml-1 size-4" />
               </Link>
-              <Link
-                href="/signup"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full justify-center")}
-              >
-                Enroll in full course — {role.price}
-              </Link>
+              <EnrollButton slug={role.slug} />
               <p className="text-center text-xs text-muted-foreground">
                 No subscription · one payment · access forever
               </p>

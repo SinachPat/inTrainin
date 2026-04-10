@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS job_hub_credits (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Idempotent column additions — safe if the table already existed without these columns.
+ALTER TABLE job_hub_credits ADD COLUMN IF NOT EXISTS amount    integer     NOT NULL DEFAULT 0;
+ALTER TABLE job_hub_credits ADD COLUMN IF NOT EXISTS reason    varchar(64) NOT NULL DEFAULT 'monthly_grant';
+ALTER TABLE job_hub_credits ADD COLUMN IF NOT EXISTS reference text;
+
 CREATE INDEX IF NOT EXISTS idx_jhc_user_id ON job_hub_credits(user_id);
 
 -- Give every existing user their first 10 free credits (one-time back-fill).

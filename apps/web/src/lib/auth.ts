@@ -36,9 +36,11 @@ export function setSession(params: {
     localStorage.setItem(ACCESS_TOKEN_KEY,  params.accessToken)
     localStorage.setItem(REFRESH_TOKEN_KEY, params.refreshToken)
     localStorage.setItem(SESSION_USER_KEY,  JSON.stringify(params.user))
-    // Set a non-sensitive cookie so Next.js middleware can check session without
+    // Set a non-sensitive cookie so Next.js proxy can check session without
     // reading localStorage (which is browser-only and unavailable on the edge).
-    document.cookie = 'intrainin_has_session=1; path=/; max-age=2592000; SameSite=Strict'
+    // Add Secure in production so the cookie is never sent over plain HTTP.
+    const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie = `intrainin_has_session=1; path=/; max-age=2592000; SameSite=Strict${secure}`
   } catch {}
 }
 

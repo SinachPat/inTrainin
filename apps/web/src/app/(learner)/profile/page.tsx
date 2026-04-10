@@ -5,6 +5,7 @@ import Link from 'next/link'
 import {
   Phone, MapPin, Briefcase, Bell, BellOff,
   ChevronRight, LogOut, Edit3, Check, ExternalLink, Building2, Share2, Copy,
+  FileText, Upload, Trash2, Loader2,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ interface ApiUser {
   streak_current: number
   notification_prefs: { push: boolean; sms: boolean; email: boolean } | null
   job_location_pref: JobLocationPref | null
+  resume_url: string | null
 }
 
 const DEFAULT_PREFS = { push: true, sms: true, email: false }
@@ -37,6 +39,9 @@ export default function ProfilePage() {
   const [draftName, setDraftName]   = useState('')
   const [notifPrefs, setNotifPrefs] = useState(DEFAULT_PREFS)
   const [locationPref, setLocationPref] = useState<JobLocationPref>('any')
+  const [resumeUrl, setResumeUrl]   = useState<string | null>(null)
+  const [resumeUploading, setResumeUploading] = useState(false)
+  const [resumeError, setResumeError] = useState<string | null>(null)
   const [signingOut, setSigningOut] = useState(false)
   const [copied, setCopied]         = useState(false)
 
@@ -49,6 +54,7 @@ export default function ProfilePage() {
         setDraftName(u.full_name)
         setNotifPrefs(u.notification_prefs ?? DEFAULT_PREFS)
         setLocationPref(u.job_location_pref ?? 'any')
+        setResumeUrl(u.resume_url ?? null)
       })
       .catch(e => { if (e instanceof ApiError && e.status === 401) window.location.replace('/login') })
       .finally(() => setLoading(false))
@@ -79,6 +85,58 @@ export default function ProfilePage() {
       locationCity:    user?.location_city ?? '',
       jobLocationPref: pref,
     }).catch(() => {})
+  }
+
+  async function handleResumeUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset input so the same file can be re-selected after removal
+    e.target.value = ''
+
+    const MAX_MB = 5
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setResumeError(`File must be under ${MAX_MB} MB`)
+      return
+    }
+
+    setResumeUploading(true)
+    setResumeError(null)
+    try {
+      // Step 1 — get a signed upload URL from our API
+      const { data } = await api.post<{ success: boolean; data: { signedUrl: string; path: string } }>(
+        '/auth/profile/resume/upload-url',
+        {},
+      )
+
+      // Step 2 — upload directly to Supabase Storage
+      const uploadRes = await fetch(data.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+      if (!uploadRes.ok) throw new Error('Upload failed')
+
+      // Step 3 — confirm the path with our API so it's persisted on the user record
+      await api.patch('/auth/profile/resume', { path: data.path })
+      setResumeUrl(data.path)
+    } catch {
+      setResumeError('Upload failed — please try again')
+    } finally {
+      setResumeUploading(false)
+    }
+  }
+
+  async function handleResumeDelete() {
+    setResumeUploading(true)
+    setResumeError(null)
+    try {
+      await api.delete('/auth/profile/resume')
+      setResumeUrl(null)
+    } catch {
+      setResumeError('Could not remove CV — please try again')
+    } finally {
+      setResumeUploading(false)
+    }
   }
 
   async function toggleNotif(key: keyof typeof notifPrefs) {
@@ -202,6 +260,63 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* CV / Resume */}
+      <Card size="sm">
+        <CardHeader className="pb-0">
+          <CardTitle className="text-sm">CV / Resume</CardTitle>
+        </CardHeader>
+        <CardContent className="mt-3">
+          {resumeUrl ? (
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">cv.pdf</p>
+                <p className="text-xs text-muted-foreground">Uploaded</p>
+              </div>
+              <button
+                onClick={handleResumeDelete}
+                disabled={resumeUploading}
+                className="shrink-0 text-destructive hover:text-destructive/80 disabled:opacity-50"
+                aria-label="Remove CV"
+              >
+                {resumeUploading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Trash2 className="h-4 w-4" />}
+              </button>
+            </div>
+          ) : (
+            <label className={cn(
+              'flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3 transition-colors hover:border-primary/50 hover:bg-muted/30',
+              resumeUploading && 'pointer-events-none opacity-60',
+            )}>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx"
+                className="sr-only"
+                onChange={handleResumeUpload}
+                disabled={resumeUploading}
+              />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                {resumeUploading
+                  ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  : <Upload className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {resumeUploading ? 'Uploading…' : 'Upload CV'}
+                </p>
+                <p className="text-xs text-muted-foreground">PDF, DOC or DOCX · max 5 MB</p>
+              </div>
+            </label>
+          )}
+          {resumeError && (
+            <p className="mt-2 text-xs text-destructive">{resumeError}</p>
+          )}
         </CardContent>
       </Card>
 

@@ -3,6 +3,14 @@
  * TODO Layer 8: replace with the official @paystack/paystack-sdk or expand as needed.
  */
 
+/** Relevant fields from the `data` object in a Paystack verify-transaction response. */
+export interface PaystackVerifyData {
+  status:    'success' | 'failed' | 'abandoned' | string
+  reference: string
+  amount:    number   // in kobo (1 NGN = 100 kobo)
+  currency:  string
+}
+
 const BASE = 'https://api.paystack.co'
 
 function paystackHeaders() {
