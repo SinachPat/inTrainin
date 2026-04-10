@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Phone, MapPin, Briefcase, Bell, BellOff,
-  ChevronRight, LogOut, Edit3, Check, ExternalLink,
+  ChevronRight, LogOut, Edit3, Check, ExternalLink, Building2, Share2, Copy,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
 import { signOut, patchSessionUser } from '@/lib/auth'
+
+type JobLocationPref = 'onsite' | 'remote' | 'hybrid' | 'any'
 
 interface ApiUser {
   id: string
@@ -22,6 +24,7 @@ interface ApiUser {
   xp_total: number
   streak_current: number
   notification_prefs: { push: boolean; sms: boolean; email: boolean } | null
+  job_location_pref: JobLocationPref | null
 }
 
 const DEFAULT_PREFS = { push: true, sms: true, email: false }
@@ -33,7 +36,9 @@ export default function ProfilePage() {
   const [name, setName]             = useState('')
   const [draftName, setDraftName]   = useState('')
   const [notifPrefs, setNotifPrefs] = useState(DEFAULT_PREFS)
+  const [locationPref, setLocationPref] = useState<JobLocationPref>('any')
   const [signingOut, setSigningOut] = useState(false)
+  const [copied, setCopied]         = useState(false)
 
   useEffect(() => {
     api.get<{ success: boolean; data: { user: ApiUser } }>('/auth/me')
@@ -43,6 +48,7 @@ export default function ProfilePage() {
         setName(u.full_name)
         setDraftName(u.full_name)
         setNotifPrefs(u.notification_prefs ?? DEFAULT_PREFS)
+        setLocationPref(u.job_location_pref ?? 'any')
       })
       .catch(e => { if (e instanceof ApiError && e.status === 401) window.location.replace('/login') })
       .finally(() => setLoading(false))
@@ -63,6 +69,16 @@ export default function ProfilePage() {
     } catch {
       // best-effort — UI already shows updated name
     }
+  }
+
+  async function saveLocationPref(pref: JobLocationPref) {
+    setLocationPref(pref)
+    api.post('/auth/profile/complete', {
+      fullName:        name,
+      accountType:     user?.account_type ?? 'learner',
+      locationCity:    user?.location_city ?? '',
+      jobLocationPref: pref,
+    }).catch(() => {})
   }
 
   async function toggleNotif(key: keyof typeof notifPrefs) {
@@ -160,6 +176,32 @@ export default function ProfilePage() {
               <p className="text-sm font-medium">{user?.xp_total ?? 0} XP · {user?.streak_current ?? 0} day streak</p>
             </div>
           </div>
+
+          {/* Job location preference */}
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <p className="mb-2 text-xs text-muted-foreground">Job location preference</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(['any', 'onsite', 'remote', 'hybrid'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => saveLocationPref(opt)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors',
+                      locationPref === opt
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                    )}
+                  >
+                    {opt === 'any' ? 'Any / flexible' : opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -206,6 +248,28 @@ export default function ProfilePage() {
       {/* Account actions */}
       <Card size="sm">
         <CardContent className="divide-y divide-border/60 p-0">
+          {/* Public profile link */}
+          {user && (
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/p/${user.id}`
+                navigator.clipboard.writeText(url).then(() => {
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }).catch(() => {})
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50"
+            >
+              <Share2 className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm">Share public profile</p>
+                <p className="text-[11px] text-muted-foreground">intrainin.com/p/{user.id.slice(0, 8)}…</p>
+              </div>
+              {copied
+                ? <Check className="h-4 w-4 text-green-500" />
+                : <Copy className="h-4 w-4 text-muted-foreground" />}
+            </button>
+          )}
           {[
             { label: 'Terms of Service', href: '/terms', icon: ExternalLink },
             { label: 'Privacy Policy',   href: '/privacy', icon: ExternalLink },

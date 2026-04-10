@@ -272,6 +272,60 @@ assessment.get('/tests/:testId/cooldown', authMiddleware, async (c) => {
   })
 })
 
+// ─── GET /assessment/roles/:roleSlug/history ─────────────────────────────────
+// Returns the most recent attempt per test for the user across all tests in
+// the role — used to render the "Test history" section on the curriculum page.
+
+assessment.get('/roles/:roleSlug/history', authMiddleware, async (c) => {
+  const roleSlug = c.req.param('roleSlug')
+  const userId   = c.get('userId')
+  const db       = createServerClient()
+
+  // Resolve role id from slug
+  const { data: role } = await db
+    .from('roles')
+    .select('id')
+    .eq('slug', roleSlug)
+    .single()
+
+  if (!role) {
+    return c.json({ success: false, error: 'Role not found', code: ERROR_CODES.NOT_FOUND }, 404)
+  }
+
+  // All tests belonging to this role (module tests + final exam)
+  const { data: modules } = await db
+    .from('modules')
+    .select('tests ( id )')
+    .eq('role_id', role.id)
+
+  const { data: finalTests } = await db
+    .from('tests')
+    .select('id')
+    .eq('role_id', role.id)
+    .eq('test_type', 'final')
+
+  const moduleTestIds = (modules ?? []).flatMap(m =>
+    ((m.tests as { id: string }[] | null) ?? []).map(t => t.id)
+  )
+  const allTestIds = [...moduleTestIds, ...(finalTests ?? []).map(t => t.id)]
+
+  if (allTestIds.length === 0) {
+    return c.json({ success: true, data: { attempts: [] } })
+  }
+
+  // All attempts, enriched with test title — most recent first
+  const { data: attempts, error } = await db
+    .from('test_attempts')
+    .select('id, test_id, score_pct, passed, attempt_number, taken_at, tests ( title, test_type )')
+    .eq('user_id', userId)
+    .in('test_id', allTestIds)
+    .order('taken_at', { ascending: false })
+
+  if (error) return c.json({ success: false, error: error.message }, 500)
+
+  return c.json({ success: true, data: { attempts: attempts ?? [] } })
+})
+
 // =============================================================================
 // Helpers
 // =============================================================================

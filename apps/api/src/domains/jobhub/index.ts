@@ -13,6 +13,83 @@ import type { AuthVariables } from '../../middleware/auth.js'
 
 const jobhub = new Hono<{ Variables: AuthVariables }>()
 
+// ─── GET /jobhub/credits ─────────────────────────────────────────────────────
+// Protected (learner) — current credit balance derived from the ledger.
+
+jobhub.get('/credits', authMiddleware, requireRole('learner'), async (c) => {
+  const userId = c.get('userId')
+  const db     = createServerClient()
+
+  const { data, error } = await db
+    .from('job_hub_credits')
+    .select('amount')
+    .eq('user_id', userId)
+
+  if (error) return c.json({ success: false, error: error.message }, 500)
+
+  const balance = (data ?? []).reduce((sum, row) => sum + row.amount, 0)
+  return c.json({ success: true, data: { balance } })
+})
+
+// ─── POST /jobhub/credits/cron/monthly-grant ─────────────────────────────────
+// Internal — called by a scheduled job (GitHub Actions) on the 1st of each month.
+// Protected by a static CRON_SECRET header; not authenticated via JWT.
+// Idempotent: skips users who already received a monthly_grant this calendar month.
+
+jobhub.post('/credits/cron/monthly-grant', async (c) => {
+  const secret = process.env.CRON_SECRET
+  if (!secret || c.req.header('x-cron-secret') !== secret) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401)
+  }
+
+  const db        = createServerClient()
+  const monthStart = new Date()
+  monthStart.setUTCDate(1)
+  monthStart.setUTCHours(0, 0, 0, 0)
+  const monthStartISO = monthStart.toISOString()
+
+  // All active learner users
+  const { data: learners, error: learnersError } = await db
+    .from('users')
+    .select('id')
+    .eq('account_type', 'learner')
+
+  if (learnersError) {
+    console.error('[cron/monthly-grant] fetch learners error:', learnersError.message)
+    return c.json({ success: false, error: learnersError.message }, 500)
+  }
+
+  // Users who already got a grant this month
+  const { data: alreadyGranted } = await db
+    .from('job_hub_credits')
+    .select('user_id')
+    .eq('reason', 'monthly_grant')
+    .gte('created_at', monthStartISO)
+
+  const alreadyGrantedIds = new Set((alreadyGranted ?? []).map(r => r.user_id))
+
+  const toGrant = (learners ?? []).filter(u => !alreadyGrantedIds.has(u.id))
+
+  if (toGrant.length === 0) {
+    return c.json({ success: true, data: { granted: 0, skipped: learners?.length ?? 0 } })
+  }
+
+  const { error: insertError } = await db
+    .from('job_hub_credits')
+    .insert(toGrant.map(u => ({ user_id: u.id, amount: 10, reason: 'monthly_grant' })))
+
+  if (insertError) {
+    console.error('[cron/monthly-grant] insert error:', insertError.message)
+    return c.json({ success: false, error: insertError.message }, 500)
+  }
+
+  console.log(`[cron/monthly-grant] granted 10 credits to ${toGrant.length} learners`)
+  return c.json({
+    success: true,
+    data: { granted: toGrant.length, skipped: alreadyGrantedIds.size },
+  })
+})
+
 // ─── GET /jobhub/profile ──────────────────────────────────────────────────────
 // Protected (learner) — get or lazily create the learner's job hub profile.
 
@@ -139,6 +216,29 @@ jobhub.patch(
         { success: false, error: 'Match has already been responded to', code: ERROR_CODES.VALIDATION_ERROR },
         409,
       )
+    }
+
+    // Accepting costs 5 credits — check balance first
+    if (status === 'accepted') {
+      const { data: ledger } = await db
+        .from('job_hub_credits')
+        .select('amount')
+        .eq('user_id', userId)
+
+      const balance = (ledger ?? []).reduce((sum, row) => sum + row.amount, 0)
+      if (balance < 5) {
+        return c.json(
+          { success: false, error: 'Not enough credits to accept this match', code: 'INSUFFICIENT_CREDITS' },
+          402,
+        )
+      }
+
+      // Deduct 5 credits
+      const { error: deductError } = await db
+        .from('job_hub_credits')
+        .insert({ user_id: userId, amount: -5, reason: 'apply' })
+
+      if (deductError) return c.json({ success: false, error: deductError.message }, 500)
     }
 
     const { data: updated, error } = await db

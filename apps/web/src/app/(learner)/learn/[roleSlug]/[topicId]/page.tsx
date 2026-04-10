@@ -161,6 +161,23 @@ function CaseStudyContent({ body }: { body: ContentBody }) {
   )
 }
 
+// ── Text extractor (for speech synthesis) ────────────────────────────────────
+
+function extractText(body: ContentBody): string {
+  const parts: string[] = []
+  body.sections?.forEach(s => { parts.push(s.heading + '. ' + s.body) })
+  body.key_points?.forEach(p => { parts.push(p) })
+  body.steps?.forEach(s => { parts.push(`Step ${s.step}. ${s.title}. ${s.description}`) })
+  if (body.scenario)         parts.push('The scenario. ' + body.scenario)
+  if (body.what_went_wrong)  parts.push('What went wrong. ' + body.what_went_wrong)
+  if (body.correct_response) {
+    Object.entries(body.correct_response).forEach(([k, v]) => parts.push(k + '. ' + v))
+  }
+  if (body.what_not_to_do)   parts.push('What not to do. ' + body.what_not_to_do.join('. '))
+  if (body.learning_outcome) parts.push('Learning outcome. ' + body.learning_outcome)
+  return parts.join('. ')
+}
+
 // ── Dispatcher ───────────────────────────────────────────────────────────────
 
 function TopicContentRenderer({ topic }: { topic: ApiTopic }) {
@@ -216,15 +233,60 @@ export default function TopicPage({ params }: Props) {
     load()
   }, [roleSlug, topicId])
 
-  // Simulated audio player
+  // ── Audio player (real speech synthesis) ─────────────────────────────────
   const SPEEDS = [0.75, 1, 1.25, 1.5] as const
   type Speed = typeof SPEEDS[number]
   const totalSeconds = (topic?.estimated_minutes ?? 5) * 60
   const [audioPlaying, setAudioPlaying] = useState(false)
   const [audioTime, setAudioTime]       = useState(0)
   const [speed, setSpeed]               = useState<Speed>(1)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null)
+  const charOffsetRef = useRef(0)   // character position in full extracted text
+  const fullTextRef   = useRef('')  // full extracted text, set once topic loads
+  const speechActive  = useRef(false)
 
+  // Pre-extract text when topic loads
+  useEffect(() => {
+    if (topic) fullTextRef.current = extractText(topic.content_body)
+  }, [topic])
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
+  function startSpeechFrom(charOffset: number, currentSpeed: Speed) {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const remaining = fullTextRef.current.slice(charOffset)
+    if (!remaining.trim()) return
+
+    const utt  = new SpeechSynthesisUtterance(remaining)
+    utt.rate   = currentSpeed
+    utt.lang   = 'en-GB'  // clearest English voice available across platforms
+
+    utt.onboundary = (e) => {
+      charOffsetRef.current = charOffset + e.charIndex
+      const pct = fullTextRef.current.length > 0
+        ? charOffsetRef.current / fullTextRef.current.length
+        : 0
+      setAudioTime(Math.round(pct * totalSeconds))
+    }
+    utt.onend = () => {
+      if (!speechActive.current) return // cancelled deliberately
+      charOffsetRef.current = fullTextRef.current.length
+      setAudioTime(totalSeconds)
+      setAudioPlaying(false)
+    }
+    speechActive.current = true
+    window.speechSynthesis.speak(utt)
+  }
+
+  // Timer — drives the progress bar; speech synthesis also updates it via onboundary
   useEffect(() => {
     if (audioPlaying) {
       intervalRef.current = setInterval(() => {
@@ -238,6 +300,32 @@ export default function TopicPage({ params }: Props) {
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [audioPlaying, speed, totalSeconds])
+
+  function togglePlay() {
+    if (audioPlaying) {
+      speechActive.current = false
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+      setAudioPlaying(false)
+    } else {
+      setAudioPlaying(true)
+      startSpeechFrom(charOffsetRef.current, speed)
+    }
+  }
+
+  function seekBy(delta: number) {
+    setAudioTime(t => {
+      const next = Math.max(0, Math.min(totalSeconds, t + delta))
+      const pct  = totalSeconds > 0 ? next / totalSeconds : 0
+      charOffsetRef.current = Math.round(pct * fullTextRef.current.length)
+      if (audioPlaying) startSpeechFrom(charOffsetRef.current, speed)
+      return next
+    })
+  }
+
+  function changeSpeed(s: Speed) {
+    setSpeed(s)
+    if (audioPlaying) startSpeechFrom(charOffsetRef.current, s)
+  }
 
   function formatTime(s: number) {
     const m = Math.floor(s / 60)
@@ -323,7 +411,7 @@ export default function TopicPage({ params }: Props) {
         <div className="px-4 py-3 space-y-2">
           <div className="flex items-center justify-center gap-4">
             <button
-              onClick={() => setAudioTime(t => Math.max(0, t - 10))}
+              onClick={() => seekBy(-10)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <RotateCcw className="h-4 w-4" />
@@ -331,13 +419,13 @@ export default function TopicPage({ params }: Props) {
             <Button
               size="sm"
               variant={audioPlaying ? 'default' : 'outline'}
-              onClick={() => setAudioPlaying(p => !p)}
+              onClick={togglePlay}
               className="h-9 w-9 rounded-full p-0"
             >
               {audioPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
             <button
-              onClick={() => setAudioTime(t => Math.min(totalSeconds, t + 10))}
+              onClick={() => seekBy(10)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <RotateCw className="h-4 w-4" />
@@ -347,7 +435,7 @@ export default function TopicPage({ params }: Props) {
             {SPEEDS.map(s => (
               <button
                 key={s}
-                onClick={() => setSpeed(s)}
+                onClick={() => changeSpeed(s)}
                 className={cn(
                   'rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors',
                   speed === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',

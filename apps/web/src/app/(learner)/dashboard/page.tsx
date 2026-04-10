@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
 import { ROLES } from '@/lib/roles'
 
-// Pick 3 representative roles from the real catalog for the "Explore" section
-const SUGGESTED_ROLES = ROLES.filter(r =>
+// Fallback roles for the Explore section when no career goal is set
+const FALLBACK_ROLES = ROLES.filter(r =>
   ['dispatch-rider', 'store-attendant', 'front-desk-agent'].includes(r.slug)
 )
 
@@ -20,6 +20,7 @@ interface ApiUser {
   xp_total: number
   streak_current: number
   notification_prefs: { push: boolean; sms: boolean; email: boolean } | null
+  career_goal_role_id: string | null
 }
 
 interface Enrolment {
@@ -37,9 +38,10 @@ interface Enrolment {
 }
 
 export default function LearnerDashboardPage() {
-  const [user, setUser]           = useState<ApiUser | null>(null)
-  const [enrolments, setEnrolments] = useState<Enrolment[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [user, setUser]               = useState<ApiUser | null>(null)
+  const [enrolments, setEnrolments]   = useState<Enrolment[]>([])
+  const [pendingMatches, setPendingMatches] = useState<number>(0)
+  const [loading, setLoading]         = useState(true)
 
   useEffect(() => {
     async function load() {
@@ -50,6 +52,11 @@ export default function LearnerDashboardPage() {
         ])
         setUser(userRes.data.user)
         setEnrolments(enrRes.data.enrolments)
+
+        // Fetch pending match count in the background — non-critical
+        api.get<{ success: boolean; data: { matches: { status: string }[] } }>('/jobhub/matches')
+          .then(r => setPendingMatches(r.data.matches.filter(m => m.status === 'pending').length))
+          .catch(() => {})
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           window.location.replace('/login')
@@ -167,18 +174,27 @@ export default function LearnerDashboardPage() {
           <section>
             <div className="rounded-xl border bg-card px-4 py-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  {pendingMatches > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                      {pendingMatches > 9 ? '9+' : pendingMatches}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-[13px] font-semibold text-foreground">Job Hub</p>
-                  <p className="text-[11px] text-muted-foreground">Subscribe to get matched to employers passively</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {pendingMatches > 0
+                      ? `${pendingMatches} new job match${pendingMatches > 1 ? 'es' : ''} waiting for you`
+                      : 'Use credits to apply for job matches — first 10 are free'}
+                  </p>
                 </div>
                 <Link
                   href="/job-hub"
                   className={cn(buttonVariants({ size: 'xs', variant: 'default' }), 'shrink-0')}
                 >
-                  Subscribe
+                  {pendingMatches > 0 ? 'See matches' : 'View matches'}
                   <ChevronRight className="ml-0.5 h-3 w-3" />
                 </Link>
               </div>
@@ -233,31 +249,46 @@ export default function LearnerDashboardPage() {
           )}
 
           {/* ── Explore ───────────────────────────────────────────────────── */}
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-[13px] font-semibold text-foreground">Explore roles</h2>
-              <Link href="/explore" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
-                See all <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {SUGGESTED_ROLES.map((role) => (
-                <Link key={role.slug} href={`/explore/${role.slug}`} className="group block">
-                  <div className="h-full rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
-                    <span className="text-2xl leading-none">{role.icon}</span>
-                    <p className="mt-3 text-[13px] font-medium text-foreground">{role.title}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{role.category}</p>
-                    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <BookOpen className="h-3 w-3" /> {role.modules.length} modules
-                      </span>
-                      <span className="text-[11px] font-medium text-foreground">{role.price}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
+          {(() => {
+            // Show roles from the learner's career category, excluding already enrolled.
+            // Falls back to FALLBACK_ROLES if no enrolments or no category match.
+            const enrolledSlugs = new Set(enrolments.map(e => e.roles.slug))
+            const careerCategory = enrolments[0]?.roles.categories?.name ?? null
+            const suggested = careerCategory
+              ? ROLES.filter(r => r.category === careerCategory && !enrolledSlugs.has(r.slug)).slice(0, 3)
+              : FALLBACK_ROLES.filter(r => !enrolledSlugs.has(r.slug)).slice(0, 3)
+            const showExplore = suggested.length > 0
+
+            return showExplore ? (
+              <section>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-[13px] font-semibold text-foreground">
+                    {careerCategory ? `More in ${careerCategory}` : 'Explore roles'}
+                  </h2>
+                  <Link href="/explore" className="flex items-center gap-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground">
+                    See all <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {suggested.map((role) => (
+                    <Link key={role.slug} href={`/explore/${role.slug}`} className="group block">
+                      <div className="h-full rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-150 hover:border-foreground/15 hover:shadow-md">
+                        <span className="text-2xl leading-none">{role.icon}</span>
+                        <p className="mt-3 text-[13px] font-medium text-foreground">{role.title}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{role.category}</p>
+                        <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <BookOpen className="h-3 w-3" /> {role.modules.length} modules
+                          </span>
+                          <span className="text-[11px] font-medium text-foreground">{role.price}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null
+          })()}
         </>
       )}
 

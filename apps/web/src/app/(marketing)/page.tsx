@@ -82,17 +82,17 @@ const PRICING = [
   },
   {
     name: "Job Hub",
-    price: "₦1,000",
-    period: "month",
-    description: "Passive job matching. Get alerts when employers post roles that fit your profile.",
-    cta: "Start matching",
+    price: "10",
+    period: "free credits",
+    description: "Get matched with employers. Use credits to apply — first 10 are free when you join.",
+    cta: "View matches",
     href: "/job-hub",
     features: [
-      "Passive job match alerts",
-      "Push + SMS notifications",
+      "10 free credits on signup",
+      "Top-up from ₦500 for 5 credits",
       "Accept or decline from phone",
       "Certified candidates ranked first",
-      "Annual plan: ₦8,000/yr",
+      "Only pay when you apply",
     ],
     highlight: true,
   },
@@ -748,7 +748,7 @@ export default function Home() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pricing</p>
             <h2 className="text-2xl font-bold text-foreground md:text-3xl">Pay for what you need</h2>
             <p className="mx-auto mt-3 max-w-lg text-sm text-muted-foreground">
-              Start from ₦600 per module — or pay ₦2,500 upfront for the full course. Job matching from ₦1,000/month. Enterprise from ₦15,000/month.
+              Start from ₦600 per module — or pay ₦2,500 upfront for the full course. Job Hub credits from ₦500. Enterprise from ₦15,000/month.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -830,7 +830,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="text-xs text-muted-foreground">
-            Free trial on Module 1 · No card required · Cancel Job Hub anytime
+            Free trial on Module 1 · No card required · 10 free Job Hub credits on signup
           </p>
         </div>
       </section>

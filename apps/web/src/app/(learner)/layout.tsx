@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { LayoutDashboard, Compass, Award, User, Briefcase, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Compass, Award, User, Briefcase, Map, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOut } from '@/lib/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -12,6 +12,7 @@ import { LogoMark } from '@/components/logo'
 const NAV = [
   { href: '/dashboard',    label: 'Home',    icon: LayoutDashboard },
   { href: '/explore',      label: 'Explore', icon: Compass },
+  { href: '/roadmap',      label: 'Roadmap', icon: Map },
   { href: '/certificates', label: 'Certs',   icon: Award },
   { href: '/job-hub',      label: 'Jobs',    icon: Briefcase },
   { href: '/profile',      label: 'Profile', icon: User },
@@ -246,7 +247,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
         className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 backdrop-blur md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-6">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(href)
             return (

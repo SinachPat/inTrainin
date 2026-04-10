@@ -155,10 +155,12 @@ auth.post(
         {
           id:                  userId,
           phone,
+          ...(body.email ? { email: body.email.trim().toLowerCase() } : {}),
           full_name:           body.fullName.trim(),
           location_city:       body.locationCity,
           account_type:        body.accountType,
           career_goal_role_id: careerGoalRoleId,
+          ...(body.jobLocationPref ? { job_location_pref: body.jobLocationPref } : {}),
         },
         { onConflict: 'id' },
       )
@@ -180,8 +182,10 @@ auth.post(
       }
     }
 
-    // Persist account_type into Supabase auth metadata so the JWT claim stays fresh
+    // Persist account_type (and email if provided) into Supabase auth so JWT claims
+    // and the auth.users row stay consistent with public.users.
     await db.auth.admin.updateUserById(userId, {
+      ...(body.email ? { email: body.email.trim().toLowerCase() } : {}),
       user_metadata: {
         account_type: body.accountType,
         full_name:    body.fullName.trim(),
@@ -199,6 +203,22 @@ auth.post(
       return c.json({ success: false, error: 'Profile saved but user record not found — check DB migration' }, 500)
     }
 
+    // Grant 10 free credits on first-ever profile completion (idempotent — only if
+    // the user has no credit rows yet, so re-submitting the form doesn't re-grant).
+    const { count } = await db
+      .from('job_hub_credits')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    if ((count ?? 0) === 0) {
+      await db
+        .from('job_hub_credits')
+        .insert({ user_id: userId, amount: 10, reason: 'monthly_grant' })
+        .then(({ error: e }) => {
+          if (e) console.error('[auth/profile/complete] credits grant error:', e.message)
+        })
+    }
+
     return c.json({ success: true, data: { user } })
   },
 )
@@ -213,7 +233,7 @@ auth.get('/me', authMiddleware, async (c) => {
     db.from('users').select(`
       id, phone, email, full_name, location_city, location_state,
       account_type, avatar_url, xp_total, streak_current,
-      streak_last_activity_date, notification_prefs, created_at
+      streak_last_activity_date, notification_prefs, job_location_pref, created_at
     `).eq('id', userId).single(),
     db.auth.admin.getUserById(userId),
   ])
@@ -267,5 +287,52 @@ auth.put(
     return c.json({ success: true, data: { notificationPrefs: prefs } })
   },
 )
+
+// ─── GET /auth/users/:id/public ──────────────────────────────────────────────
+// Unauthenticated — returns name, city, role, and earned certificates for a
+// learner's shareable public profile. Only exposes what the user has made public.
+
+auth.get('/users/:id/public', async (c) => {
+  const profileUserId = c.req.param('id')
+  const db = createServerClient()
+
+  const [userRes, certsRes] = await Promise.all([
+    db.from('users')
+      .select('id, full_name, location_city, account_type, avatar_url, created_at, career_goal_role_id')
+      .eq('id', profileUserId)
+      .maybeSingle(),
+    db.from('certificates')
+      .select('id, issued_at, verification_code, roles(title, slug, icon)')
+      .eq('user_id', profileUserId)
+      .order('issued_at', { ascending: false }),
+  ])
+
+  if (!userRes.data) {
+    return c.json({ success: false, error: 'Profile not found', code: ERROR_CODES.NOT_FOUND }, 404)
+  }
+
+  // Don't expose business accounts on public profiles
+  if (userRes.data.account_type !== 'learner') {
+    return c.json({ success: false, error: 'Profile not found', code: ERROR_CODES.NOT_FOUND }, 404)
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      user: {
+        id:           userRes.data.id,
+        fullName:     userRes.data.full_name,
+        locationCity: userRes.data.location_city,
+        joinedAt:     userRes.data.created_at,
+      },
+      certificates: (certsRes.data ?? []).map(cert => ({
+        id:               cert.id,
+        issuedAt:         cert.issued_at,
+        verificationCode: cert.verification_code,
+        role:             cert.roles,
+      })),
+    },
+  })
+})
 
 export { auth as authRouter }

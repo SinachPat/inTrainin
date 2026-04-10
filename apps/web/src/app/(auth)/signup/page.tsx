@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Phone, Shield, ChevronLeft, User, MapPin, Briefcase, Check, GraduationCap, Building2, AlertTriangle } from 'lucide-react'
+import { ArrowRight, Shield, ChevronLeft, User, MapPin, Briefcase, Check, GraduationCap, Building2, AlertTriangle, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -50,6 +50,7 @@ function SignupContent() {
   const [error, setError]           = useState('')
   const [countdown, setCountdown]   = useState(0)
   const [profile, setProfile]       = useState({ fullName: '', city: '', careerGoalSlug: '' })
+  const [email, setEmail]           = useState('')
   const [otherRole, setOtherRole]   = useState('')
   const [bizName, setBizName]       = useState('')
   const [pendingTokens, setPendingTokens] = useState<{ accessToken: string; refreshToken: string } | null>(null)
@@ -171,6 +172,7 @@ function SignupContent() {
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!profile.fullName.trim()) { setError('Enter your full name'); return }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Enter a valid email address'); return }
     if (!profile.city) { setError('Select your city'); return }
     if (accountType === 'business' && !bizName.trim()) { setError('Enter your business name'); return }
     if (!pendingTokens) { setError('Session expired. Please start over.'); setStep('phone'); return }
@@ -179,6 +181,7 @@ function SignupContent() {
     try {
       const body: Record<string, unknown> = {
         fullName:     profile.fullName.trim(),
+        ...(email.trim() && { email: email.trim().toLowerCase() }),
         accountType,
         locationCity: profile.city,
         ...(accountType === 'business' && { businessName: bizName.trim() }),
@@ -233,7 +236,7 @@ function SignupContent() {
         {step === 'type' ? (
           <>
             <h1 className="font-heading text-2xl font-bold text-foreground">Get started</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Start learning free — no credit card needed</p>
+            <p className="mt-1 text-sm text-muted-foreground">Sign up to get started as a learner or a business</p>
           </>
         ) : step === 'phone' ? (
           <>
@@ -341,20 +344,19 @@ function SignupContent() {
           )}
           <div className="space-y-1.5">
             <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone number</label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className={cn(
+              'flex h-10 w-full items-center rounded-lg border bg-background text-sm transition-colors',
+              error ? 'border-destructive' : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
+            )}>
+              <span className="shrink-0 border-r border-border px-3 text-sm text-muted-foreground">+234</span>
               <input
-                id="phone" type="tel" inputMode="numeric" placeholder="0801 234 5678"
-                value={phone} onChange={e => setPhone(e.target.value)}
-                className={cn(
-                  'h-10 w-full rounded-lg border bg-background pl-9 pr-3 text-sm outline-none transition-colors',
-                  'placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20',
-                  error ? 'border-destructive' : 'border-border',
-                )}
+                id="phone" type="tel" inputMode="numeric" placeholder="801 234 5678"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                className="h-full flex-1 bg-transparent px-3 outline-none placeholder:text-muted-foreground/50"
               />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
-            <p className="text-[11px] text-muted-foreground">Nigerian numbers only. We&apos;ll send an OTP to verify.</p>
           </div>
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? 'Sending code…' : <span className="flex items-center gap-1.5">Continue <ArrowRight className="h-4 w-4" /></span>}
@@ -470,6 +472,21 @@ function SignupContent() {
               <input
                 type="text" placeholder="Amara Okafor" value={profile.fullName}
                 onChange={e => setProfile(p => ({ ...p, fullName: e.target.value }))}
+                className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+
+          {/* Email address */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Email address <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="email" inputMode="email" placeholder="amara@example.com"
+                value={email} onChange={e => setEmail(e.target.value)}
                 className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>

@@ -57,7 +57,16 @@
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(grep -E ':\\\\s*\"[^\"]{0,20}\"')",
       "Bash(grep -E '^\\\\s+|\\\\s+$|  ')",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(node_modules/.bin/tsc -p apps/api/tsconfig.json --noEmit)",
+      "Bash(node /Users/USER/Desktop/intrainin/node_modules/.bin/tsc -p /Users/USER/Desktop/intrainin/apps/api/tsconfig.json --noEmit)",
+      "Bash(pnpm --filter @intrainin/api tsc --noEmit)",
+      "Bash(pnpm --filter @intrainin/web build)",
+      "Bash(pkill -f \"next build\")",
+      "Bash(pnpm --filter @intrainin/web exec next build)",
+      "Bash(echo \"EXIT:$?\")"
     ]
   }
 }

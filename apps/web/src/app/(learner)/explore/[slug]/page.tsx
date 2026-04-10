@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   Award,
   Lock,
-  Zap,
+  ChevronDown,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,6 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
                 { icon: BookOpen, label: `${role.modules.length} modules` },
                 { icon: CheckCircle2, label: `${totalTopics} topics` },
                 { icon: Award, label: "Certificate on completion" },
-                { icon: Zap, label: "XP & streak rewards" },
               ].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
                   <Icon className="size-3.5 shrink-0 text-primary sm:size-4" />
@@ -148,6 +147,15 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
             </div>
           </div>
 
+          {/* Module 1 free callout */}
+          <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 sm:px-5 sm:py-4">
+            <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground">FREE</span>
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">Module 1 is completely free.</span>{" "}
+              Sign up and start learning today — no payment required.
+            </p>
+          </div>
+
           {/* Certificate section */}
           <div className="rounded-xl border border-border bg-muted px-4 py-4 sm:px-6 sm:py-6">
             <div className="flex items-start gap-3 sm:gap-4">
@@ -165,6 +173,47 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
                   <span className="font-mono text-xs">intrainin.com/verify</span>.
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* FAQ */}
+          <div>
+            <h2 className="mb-5 text-xl font-bold text-foreground">Frequently asked questions</h2>
+            <div className="flex flex-col divide-y divide-border rounded-xl border border-border overflow-hidden">
+              {[
+                {
+                  q: `Do I need any prior experience to take the ${role.title} course?`,
+                  a: `No prior experience is needed. The ${role.title} curriculum starts from the basics and builds up step by step. All you need is a smartphone and the willingness to learn.`,
+                },
+                {
+                  q: "Is Module 1 really free?",
+                  a: "Yes — Module 1 is completely free for every role. You can go through the lessons, take the module test, and see the full learning experience before deciding to enroll in the complete course.",
+                },
+                {
+                  q: "How long does the course take to complete?",
+                  a: `It depends on your pace. Most learners finish the ${role.title} course in ${role.modules.length <= 3 ? "2–4 weeks" : "4–8 weeks"} spending 30–45 minutes per day. You can pause and resume at any time — progress is always saved.`,
+                },
+                {
+                  q: "What happens after I pass the Final Exam?",
+                  a: `You receive a verifiable ${role.title} certificate instantly. It includes a unique ID that employers can check at intrainin.com/verify. You can also share it directly from your profile.`,
+                },
+                {
+                  q: "Can I get a job through InTrainin after completing the course?",
+                  a: "Yes. Certified learners get access to Job Hub, where employers post roles that match your skills. You can apply to matches using credits — the first 10 are free when you join.",
+                },
+                {
+                  q: "Is the payment a subscription or one-time?",
+                  a: `It's a one-time payment of ${role.price} for the full ${role.title} course. No subscription, no recurring fees. Pay once and access the course forever.`,
+                },
+              ].map(({ q, a }, i) => (
+                <details key={i} className="group px-5 py-4 bg-card open:bg-muted/40 transition-colors">
+                  <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold text-foreground list-none">
+                    {q}
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{a}</p>
+                </details>
+              ))}
             </div>
           </div>
 
@@ -187,14 +236,14 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
                 href="/signup"
                 className={cn(buttonVariants({ size: "lg" }), "w-full justify-center")}
               >
-                Enroll — {role.price}
+                Start Module 1 — free
                 <ArrowRight className="ml-1 size-4" />
               </Link>
               <Link
                 href="/signup"
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full justify-center")}
               >
-                Try Module 1 free
+                Enroll in full course — {role.price}
               </Link>
               <p className="text-center text-xs text-muted-foreground">
                 No subscription · one payment · access forever
@@ -212,7 +261,7 @@ export default async function ExploreRolePage({ params }: { params: Promise<{ sl
                   "Verifiable digital certificate",
                   "Audio read-aloud (English)",
                   "Progress saved — resume anytime",
-                  "XP points and streak rewards",
+                  "Gamified streaks and badges",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />

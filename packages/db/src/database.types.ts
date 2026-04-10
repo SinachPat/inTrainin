@@ -139,6 +139,7 @@ export interface Database {
           streak_last_activity_date: string | null
           fcm_token: string | null
           notification_prefs: NotificationPrefs
+          job_location_pref: 'onsite' | 'remote' | 'hybrid' | 'any' | null
           created_at: string
           updated_at: string
           deleted_at: string | null
@@ -158,6 +159,7 @@ export interface Database {
           streak_last_activity_date?: string | null
           fcm_token?: string | null
           notification_prefs?: NotificationPrefs
+          job_location_pref?: 'onsite' | 'remote' | 'hybrid' | 'any' | null
           deleted_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
@@ -701,6 +703,36 @@ export interface Database {
             foreignKeyName: "job_hub_profiles_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      // ── job_hub_credits ──────────────────────────────────────────────────────
+      job_hub_credits: {
+        Row: {
+          id: string
+          user_id: string
+          amount: number           // positive = top-up, negative = spend
+          reason: string           // 'monthly_grant' | 'purchase' | 'apply'
+          reference: string | null // Paystack reference for purchases
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount: number
+          reason: string
+          reference?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['job_hub_credits']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "job_hub_credits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           }

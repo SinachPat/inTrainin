@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Briefcase, MapPin, CheckCircle2, XCircle, Clock,
-  Lock, Zap, ArrowRight, Building2, Star, ChevronRight,
-  Bell, Check,
+  ArrowRight, Building2, Star, ChevronRight,
+  Bell, Check, Coins, Plus,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,6 @@ import { api, ApiError } from '@/lib/api'
 
 interface JobHubProfile {
   id: string
-  is_subscribed: boolean
-  subscription_expires_at: string | null
   availability: string | null
   employment_type_pref: string | null
 }
@@ -44,11 +42,6 @@ interface Match {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PLANS = [
-  { label: 'Monthly', price: '₦1,000', sub: '/month', billing: 'Billed monthly' },
-  { label: 'Annual',  price: '₦8,000', sub: '/year',  billing: 'Save ₦4,000 vs monthly', highlight: true },
-]
-
 const AVAILABILITY_OPTIONS = [
   { value: 'immediate',   label: 'Immediately' },
   { value: 'two_weeks',   label: 'Within 2 weeks' },
@@ -60,6 +53,12 @@ const EMPLOYMENT_OPTIONS = [
   { value: 'part_time',  label: 'Part-time' },
   { value: 'contract',   label: 'Contract' },
   { value: 'any',        label: 'Any' },
+]
+
+const CREDIT_PACKAGES = [
+  { credits: 5,  price: '₦500',   label: 'Starter pack' },
+  { credits: 15, price: '₦1,400', label: 'Popular', highlight: true },
+  { credits: 30, price: '₦2,500', label: 'Best value' },
 ]
 
 function timeAgo(iso: string) {
@@ -76,16 +75,87 @@ function formatPay(min: number | null, max: number | null) {
   return `Up to ₦${max!.toLocaleString()}/mo`
 }
 
+// ── Credit balance pill ───────────────────────────────────────────────────────
+
+function CreditPill({ balance, onBuy }: { balance: number; onBuy: () => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className={cn(
+        'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
+        balance > 0
+          ? 'border-primary/30 bg-primary/10 text-primary'
+          : 'border-destructive/30 bg-destructive/10 text-destructive',
+      )}>
+        <Coins className="h-3.5 w-3.5" />
+        {balance} credit{balance !== 1 ? 's' : ''}
+      </div>
+      <button
+        onClick={onBuy}
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        <Plus className="h-3 w-3" /> Buy more
+      </button>
+    </div>
+  )
+}
+
+// ── Buy credits modal ─────────────────────────────────────────────────────────
+
+function BuyCreditsSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
+      <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="font-semibold text-foreground">Buy credits</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+        </div>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Each job application costs <strong className="text-foreground">5 credits</strong>. Credits never expire and roll over monthly.
+        </p>
+        <div className="space-y-2">
+          {CREDIT_PACKAGES.map(pkg => (
+            <button
+              key={pkg.credits}
+              className={cn(
+                'relative w-full rounded-xl border px-4 py-3 text-left transition-all hover:border-primary/50',
+                pkg.highlight ? 'border-primary bg-primary/5' : 'border-border bg-background',
+              )}
+            >
+              {pkg.highlight && (
+                <span className="absolute -top-2.5 right-3 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                  {pkg.label}
+                </span>
+              )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{pkg.credits} credits</p>
+                  <p className="text-xs text-muted-foreground">{!pkg.highlight && pkg.label}</p>
+                </div>
+                <p className="text-base font-bold text-foreground">{pkg.price}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-center">
+          <p className="text-xs text-muted-foreground">Paystack checkout coming soon · Credits will be applied instantly on payment</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Match card ────────────────────────────────────────────────────────────────
 
-function MatchCard({ match, onAccept, onDecline }: {
+function MatchCard({ match, creditBalance, onAccept, onDecline }: {
   match: Match
+  creditBalance: number
   onAccept: (id: string) => void
   onDecline: (id: string) => void
 }) {
   const req      = match.hire_requests
   const pending  = match.status === 'pending'
   const accepted = match.status === 'accepted'
+  const canAccept = creditBalance >= 5
 
   return (
     <div className={cn('overflow-hidden rounded-xl border bg-card', accepted ? 'border-green-500/30' : 'border-border')}>
@@ -129,7 +199,7 @@ function MatchCard({ match, onAccept, onDecline }: {
               </span>
             )}
             {req.certification_required && (
-              <span className="flex items-center gap-1 text-[11px] text-amber-600">
+              <span className="flex items-center gap-1 text[11px] text-amber-600">
                 <CheckCircle2 className="h-3 w-3" /> Cert required
               </span>
             )}
@@ -141,13 +211,24 @@ function MatchCard({ match, onAccept, onDecline }: {
         )}
 
         {pending && (
-          <div className="mt-4 flex gap-2">
-            <Button size="sm" className="flex-1" onClick={() => onAccept(match.id)}>
-              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Accept match
-            </Button>
-            <Button size="sm" variant="outline" className="flex-1" onClick={() => onDecline(match.id)}>
-              <XCircle className="mr-1.5 h-3.5 w-3.5" /> Decline
-            </Button>
+          <div className="mt-4 space-y-2">
+            <div className="flex gap-2">
+              <Button
+                size="sm" className="flex-1"
+                onClick={() => onAccept(match.id)}
+                disabled={!canAccept}
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Accept — 5 credits
+              </Button>
+              <Button size="sm" variant="outline" className="flex-1" onClick={() => onDecline(match.id)}>
+                <XCircle className="mr-1.5 h-3.5 w-3.5" /> Decline
+              </Button>
+            </div>
+            {!canAccept && (
+              <p className="text-center text-[11px] text-muted-foreground">
+                Not enough credits to apply. <span className="font-medium text-primary">Buy more credits</span> to accept this match.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -155,27 +236,35 @@ function MatchCard({ match, onAccept, onDecline }: {
   )
 }
 
-// ── Subscribed view ───────────────────────────────────────────────────────────
+// ── Main view (always shown — credits replace the subscription gate) ───────────
 
-function SubscribedView({
-  profile, initialMatches,
+function JobHubView({
+  profile, initialMatches, initialBalance,
 }: {
   profile: JobHubProfile
   initialMatches: Match[]
+  initialBalance: number
 }) {
   const [matches, setMatches]         = useState(initialMatches)
+  const [balance, setBalance]         = useState(initialBalance)
   const [availability, setAvail]      = useState(profile.availability ?? 'immediate')
   const [employmentType, setEmpType]  = useState(profile.employment_type_pref ?? 'full_time')
   const [savingPrefs, setSavingPrefs] = useState(false)
+  const [showBuy, setShowBuy]         = useState(false)
 
   const pending   = matches.filter(m => m.status === 'pending')
   const responded = matches.filter(m => m.status !== 'pending')
 
   async function respondToMatch(id: string, status: 'accepted' | 'declined') {
+    const costCredits = status === 'accepted' ? 5 : 0
+    // Optimistic update
     setMatches(ms => ms.map(m => m.id === id ? { ...m, status } : m))
+    if (costCredits > 0) setBalance(b => b - costCredits)
+
     api.patch(`/jobhub/matches/${id}`, { status }).catch(() => {
       // Revert on failure
       setMatches(ms => ms.map(m => m.id === id ? { ...m, status: 'pending' } : m))
+      if (costCredits > 0) setBalance(b => b + costCredits)
     })
   }
 
@@ -190,23 +279,15 @@ function SubscribedView({
     }
   }
 
-  const expiryDate = profile.subscription_expires_at
-    ? new Date(profile.subscription_expires_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/10">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
+      {/* Credit balance bar */}
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <div>
+          <p className="text-[13px] font-semibold text-foreground">Your credits</p>
+          <p className="text-[11px] text-muted-foreground">5 credits per application · 10 free every month</p>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-foreground">Job Hub Active</p>
-          <p className="text-xs text-muted-foreground">
-            Receiving matches{expiryDate ? ` · Expires ${expiryDate}` : ''}
-          </p>
-        </div>
-        <Badge variant="secondary" className="shrink-0 border-green-500/30 bg-green-500/10 text-[10px] text-green-700">Active</Badge>
+        <CreditPill balance={balance} onBuy={() => setShowBuy(true)} />
       </div>
 
       {/* Preferences */}
@@ -249,9 +330,14 @@ function SubscribedView({
               ))}
             </div>
           </div>
-          <Button size="sm" variant="outline" onClick={savePreferences} disabled={savingPrefs}>
-            {savingPrefs ? 'Saving…' : 'Save preferences'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={savePreferences} disabled={savingPrefs}>
+              {savingPrefs ? 'Saving…' : 'Save preferences'}
+            </Button>
+            <Link href="/profile" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-muted-foreground')}>
+              Edit profile <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+            </Link>
+          </div>
         </CardContent>
       </Card>
 
@@ -266,7 +352,7 @@ function SubscribedView({
           </div>
           {pending.map(m => (
             <MatchCard
-              key={m.id} match={m}
+              key={m.id} match={m} creditBalance={balance}
               onAccept={id => respondToMatch(id, 'accepted')}
               onDecline={id => respondToMatch(id, 'declined')}
             />
@@ -279,7 +365,7 @@ function SubscribedView({
           <h2 className="text-[13px] font-semibold text-muted-foreground">Previous responses</h2>
           {responded.map(m => (
             <MatchCard
-              key={m.id} match={m}
+              key={m.id} match={m} creditBalance={balance}
               onAccept={id => respondToMatch(id, 'accepted')}
               onDecline={id => respondToMatch(id, 'declined')}
             />
@@ -292,95 +378,15 @@ function SubscribedView({
           <Bell className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-semibold">No matches yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            We'll notify you when an employer posts a role matching your profile.
+            We&apos;ll notify you when an employer posts a role matching your profile and location.
           </p>
+          <Link href="/profile" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-4')}>
+            Complete your profile <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
         </div>
       )}
-    </div>
-  )
-}
 
-// ── Unsubscribed view ─────────────────────────────────────────────────────────
-
-function UnsubscribedView() {
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual')
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-5 text-center shadow-card">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Briefcase className="h-7 w-7 text-primary" />
-        </div>
-        <h2 className="font-heading text-lg font-bold text-foreground">Get matched to jobs passively</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Subscribe once. Employers search for you. Get notified when a certified, location-matched role is posted.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[13px] font-semibold text-foreground">How it works</p>
-        {[
-          { icon: CheckCircle2, label: 'Subscribe to activate your job profile' },
-          { icon: Bell,         label: 'Employers post hiring requests for your role + location' },
-          { icon: Star,         label: "You're ranked by certification, test scores & location" },
-          { icon: ArrowRight,   label: 'Accept a match → employer sees your profile' },
-        ].map(({ icon: Icon, label }, i) => (
-          <div key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-foreground">
-              {i + 1}
-            </div>
-            <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
-            {label}
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[13px] font-semibold text-foreground">Choose a plan</p>
-        <div className="grid grid-cols-2 gap-3">
-          {PLANS.map(plan => {
-            const key = plan.label.toLowerCase() as 'monthly' | 'annual'
-            return (
-              <button
-                key={plan.label}
-                onClick={() => setSelectedPlan(key)}
-                className={cn(
-                  'relative flex flex-col items-center rounded-xl border p-4 text-center transition-all',
-                  selectedPlan === key ? 'border-primary bg-primary/5 ring-2 ring-primary/30' : 'border-border bg-card hover:border-foreground/20',
-                )}
-              >
-                {plan.highlight && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                    Best value
-                  </span>
-                )}
-                <p className="text-xs font-medium text-muted-foreground">{plan.label}</p>
-                <p className="mt-1 font-heading text-xl font-bold text-foreground">
-                  {plan.price}<span className="text-sm font-normal text-muted-foreground">{plan.sub}</span>
-                </p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">{plan.billing}</p>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Payments via Paystack — coming in Layer 8 */}
-      <div className="rounded-xl border border-border bg-muted/40 p-4 text-center space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <Zap className="h-4 w-4 text-muted-foreground" />
-          <p className="text-sm font-medium text-muted-foreground">Payments coming soon</p>
-        </div>
-        <p className="text-xs text-muted-foreground">Paystack checkout is being set up. Check back shortly.</p>
-      </div>
-
-      <Link
-        href="/profile"
-        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'w-full justify-between')}
-      >
-        <span>Update your profile to improve match quality</span>
-        <ChevronRight className="h-4 w-4" />
-      </Link>
+      {showBuy && <BuyCreditsSheet onClose={() => setShowBuy(false)} />}
     </div>
   )
 }
@@ -390,19 +396,21 @@ function UnsubscribedView() {
 export default function JobHubPage() {
   const [profile, setProfile]   = useState<JobHubProfile | null>(null)
   const [matches, setMatches]   = useState<Match[]>([])
+  const [balance, setBalance]   = useState(0)
   const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const profileRes = await api.get<{ success: boolean; data: { profile: JobHubProfile } }>('/jobhub/profile')
-        setProfile(profileRes.data.profile)
+        const [profileRes, matchRes, creditsRes] = await Promise.allSettled([
+          api.get<{ success: boolean; data: { profile: JobHubProfile } }>('/jobhub/profile'),
+          api.get<{ success: boolean; data: { matches: Match[] } }>('/jobhub/matches'),
+          api.get<{ success: boolean; data: { balance: number } }>('/jobhub/credits'),
+        ])
 
-        if (profileRes.data.profile.is_subscribed) {
-          const matchRes = await api.get<{ success: boolean; data: { matches: Match[] } }>('/jobhub/matches')
-            .catch(() => null)
-          if (matchRes) setMatches(matchRes.data.matches)
-        }
+        if (profileRes.status === 'fulfilled') setProfile(profileRes.value.data.profile)
+        if (matchRes.status === 'fulfilled')   setMatches(matchRes.value.data.matches)
+        if (creditsRes.status === 'fulfilled') setBalance(creditsRes.value.data.balance)
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
       } finally {
@@ -414,23 +422,34 @@ export default function JobHubPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 md:space-y-6 md:py-8 md:px-10">
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight">Job Hub</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {profile?.is_subscribed
-            ? 'Employers are searching for your profile. Respond to matches quickly.'
-            : 'Get matched to jobs passively — no searching required.'}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold tracking-tight">Job Hub</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Employers find you. Accept matches using your credits.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+          <Coins className="h-3.5 w-3.5" />
+          {loading ? '…' : balance} credits
+        </div>
       </div>
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
         </div>
-      ) : profile?.is_subscribed ? (
-        <SubscribedView profile={profile} initialMatches={matches} />
+      ) : profile ? (
+        <JobHubView profile={profile} initialMatches={matches} initialBalance={balance} />
       ) : (
-        <UnsubscribedView />
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
+          <Briefcase className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm font-semibold">Set up your Job Hub profile</p>
+          <p className="mt-1 text-xs text-muted-foreground">Complete your profile to start receiving job matches.</p>
+          <Link href="/profile" className={cn(buttonVariants({ size: 'sm' }), 'mt-4')}>
+            Complete profile <ArrowRight className="ml-1 h-3.5 w-3.5" />
+          </Link>
+        </div>
       )}
     </div>
   )

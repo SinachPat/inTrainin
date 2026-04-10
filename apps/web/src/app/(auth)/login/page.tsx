@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowRight, Phone, Shield, ChevronLeft,
+  ArrowRight, Shield, ChevronLeft,
   User, MapPin, Briefcase, GraduationCap, Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -124,9 +124,15 @@ function LoginContent() {
         )
         router.push(dest)
       } else {
-        // New user — collect account type + profile before finalising
+        // New user — collect account type + profile before finalising.
+        // If ?type=business was in the URL, skip the type selector entirely.
         setTokens({ accessToken, refreshToken })
-        setStep('type')
+        if (typeHint === 'business') {
+          setType('business')
+          setStep('profile')
+        } else {
+          setStep('type')
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed. Check the code and try again.')
@@ -210,16 +216,16 @@ function LoginContent() {
         <form onSubmit={handleRequestOtp} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="login-phone" className="text-sm font-medium text-foreground">Phone number</label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className={cn(
+              'flex h-10 w-full items-center rounded-lg border bg-background text-sm transition-colors',
+              error ? 'border-destructive' : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
+            )}>
+              <span className="shrink-0 border-r border-border px-3 text-sm text-muted-foreground">+234</span>
               <input
-                id="login-phone" type="tel" inputMode="numeric" placeholder="0801 234 5678"
-                value={phone} onChange={e => setPhone(e.target.value)}
-                className={cn(
-                  'h-10 w-full rounded-lg border bg-background pl-9 pr-3 text-sm outline-none transition-colors',
-                  'placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20',
-                  error ? 'border-destructive' : 'border-border',
-                )}
+                id="login-phone" type="tel" inputMode="numeric" placeholder="801 234 5678"
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                className="h-full flex-1 bg-transparent px-3 outline-none placeholder:text-muted-foreground/50"
               />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
@@ -229,7 +235,7 @@ function LoginContent() {
           </Button>
           <p className="text-center text-xs text-muted-foreground">
             No account?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">Sign up free</Link>
+            <Link href="/signup" className="font-medium text-primary hover:underline">Sign up</Link>
           </p>
         </form>
       )}
@@ -309,8 +315,8 @@ function LoginContent() {
             </div>
           </button>
           <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">Sign in instead</Link>
+            Wrong number?{' '}
+            <button onClick={() => { setStep('phone'); setOtp(['','','','','','']); setError('') }} className="font-medium text-primary hover:underline">Start over</button>
           </p>
         </div>
       )}
@@ -318,10 +324,12 @@ function LoginContent() {
       {/* ── Profile (new users only) ──────────────────────────────────────────── */}
       {step === 'profile' && (
         <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <button type="button" onClick={() => setStep('type')}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="h-3.5 w-3.5" /> Back
-          </button>
+          {typeHint !== 'business' && (
+            <button type="button" onClick={() => setStep('type')}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="h-3.5 w-3.5" /> Back
+            </button>
+          )}
           {/* Full name */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Full name</label>
@@ -366,8 +374,8 @@ function LoginContent() {
             )}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">Sign in instead</Link>
+            Wrong number?{' '}
+            <button type="button" onClick={() => { setStep('phone'); setOtp(['','','','','','']); setError('') }} className="font-medium text-primary hover:underline">Start over</button>
           </p>
         </form>
       )}

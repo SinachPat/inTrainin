@@ -502,8 +502,11 @@ export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>
 /** Step 3 — complete profile after first-time OTP verification */
 export const CompleteProfileSchema = z.object({
   fullName:         z.string().min(1, 'Full name is required').max(120),
+  email:            z.string().email('Enter a valid email address').optional(),
   locationCity:     z.string().min(1, 'City is required'),
   accountType:      z.enum(['learner', 'business']),
+  // Job location preference (onsite / remote / hybrid / any)
+  jobLocationPref:  z.enum(['onsite', 'remote', 'hybrid', 'any']).optional(),
   // Learner-only: the role they want to pursue — either UUID or slug accepted
   careerGoalRoleId:   uuid.optional(),
   careerGoalRoleSlug: z.string().optional(),

@@ -5,7 +5,7 @@ import { useParams, notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock,
-  Clock, Award, Play, ChevronRight,
+  Clock, Award, Play, ChevronRight, XCircle,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +57,16 @@ interface ApiProgress {
   finalExamUnlocked: boolean
 }
 
+interface TestAttempt {
+  id: string
+  test_id: string
+  score_pct: number
+  passed: boolean
+  attempt_number: number
+  taken_at: string
+  tests: { title: string; test_type: string } | null
+}
+
 const TYPE_LABEL: Record<string, string> = {
   text: 'Reading', guide: 'Guide', case_study: 'Case Study', workflow: 'Workflow',
 }
@@ -68,6 +78,7 @@ export default function RoleCurriculumPage() {
   const [role, setRole]           = useState<ApiRole | null>(null)
   const [progress, setProgress]   = useState<ApiProgress | null>(null)
   const [enrolled, setEnrolled]   = useState<boolean | null>(null)
+  const [history, setHistory]     = useState<TestAttempt[]>([])
   const [loading, setLoading]     = useState(true)
   const [gone, setGone]           = useState(false)
 
@@ -85,6 +96,10 @@ export default function RoleCurriculumPage() {
           )
           setProgress(progRes.data)
           setEnrolled(true)
+          // Fetch test history in the background — non-critical
+          api.get<{ success: boolean; data: { attempts: TestAttempt[] } }>(
+            `/assessment/roles/${roleSlug}/history`,
+          ).then(r => setHistory(r.data.attempts)).catch(() => {})
         } catch (e) {
           if (e instanceof ApiError && e.status === 403) {
             setEnrolled(false)
@@ -333,6 +348,44 @@ export default function RoleCurriculumPage() {
           </div>
         )}
       </div>
+
+      {/* Test history */}
+      {history.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Test history</h2>
+          <div className="overflow-hidden rounded-xl border border-border bg-card divide-y divide-border/60">
+            {history.map(attempt => (
+              <div key={attempt.id} className="flex items-center gap-3 px-4 py-3">
+                <div className={cn(
+                  'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+                  attempt.passed ? 'bg-green-500/10' : 'bg-destructive/10',
+                )}>
+                  {attempt.passed
+                    ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    : <XCircle className="h-4 w-4 text-destructive" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {attempt.tests?.title ?? 'Test'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {new Date(attempt.taken_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}
+                    {' · '}Attempt #{attempt.attempt_number}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={cn('text-sm font-bold', attempt.passed ? 'text-green-600' : 'text-destructive')}>
+                    {attempt.score_pct}%
+                  </p>
+                  <p className={cn('text-[11px]', attempt.passed ? 'text-green-600' : 'text-destructive')}>
+                    {attempt.passed ? 'Passed' : 'Failed'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
