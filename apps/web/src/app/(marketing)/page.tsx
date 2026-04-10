@@ -14,7 +14,6 @@ import {
   ChevronRight,
   CheckCircle2,
   Lock,
-  MapPin,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +21,6 @@ import { FeatureTabs } from "@/components/marketing/feature-tabs";
 import { cn } from "@/lib/utils";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
-
-const CITIES = ["Lagos", "Abuja", "Enugu", "Kano", "Port Harcourt"];
 
 
 const TESTIMONIALS = [
@@ -243,25 +240,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. CITY BAR ──────────────────────────────────────────────────── */}
-      <section className="w-full border-b border-border">
-        <div className="mx-auto w-full max-w-6xl px-4 md:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Available in
-            </p>
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {CITIES.map((city) => (
-                <span key={city} className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="size-3 shrink-0" />
-                  {city}
-                </span>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">Phase 1 · Nigeria</p>
-          </div>
-        </div>
-      </section>
 
       {/* ── 3. FEATURE TABS ──────────────────────────────────────────────── */}
       <Section>

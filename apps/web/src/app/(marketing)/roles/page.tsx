@@ -22,7 +22,7 @@ export default function PublicRolesPage() {
           Role Catalogue
         </p>
         <h1 className="mb-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-          {ROLES.length} roles. One platform.
+          All in-demand roles. One platform.
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
           Every curriculum is structured into modules, topics, and a final certification exam.
