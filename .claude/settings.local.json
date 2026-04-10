@@ -56,7 +56,8 @@
       "Bash(node /Users/USER/Desktop/intrainin/node_modules/typescript/bin/tsc --noEmit)",
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(grep -E ':\\\\s*\"[^\"]{0,20}\"')",
-      "Bash(grep -E '^\\\\s+|\\\\s+$|  ')"
+      "Bash(grep -E '^\\\\s+|\\\\s+$|  ')",
+      "Bash(npx supabase:*)"
     ]
   }
 }
