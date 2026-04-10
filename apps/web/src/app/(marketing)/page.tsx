@@ -779,9 +779,9 @@ export default function Home() {
                 <Link
                   href={plan.href}
                   className={cn(
-                    buttonVariants({ size: "sm" }),
+                    buttonVariants({ size: "sm", variant: plan.highlight ? "outline" : "default" }),
                     "mb-5 justify-center",
-                    plan.highlight ? "bg-background text-primary hover:bg-background/90" : ""
+                    plan.highlight ? "bg-background text-primary hover:!bg-background/90 hover:text-primary" : ""
                   )}
                 >
                   {plan.cta}
