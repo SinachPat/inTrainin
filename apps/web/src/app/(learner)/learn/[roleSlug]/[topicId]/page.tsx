@@ -233,99 +233,175 @@ export default function TopicPage({ params }: Props) {
     load()
   }, [roleSlug, topicId])
 
-  // ── Audio player (real speech synthesis) ─────────────────────────────────
+  // ── Audio player ─────────────────────────────────────────────────────────────
+  // Primary: Google Cloud TTS via API endpoint — high-quality, deterministic.
+  // Fallback: window.speechSynthesis — used when the API returns 503 (not
+  //   configured) or any other non-200 status.
+  //
+  // When the API succeeds we use an <audio> element for native seek + speed
+  // control. The blob URL is cached in audioUrlRef so play/pause doesn't
+  // re-fetch.
+
   const SPEEDS = [0.75, 1, 1.25, 1.5] as const
   type Speed = typeof SPEEDS[number]
-  const totalSeconds = (topic?.estimated_minutes ?? 5) * 60
+
   const [audioPlaying, setAudioPlaying] = useState(false)
-  const [audioTime, setAudioTime]       = useState(0)
-  const [speed, setSpeed]               = useState<Speed>(1)
-  const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null)
-  const charOffsetRef = useRef(0)   // character position in full extracted text
-  const fullTextRef   = useRef('')  // full extracted text, set once topic loads
+  const [audioTime,    setAudioTime]    = useState(0)
+  const [audioDur,     setAudioDur]     = useState((topic?.estimated_minutes ?? 5) * 60)
+  const [speed,        setSpeed]        = useState<Speed>(1)
+  const [audioLoading, setAudioLoading] = useState(false)
+
+  // Refs for the <audio> element path
+  const audioRef    = useRef<HTMLAudioElement | null>(null)
+  const audioUrlRef = useRef<string | null>(null)   // cached blob URL
+  const usingApi    = useRef(false)                 // true = <audio>, false = speechSynthesis
+
+  // Web Speech fallback refs (same pattern as before)
+  const fullTextRef   = useRef('')
+  const charOffsetRef = useRef(0)
   const speechActive  = useRef(false)
 
-  // Pre-extract text when topic loads
+  // Pre-extract text when topic loads (used by both paths)
   useEffect(() => {
-    if (topic) fullTextRef.current = extractText(topic.content_body)
+    if (topic) {
+      fullTextRef.current = extractText(topic.content_body)
+      setAudioDur((topic.estimated_minutes ?? 5) * 60)
+    }
   }, [topic])
 
-  // Cleanup speech on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel()
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
       }
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     }
   }, [])
 
+  // ── Fetch audio from API and create blob URL (called once on first play) ─────
+  async function loadApiAudio(): Promise<string | null> {
+    if (audioUrlRef.current) return audioUrlRef.current  // already fetched
+    try {
+      const token = localStorage.getItem('intrainin_access_token') ?? ''
+      const res   = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/learning/topics/${topicId}/audio`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!res.ok) return null
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      audioUrlRef.current = url
+      return url
+    } catch {
+      return null
+    }
+  }
+
+  // ── Web Speech fallback helpers ───────────────────────────────────────────────
   function startSpeechFrom(charOffset: number, currentSpeed: Speed) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
     window.speechSynthesis.cancel()
     const remaining = fullTextRef.current.slice(charOffset)
     if (!remaining.trim()) return
 
-    const utt  = new SpeechSynthesisUtterance(remaining)
-    utt.rate   = currentSpeed
-    utt.lang   = 'en-GB'  // clearest English voice available across platforms
+    const utt = new SpeechSynthesisUtterance(remaining)
+    utt.rate  = currentSpeed
+    utt.lang  = 'en-GB'
 
     utt.onboundary = (e) => {
       charOffsetRef.current = charOffset + e.charIndex
       const pct = fullTextRef.current.length > 0
-        ? charOffsetRef.current / fullTextRef.current.length
-        : 0
-      setAudioTime(Math.round(pct * totalSeconds))
+        ? charOffsetRef.current / fullTextRef.current.length : 0
+      setAudioTime(Math.round(pct * audioDur))
     }
     utt.onend = () => {
-      if (!speechActive.current) return // cancelled deliberately
+      if (!speechActive.current) return
       charOffsetRef.current = fullTextRef.current.length
-      setAudioTime(totalSeconds)
+      setAudioTime(audioDur)
       setAudioPlaying(false)
     }
     speechActive.current = true
     window.speechSynthesis.speak(utt)
   }
 
-  // Timer — drives the progress bar; speech synthesis also updates it via onboundary
-  useEffect(() => {
+  // ── Toggle play / pause ───────────────────────────────────────────────────────
+  async function togglePlay() {
     if (audioPlaying) {
-      intervalRef.current = setInterval(() => {
-        setAudioTime(t => {
-          if (t >= totalSeconds) { setAudioPlaying(false); return totalSeconds }
-          return t + speed
-        })
-      }, 1000)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [audioPlaying, speed, totalSeconds])
-
-  function togglePlay() {
-    if (audioPlaying) {
-      speechActive.current = false
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+      // Pause
+      if (usingApi.current && audioRef.current) {
+        audioRef.current.pause()
+      } else {
+        speechActive.current = false
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+      }
       setAudioPlaying(false)
+      return
+    }
+
+    // Play — try API first
+    setAudioLoading(true)
+    const url = await loadApiAudio()
+    setAudioLoading(false)
+
+    if (url) {
+      // ── API path: use <audio> element ─────────────────────────────────────────
+      usingApi.current = true
+      if (!audioRef.current) {
+        const el = new Audio()
+        el.ontimeupdate = () => setAudioTime(Math.round(el.currentTime))
+        el.ondurationchange = () => setAudioDur(Math.round(el.duration))
+        el.onended = () => { setAudioPlaying(false); setAudioTime(Math.round(el.duration)) }
+        el.onpause = () => setAudioPlaying(false)
+        el.onplay  = () => setAudioPlaying(true)
+        audioRef.current = el
+      }
+      const el = audioRef.current
+      if (el.src !== url) el.src = url
+      el.playbackRate = speed
+      el.currentTime  = audioRef.current.currentTime  // preserve position
+      el.play().catch(() => {
+        // Autoplay blocked or error — fall through to speech
+        usingApi.current = false
+        audioRef.current = null
+        startSpeechFrom(charOffsetRef.current, speed)
+        setAudioPlaying(true)
+      })
     } else {
-      setAudioPlaying(true)
+      // ── Fallback: Web Speech API ───────────────────────────────────────────────
+      usingApi.current = false
       startSpeechFrom(charOffsetRef.current, speed)
+      setAudioPlaying(true)
     }
   }
 
   function seekBy(delta: number) {
-    setAudioTime(t => {
-      const next = Math.max(0, Math.min(totalSeconds, t + delta))
-      const pct  = totalSeconds > 0 ? next / totalSeconds : 0
+    if (usingApi.current && audioRef.current) {
+      audioRef.current.currentTime = Math.max(
+        0,
+        Math.min(audioRef.current.duration || audioDur, audioRef.current.currentTime + delta),
+      )
+    } else {
+      const next = Math.max(0, Math.min(audioDur, audioTime + delta))
+      const pct  = audioDur > 0 ? next / audioDur : 0
       charOffsetRef.current = Math.round(pct * fullTextRef.current.length)
+      setAudioTime(next)
       if (audioPlaying) startSpeechFrom(charOffsetRef.current, speed)
-      return next
-    })
+    }
   }
 
   function changeSpeed(s: Speed) {
     setSpeed(s)
-    if (audioPlaying) startSpeechFrom(charOffsetRef.current, s)
+    if (usingApi.current && audioRef.current) {
+      audioRef.current.playbackRate = s
+    } else if (audioPlaying) {
+      startSpeechFrom(charOffsetRef.current, s)
+    }
   }
+
+  const totalSeconds = audioDur
 
   function formatTime(s: number) {
     const m = Math.floor(s / 60)

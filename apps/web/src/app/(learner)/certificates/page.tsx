@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Award, Share2, Download, ExternalLink, BookOpen, Check } from 'lucide-react'
+import { Award, Share2, Download, ExternalLink, BookOpen, Check, Loader2 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,8 @@ function formatDate(iso: string) {
 }
 
 function CertShareActions({ cert, holderName }: { cert: Certificate; holderName: string }) {
-  const [copied, setCopied] = useState(false)
+  const [copied,       setCopied]       = useState(false)
+  const [downloading,  setDownloading]  = useState(false)
   const verifyUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://intrainin.com'}/verify/${cert.verification_code}`
 
   function shareWhatsApp() {
@@ -45,6 +46,35 @@ function CertShareActions({ cert, holderName }: { cert: Certificate; holderName:
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Fetch the server-generated PNG and trigger a browser file download.
+  // We use fetch + blob URL rather than a plain <a href> so we can attach the
+  // auth token (the image endpoint is protected) and show a loading indicator.
+  async function handleDownload() {
+    setDownloading(true)
+    try {
+      const token = localStorage.getItem('intrainin_access_token') ?? ''
+      const res   = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/certificates/${cert.id}/image`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!res.ok) throw new Error('Download failed')
+      const blob    = await res.blob()
+      const url     = URL.createObjectURL(blob)
+      const a       = document.createElement('a')
+      const safeName = (cert.roles?.title ?? 'certificate').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+      a.href     = url
+      a.download = `intrainin-certificate-${safeName}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent — user can retry
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="flex gap-2">
       <Link
@@ -61,11 +91,18 @@ function CertShareActions({ cert, holderName }: { cert: Certificate; holderName:
       </button>
       <button
         onClick={copyLink}
+        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'flex-1 justify-center gap-1.5')}
+      >
+        {copied ? <><Check className="h-3.5 w-3.5" /> Copied!</> : 'Copy link'}
+      </button>
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
         className={cn(buttonVariants({ size: 'sm' }), 'flex-1 justify-center gap-1.5')}
       >
-        {copied
-          ? <><Check className="h-3.5 w-3.5" /> Copied!</>
-          : <><Download className="h-3.5 w-3.5" /> Copy link</>}
+        {downloading
+          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
+          : <><Download className="h-3.5 w-3.5" /> Download PNG</>}
       </button>
     </div>
   )

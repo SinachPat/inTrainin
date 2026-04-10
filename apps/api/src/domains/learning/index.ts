@@ -505,4 +505,152 @@ learning.get('/progress/:roleSlug', authMiddleware, async (c) => {
   })
 })
 
+// ─── GET /learning/topics/:id/audio ──────────────────────────────────────────
+// Protected — synthesise the topic's text content to MP3 using Google Cloud TTS
+// and stream the result back. The client fetches this with its auth token and
+// creates a blob URL for an <audio> element.
+//
+// Requires GOOGLE_TTS_API_KEY env var (or GOOGLE_APPLICATION_CREDENTIALS for
+// the service-account flow). Returns 503 if Google TTS is not configured so
+// the frontend can fall back gracefully to Web Speech API.
+
+learning.get('/topics/:id/audio', authMiddleware, async (c) => {
+  const userId  = c.get('userId')
+  const topicId = c.req.param('id')
+  const db      = createServerClient()
+
+  // ── Verify enrolment (same check as GET /topics/:id) ─────────────────────────
+  const { data: topic } = await db
+    .from('topics')
+    .select('title, content_body, modules ( role_id )')
+    .eq('id', topicId)
+    .eq('is_published', true)
+    .maybeSingle()
+
+  if (!topic) {
+    return c.json({ success: false, error: 'Topic not found', code: ERROR_CODES.NOT_FOUND }, 404)
+  }
+
+  const roleId = (topic.modules as { role_id: string } | null)?.role_id
+  if (!roleId) {
+    return c.json({ success: false, error: 'Topic configuration error' }, 500)
+  }
+
+  const { data: enrolment } = await db
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('role_id', roleId)
+    .in('status', ['active', 'completed'])
+    .maybeSingle()
+
+  if (!enrolment) {
+    return c.json({ success: false, error: 'Not enrolled', code: ERROR_CODES.NOT_ENROLLED }, 403)
+  }
+
+  // ── Extract readable text from topic content ──────────────────────────────────
+  type ContentSection = { heading: string; body: string }
+  type ContentStep    = { step: number; title: string; description: string }
+  type ContentBody = {
+    sections?:         ContentSection[]
+    key_points?:       string[]
+    steps?:            ContentStep[]
+    scenario?:         string
+    what_went_wrong?:  string
+    correct_response?: Record<string, string>
+    what_not_to_do?:   string[]
+    learning_outcome?: string
+  }
+
+  const body  = topic.content_body as ContentBody
+  const parts: string[] = [`${topic.title}.`]
+  body.sections?.forEach(s => parts.push(`${s.heading}. ${s.body}`))
+  body.key_points?.forEach(p => parts.push(p))
+  body.steps?.forEach(s => parts.push(`Step ${s.step}. ${s.title}. ${s.description}`))
+  if (body.scenario)         parts.push('The scenario. ' + body.scenario)
+  if (body.what_went_wrong)  parts.push('What went wrong. ' + body.what_went_wrong)
+  if (body.correct_response) {
+    Object.entries(body.correct_response).forEach(([k, v]) => parts.push(`${k}. ${v}`))
+  }
+  if (body.what_not_to_do)   parts.push('What not to do. ' + body.what_not_to_do.join('. '))
+  if (body.learning_outcome) parts.push('Learning outcome. ' + body.learning_outcome)
+  const text = parts.join(' ')
+
+  // ── Google Cloud TTS ──────────────────────────────────────────────────────────
+  const apiKey = process.env.GOOGLE_TTS_API_KEY
+  if (!apiKey) {
+    // Not configured — frontend should fall back to Web Speech API
+    return c.json({ success: false, error: 'TTS not configured' }, 503)
+  }
+
+  try {
+    // Use the REST API directly (avoids the need for a service account keyfile
+    // in serverless/container environments — just an API key in env vars).
+    const ttsRes = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text },
+          voice: {
+            languageCode: 'en-NG',
+            name:         'en-NG-Standard-A',  // Nigerian English
+            ssmlGender:   'FEMALE',
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate:  1.0,
+            pitch:         0,
+          },
+        }),
+      },
+    )
+
+    if (!ttsRes.ok) {
+      // Try falling back to en-GB if en-NG voice is not available on this project
+      const fallbackRes = await fetch(
+        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: { text },
+            voice: { languageCode: 'en-GB', ssmlGender: 'FEMALE' },
+            audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0 },
+          }),
+        },
+      )
+
+      if (!fallbackRes.ok) {
+        const errText = await fallbackRes.text()
+        console.error('[learning/audio] Google TTS fallback error:', errText)
+        return c.json({ success: false, error: 'TTS synthesis failed' }, 502)
+      }
+
+      const fallbackJson = await fallbackRes.json() as { audioContent: string }
+      const audioBytes   = Buffer.from(fallbackJson.audioContent, 'base64')
+      return new Response(audioBytes as unknown as BodyInit, {
+        headers: {
+          'Content-Type':  'audio/mpeg',
+          'Cache-Control': 'private, max-age=3600',
+        },
+      })
+    }
+
+    const json       = await ttsRes.json() as { audioContent: string }
+    const audioBytes = Buffer.from(json.audioContent, 'base64')
+
+    return new Response(audioBytes as unknown as BodyInit, {
+      headers: {
+        'Content-Type':  'audio/mpeg',
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
+  } catch (err) {
+    console.error('[learning/audio] unexpected error:', err)
+    return c.json({ success: false, error: 'TTS synthesis failed' }, 502)
+  }
+})
+
 export { learning as learningRouter }

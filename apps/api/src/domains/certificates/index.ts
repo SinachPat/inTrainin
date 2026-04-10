@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { createCanvas, loadImage } from '@napi-rs/canvas'
+import QRCode from 'qrcode'
 import { createServerClient } from '@intrainin/db'
 import { ERROR_CODES } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
@@ -144,6 +146,242 @@ certificates.post('/issue', authMiddleware, async (c) => {
   ]).catch(console.error)
 
   return c.json({ success: true, data: { certificate: cert, alreadyIssued: false } }, 201)
+})
+
+// ─── GET /certificates/:id/image ─────────────────────────────────────────────
+// Protected — generate and return a shareable PNG certificate for the given
+// certificate ID. Only the owner can download their own certificate.
+
+certificates.get('/:id/image', authMiddleware, async (c) => {
+  const certId = c.req.param('id')
+  const userId = c.get('userId')
+  const db     = createServerClient()
+
+  const { data: cert, error } = await db
+    .from('certificates')
+    .select(`
+      id, verification_code, issued_at, is_revoked,
+      users ( full_name ),
+      roles ( title )
+    `)
+    .eq('id', certId)
+    .eq('user_id', userId)
+    .eq('is_revoked', false)
+    .maybeSingle()
+
+  if (error || !cert) {
+    return c.json(
+      { success: false, error: 'Certificate not found', code: ERROR_CODES.NOT_FOUND },
+      404,
+    )
+  }
+
+  const learnerName = (cert.users as { full_name: string } | null)?.full_name ?? 'Learner'
+  const roleTitle   = (cert.roles as { title: string } | null)?.title ?? 'Role'
+  const issuedDate  = new Date(cert.issued_at).toLocaleDateString('en-NG', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+  const verifyUrl = `${process.env.APP_URL ?? 'https://intrainin.com'}/verify/${cert.verification_code}`
+
+  // ── Canvas setup ─────────────────────────────────────────────────────────────
+  const W = 1200
+  const H = 800
+  const canvas = createCanvas(W, H)
+  const ctx    = canvas.getContext('2d')
+
+  // Background — deep dark
+  ctx.fillStyle = '#0c0c0c'
+  ctx.fillRect(0, 0, W, H)
+
+  // Subtle noise texture via a fine dot grid
+  ctx.fillStyle = 'rgba(255,255,255,0.015)'
+  for (let x = 0; x < W; x += 8) {
+    for (let y = 0; y < H; y += 8) {
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
+
+  // Top accent bar (brand orange)
+  const grad = ctx.createLinearGradient(0, 0, W, 0)
+  grad.addColorStop(0,   '#f97316')
+  grad.addColorStop(0.5, '#fb923c')
+  grad.addColorStop(1,   '#f97316')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, 6)
+
+  // Bottom accent bar (faint)
+  ctx.fillStyle = 'rgba(249,115,22,0.35)'
+  ctx.fillRect(0, H - 4, W, 4)
+
+  // Border frame
+  ctx.strokeStyle = 'rgba(249,115,22,0.18)'
+  ctx.lineWidth   = 1.5
+  ctx.strokeRect(24, 18, W - 48, H - 36)
+
+  // Inner border (double-frame effect)
+  ctx.strokeStyle = 'rgba(249,115,22,0.08)'
+  ctx.lineWidth   = 1
+  ctx.strokeRect(30, 24, W - 60, H - 48)
+
+  // ── Brand wordmark ───────────────────────────────────────────────────────────
+  ctx.font         = 'bold 22px sans-serif'
+  ctx.fillStyle    = '#f97316'
+  ctx.letterSpacing = '4px'
+  ctx.fillText('INTRAININ', 60, 68)
+
+  ctx.font         = '13px sans-serif'
+  ctx.fillStyle    = 'rgba(255,255,255,0.4)'
+  ctx.letterSpacing = '0px'
+  ctx.fillText('Nigeria\'s #1 Practical Skills Platform', 60, 92)
+
+  // Decorative divider under brand
+  ctx.strokeStyle = 'rgba(249,115,22,0.25)'
+  ctx.lineWidth   = 1
+  ctx.beginPath()
+  ctx.moveTo(60, 108)
+  ctx.lineTo(W - 60, 108)
+  ctx.stroke()
+
+  // ── Certificate heading ───────────────────────────────────────────────────────
+  ctx.font      = '18px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'
+  ctx.textAlign = 'center'
+  ctx.fillText('CERTIFICATE OF COMPLETION', W / 2, 178)
+
+  // Decorative dots flanking heading
+  ctx.fillStyle = '#f97316'
+  for (let i = 0; i < 5; i++) {
+    const x = W / 2 - 120 + i * 10
+    ctx.beginPath()
+    ctx.arc(x, 178, 1.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(W / 2 + 80 + i * 10, 178, 1.5, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  // ── "This certifies that" ─────────────────────────────────────────────────────
+  ctx.font      = '16px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillText('This certifies that', W / 2, 230)
+
+  // ── Learner name ──────────────────────────────────────────────────────────────
+  ctx.font      = 'bold 56px sans-serif'
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(learnerName, W / 2, 305)
+
+  // Underline beneath name
+  const nameWidth = ctx.measureText(learnerName).width
+  ctx.strokeStyle = 'rgba(249,115,22,0.6)'
+  ctx.lineWidth   = 2
+  ctx.beginPath()
+  ctx.moveTo(W / 2 - nameWidth / 2, 318)
+  ctx.lineTo(W / 2 + nameWidth / 2, 318)
+  ctx.stroke()
+
+  // ── "has successfully completed" ─────────────────────────────────────────────
+  ctx.font      = '16px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'
+  ctx.fillText('has successfully completed', W / 2, 365)
+
+  // ── Role title ────────────────────────────────────────────────────────────────
+  ctx.font      = 'bold 34px sans-serif'
+  ctx.fillStyle = '#f97316'
+  ctx.fillText(roleTitle, W / 2, 420)
+
+  // ── Issued date ───────────────────────────────────────────────────────────────
+  ctx.font      = '14px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
+  ctx.fillText(`Issued on ${issuedDate}`, W / 2, 470)
+
+  // Divider before footer
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'
+  ctx.lineWidth   = 1
+  ctx.beginPath()
+  ctx.moveTo(60, 510)
+  ctx.lineTo(W - 60, 510)
+  ctx.stroke()
+
+  // ── QR code (bottom-right) ────────────────────────────────────────────────────
+  const QR_SIZE = 120
+  const qrBuffer  = await QRCode.toBuffer(verifyUrl, {
+    type:   'png',
+    width:  QR_SIZE,
+    margin: 1,
+    color:  { dark: '#f97316', light: '#0c0c0c' },
+  })
+  const qrImage = await loadImage(qrBuffer)
+
+  const qrX = W - 60 - QR_SIZE
+  const qrY = 535
+
+  // QR background square
+  ctx.fillStyle = '#0c0c0c'
+  ctx.fillRect(qrX - 4, qrY - 4, QR_SIZE + 8, QR_SIZE + 8)
+  ctx.strokeStyle = 'rgba(249,115,22,0.3)'
+  ctx.lineWidth   = 1
+  ctx.strokeRect(qrX - 4, qrY - 4, QR_SIZE + 8, QR_SIZE + 8)
+  ctx.drawImage(qrImage, qrX, qrY, QR_SIZE, QR_SIZE)
+
+  ctx.font      = '11px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'
+  ctx.textAlign = 'center'
+  ctx.fillText('Scan to verify', qrX + QR_SIZE / 2, qrY + QR_SIZE + 18)
+
+  // ── Verification code (bottom-left) ──────────────────────────────────────────
+  ctx.textAlign = 'left'
+  ctx.font      = '12px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'
+  ctx.fillText('Verification ID', 60, 558)
+
+  ctx.font      = '13px monospace'
+  ctx.fillStyle = 'rgba(249,115,22,0.85)'
+  ctx.fillText(cert.verification_code.toUpperCase(), 60, 580)
+
+  ctx.font      = '12px sans-serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'
+  ctx.fillText('Verify at intrainin.com/verify', 60, 615)
+
+  // ── Seal / badge (center-bottom) ─────────────────────────────────────────────
+  const sealX = W / 2
+  const sealY = 598
+  const sealR = 38
+
+  // Outer ring
+  ctx.strokeStyle = 'rgba(249,115,22,0.4)'
+  ctx.lineWidth   = 2
+  ctx.beginPath()
+  ctx.arc(sealX, sealY, sealR, 0, Math.PI * 2)
+  ctx.stroke()
+
+  // Inner fill
+  ctx.fillStyle = 'rgba(249,115,22,0.08)'
+  ctx.beginPath()
+  ctx.arc(sealX, sealY, sealR - 4, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Checkmark
+  ctx.strokeStyle = '#f97316'
+  ctx.lineWidth   = 3
+  ctx.lineCap     = 'round'
+  ctx.lineJoin    = 'round'
+  ctx.beginPath()
+  ctx.moveTo(sealX - 14, sealY)
+  ctx.lineTo(sealX - 4,  sealY + 12)
+  ctx.lineTo(sealX + 16, sealY - 12)
+  ctx.stroke()
+
+  // ── Render ─────────────────────────────────────────────────────────────────────
+  const png = canvas.toBuffer('image/png')
+
+  const safeName = learnerName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+  return new Response(png as unknown as BodyInit, {
+    headers: {
+      'Content-Type':        'image/png',
+      'Content-Disposition': `attachment; filename="intrainin-certificate-${safeName}.png"`,
+      'Cache-Control':       'private, max-age=3600',
+    },
+  })
 })
 
 // ─── GET /certificates/verify/:code ──────────────────────────────────────────

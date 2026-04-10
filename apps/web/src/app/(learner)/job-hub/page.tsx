@@ -8,6 +8,7 @@ import {
   Bell, Check, Coins, Plus, Loader2,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
