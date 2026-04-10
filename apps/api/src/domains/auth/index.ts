@@ -141,6 +141,11 @@ auth.post(
       careerGoalRoleId = roleRow?.id ?? null
     }
 
+    // Resolve the phone from Supabase auth so the upsert's INSERT path never
+    // creates a row with phone = NULL (race: otp/verify may not have committed yet).
+    const { data: { user: authUser } } = await db.auth.admin.getUserById(userId)
+    const phone = authUser?.phone ?? null
+
     // Upsert (not update) — ensures the row exists even if the otp/verify upsert
     // silently failed (e.g. DB schema not yet migrated). Update would be a no-op
     // on a missing row without returning an error, leaving user as null below.
@@ -149,6 +154,7 @@ auth.post(
       .upsert(
         {
           id:                  userId,
+          phone,
           full_name:           body.fullName.trim(),
           location_city:       body.locationCity,
           account_type:        body.accountType,
