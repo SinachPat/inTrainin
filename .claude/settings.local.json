@@ -69,7 +69,9 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(ls /Users/USER/Desktop/intrainin/apps/web/*.env* /Users/USER/Desktop/intrainin/apps/web/.env*)",
       "Bash(grep -l \"job_hub_profiles\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(wc -l /Users/USER/Desktop/intrainin/packages/shared/src/*.ts)",
+      "Bash(grep -n \"console.info.*stub\\\\|console.log.*TODO\\\\|return.*stub\\\\|not implemented\\\\|NOT_IMPLEMENTED\" /Users/USER/Desktop/intrainin/apps/api/src/domains/**/*.ts /Users/USER/Desktop/intrainin/apps/api/src/lib/**/*.ts)"
     ]
   }
 }
