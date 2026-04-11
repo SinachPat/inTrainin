@@ -91,7 +91,13 @@
       "Bash(ls /Users/USER/Desktop/intrainin/apps/web/public/sw.js /Users/USER/Desktop/intrainin/apps/web/public/workbox-*.js /Users/USER/Desktop/intrainin/apps/web/public/swe-worker-*.js)",
       "Bash(node -e \"const m = require\\('/Users/USER/Desktop/intrainin/apps/web/node_modules/@ducanh2912/next-pwa/dist/index.cjs'\\); console.log\\(typeof m, typeof m.default\\)\")",
       "Bash(git -C /Users/USER/Desktop/intrainin status --short)",
-      "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/icon-192.png /Users/USER/Desktop/intrainin/apps/web/public/icon-512.png)"
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/icon-192.png /Users/USER/Desktop/intrainin/apps/web/public/icon-512.png)",
+      "Bash(python3 -c \"import cairosvg; print\\('cairosvg ok'\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/USER/Desktop/intrainin/apps/web/public/icon-192.png /Users/USER/Desktop/intrainin/apps/web/public/icon-512.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/icon-maskable.png)",
+      "Bash(kill -9 3548)",
+      "Bash(xargs kill:*)"
     ]
   }
 }
