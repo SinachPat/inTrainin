@@ -1,4 +1,4 @@
 {
   "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "next build"
+  "buildCommand": "next build --webpack"
 }
