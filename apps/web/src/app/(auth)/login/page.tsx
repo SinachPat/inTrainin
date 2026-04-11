@@ -24,9 +24,9 @@ const CITIES = ['Lagos', 'Abuja', 'Enugu', 'Kano', 'Port Harcourt', 'Ibadan', 'B
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
-  if (digits.startsWith('0')) return '+234' + digits.slice(1)
-  if (digits.startsWith('234')) return '+' + digits
-  return digits
+  if (digits.startsWith('0'))   return '+234' + digits.slice(1)  // 08137... → +2348137...
+  if (digits.startsWith('234')) return '+' + digits              // 2348137... → +2348137...
+  return '+234' + digits                                         // 8137... → +2348137...
 }
 
 function LoginContent() {

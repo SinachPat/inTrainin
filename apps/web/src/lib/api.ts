@@ -107,10 +107,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     let code: string | undefined
     let data: unknown
     try {
-      const body = await res.json() as { error?: string; code?: string; data?: unknown }
-      errMsg = body.error ?? errMsg
-      code   = body.code
-      data   = body.data
+      const body = await res.json() as { error?: unknown; code?: string; data?: unknown }
+      // Guard: body.error must be a string — objects would render as "[object Object]"
+      if (typeof body.error === 'string') errMsg = body.error
+      else if (body.error)               errMsg = JSON.stringify(body.error)
+      code = body.code
+      data = body.data
     } catch {
       errMsg = await res.text().catch(() => errMsg)
     }

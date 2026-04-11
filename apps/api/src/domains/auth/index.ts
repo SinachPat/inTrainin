@@ -24,7 +24,10 @@ auth.post('/otp/send', zValidator('json', RequestOtpSchema), async (c) => {
   const db = createServerClient()
 
   // Normalise to E.164 (+234XXXXXXXXXX) regardless of input format
-  const e164 = phone.startsWith('+') ? phone : `+234${phone.slice(1)}`
+  const e164 = phone.startsWith('+')     ? phone
+             : phone.startsWith('0')   ? `+234${phone.slice(1)}`
+             : phone.startsWith('234') ? `+${phone}`
+             : `+234${phone}`
 
   const { error } = await db.auth.signInWithOtp({ phone: e164 })
 
@@ -50,7 +53,10 @@ auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
   const { phone, code } = c.req.valid('json')
   const db = createServerClient()
 
-  const e164 = phone.startsWith('+') ? phone : `+234${phone.slice(1)}`
+  const e164 = phone.startsWith('+')     ? phone
+             : phone.startsWith('0')   ? `+234${phone.slice(1)}`
+             : phone.startsWith('234') ? `+${phone}`
+             : `+234${phone}`
 
   const { data, error } = await db.auth.verifyOtp({
     phone: e164,
