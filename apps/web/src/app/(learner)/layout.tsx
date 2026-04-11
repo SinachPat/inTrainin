@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { signOut } from '@/lib/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { LogoMark } from '@/components/logo'
+import { PWAInstallBanner } from '@/components/pwa-install-banner'
 
 const NAV = [
   { href: '/dashboard',    label: 'Home',    icon: LayoutDashboard },
@@ -241,6 +242,8 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {children}
       </main>
+
+      <PWAInstallBanner />
 
       {/* ── Mobile bottom nav ────────────────────────────────────────────── */}
       <nav
