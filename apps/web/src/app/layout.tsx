@@ -6,6 +6,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2ede6" },
+    { media: "(prefers-color-scheme: dark)",  color: "#1a1612" },
+  ],
 };
 
 const inter = Inter({
@@ -23,6 +27,15 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL ?? "https://intrainin.vercel.app",
   ),
   title: "InTrainin | Get Trained, Certified & Hired in Nigeria",
+  applicationName: "InTrainin",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "InTrainin",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   description:
     "InTrainin helps Nigeria's informal sector workers get trained in role-specific skills, earn verifiable certificates, and get matched to real jobs — for free.",
   openGraph: {
@@ -58,6 +71,8 @@ export default function RootLayout({
         {/* Runs synchronously before first paint — prevents dark/light flash */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" />
+        {/* PWA — Apple devices don't read the manifest for home-screen icon */}
+        <link rel="apple-touch-icon" href="/icon-512.png" />
       </head>
       <body className="min-h-screen bg-background text-foreground">
         {children}

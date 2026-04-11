@@ -77,7 +77,20 @@
       "Bash(grep -B 2 -A 15 \"CREATE TABLE business_members\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
       "WebFetch(domain:qrios.com)",
       "WebSearch",
-      "WebFetch(domain:deep.qrios.com)"
+      "WebFetch(domain:deep.qrios.com)",
+      "Bash(convert --version)",
+      "Bash(identify /Users/USER/Desktop/intrainin/apps/web/public/logo.png)",
+      "Bash(sips --getProperty all /Users/USER/Desktop/intrainin/apps/web/public/logo.png)",
+      "Bash(node -e \"const sharp = require\\('/Users/USER/Desktop/intrainin/apps/web/node_modules/sharp'\\); console.log\\(sharp.versions\\)\")",
+      "Bash(npm info:*)",
+      "Bash(pnpm build:*)",
+      "Bash(node_modules/.bin/next build:*)",
+      "Bash(ls -la /Users/USER/Desktop/intrainin/apps/web/public/sw.js /Users/USER/Desktop/intrainin/apps/web/public/workbox-*.js)",
+      "Bash(ls /Users/USER/Desktop/intrainin/apps/web/public/swe-worker*.js)",
+      "Bash(head -c 500 /Users/USER/Desktop/intrainin/apps/web/public/swe-worker*.js)",
+      "Bash(ls /Users/USER/Desktop/intrainin/apps/web/public/sw.js /Users/USER/Desktop/intrainin/apps/web/public/workbox-*.js /Users/USER/Desktop/intrainin/apps/web/public/swe-worker-*.js)",
+      "Bash(node -e \"const m = require\\('/Users/USER/Desktop/intrainin/apps/web/node_modules/@ducanh2912/next-pwa/dist/index.cjs'\\); console.log\\(typeof m, typeof m.default\\)\")",
+      "Bash(git -C /Users/USER/Desktop/intrainin status --short)"
     ]
   }
 }
