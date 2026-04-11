@@ -179,14 +179,39 @@ function extractText(body: ContentBody): string {
 }
 
 // ── Dispatcher ───────────────────────────────────────────────────────────────
+// Prefer content_type as a hint but fall back based on the actual data shape.
+// This guards against mismatches between the DB label and the JSON structure
+// (e.g. a 'guide' whose JSON actually uses sections instead of steps).
 
 function TopicContentRenderer({ topic }: { topic: ApiTopic }) {
-  switch (topic.content_type) {
-    case 'guide':      return <GuideContent      body={topic.content_body} />
-    case 'workflow':   return <WorkflowContent   body={topic.content_body} />
-    case 'case_study': return <CaseStudyContent  body={topic.content_body} />
-    default:           return <TextContent       body={topic.content_body} />
+  const body = topic.content_body
+  const hasSteps    = Array.isArray(body.steps)    && body.steps.length    > 0
+  const hasSections = Array.isArray(body.sections) && body.sections.length > 0
+  const hasScenario = Boolean(body.scenario)
+
+  if (hasScenario || topic.content_type === 'case_study') {
+    return <CaseStudyContent body={body} />
   }
+  if (topic.content_type === 'workflow' && hasSteps) {
+    return <WorkflowContent body={body} />
+  }
+  if (topic.content_type === 'guide' && hasSteps) {
+    return <GuideContent body={body} />
+  }
+  // Fallback: TextContent renders sections + key_points and always shows
+  // something even if content_type is mismatched with the actual JSON.
+  if (hasSections || (body.key_points?.length ?? 0) > 0) {
+    return <TextContent body={body} />
+  }
+  // Last resort: steps exist but type wasn't matched above
+  if (hasSteps) {
+    return topic.content_type === 'workflow'
+      ? <WorkflowContent body={body} />
+      : <GuideContent    body={body} />
+  }
+  return (
+    <p className="text-sm text-muted-foreground">No content available for this topic.</p>
+  )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
