@@ -47,6 +47,7 @@ export default function BusinessAdminPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [seatUsed,  setSeatUsed]  = useState(0)
   const [loading,   setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -63,6 +64,7 @@ export default function BusinessAdminPage() {
         if (analyticsRes) setAnalytics(analyticsRes.data)
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
+        else setLoadError(true)
       } finally {
         setLoading(false)
       }
@@ -96,6 +98,16 @@ export default function BusinessAdminPage() {
       {loading && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[1,2,3,4].map(i => <div key={i} className="h-28 animate-pulse rounded-xl bg-muted" />)}
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Could not load dashboard data</p>
+          <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="mt-4 text-xs font-medium text-primary hover:underline">
+            Retry
+          </button>
         </div>
       )}
 

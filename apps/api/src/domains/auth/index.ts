@@ -365,8 +365,9 @@ auth.patch('/profile/resume', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'path is required' }, 400)
   }
 
-  // Verify the path actually belongs to this user
-  if (!body.path.startsWith(`${userId}/`)) {
+  // Verify the path belongs to this user and contains no traversal sequences
+  const hasTraversal = body.path.includes('..') || body.path.includes('%2e%2e') || body.path.includes('%2E%2E')
+  if (hasTraversal || !body.path.startsWith(`${userId}/`)) {
     return c.json({ success: false, error: 'Forbidden' }, 403)
   }
 

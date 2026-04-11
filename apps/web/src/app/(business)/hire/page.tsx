@@ -125,7 +125,7 @@ function PostRequestModal({
                 <select
                   value={roleId}
                   onChange={e => setRoleId(e.target.value)}
-                  className="h-9 w-full appearance-none rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  className="h-9 w-full appearance-none rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary"
                 >
                   <option value="">Select a role…</option>
                   {roles.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
@@ -137,7 +137,7 @@ function PostRequestModal({
                 <select
                   value={city}
                   onChange={e => setCity(e.target.value)}
-                  className="h-9 w-full appearance-none rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary"
+                  className="h-9 w-full appearance-none rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary"
                 >
                   {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -151,7 +151,7 @@ function PostRequestModal({
                   max="20"
                   value={positions}
                   onChange={e => setPositions(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
                 />
               </div>
 
@@ -162,7 +162,7 @@ function PostRequestModal({
                   value={payMin}
                   onChange={e => setPayMin(e.target.value)}
                   placeholder="45000"
-                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
                 />
               </div>
 
@@ -173,7 +173,7 @@ function PostRequestModal({
                   value={payMax}
                   onChange={e => setPayMax(e.target.value)}
                   placeholder="60000"
-                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
                 />
               </div>
 

@@ -116,6 +116,19 @@ certificates.post('/issue', authMiddleware, async (c) => {
     )
   }
 
+  // Mark enrollment as completed BEFORE issuing the cert so the two states
+  // are always consistent — a cert can only exist when enrollment is completed.
+  // If this update fails we stop here; no cert is issued and the learner can retry.
+  const { error: enrollmentUpdateError } = await db
+    .from('enrollments')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', enrolment.id)
+
+  if (enrollmentUpdateError) {
+    console.error('[certificates/issue] enrollment status update failed:', enrollmentUpdateError.message)
+    return c.json({ success: false, error: 'Failed to update enrollment status' }, 500)
+  }
+
   // Issue the certificate
   const { data: cert, error: issueError } = await db
     .from('certificates')
@@ -127,16 +140,24 @@ certificates.post('/issue', authMiddleware, async (c) => {
     .select('id, verification_code, issued_at')
     .single()
 
-  if (issueError) return c.json({ success: false, error: issueError.message }, 500)
-
-  // Mark enrollment as completed
-  const { error: enrollmentUpdateError } = await db
-    .from('enrollments')
-    .update({ status: 'completed', completed_at: new Date().toISOString() })
-    .eq('id', enrolment.id)
-
-  if (enrollmentUpdateError) {
-    console.error('[certificates/issue] enrollment status update failed:', enrollmentUpdateError.message)
+  if (issueError) {
+    // 23505 = unique_violation — another concurrent request already issued the cert
+    if (issueError.code === '23505') {
+      const { data: race } = await db
+        .from('certificates')
+        .select('id, verification_code, issued_at')
+        .eq('user_id', userId)
+        .eq('role_id', roleId)
+        .eq('is_revoked', false)
+        .maybeSingle()
+      if (race) return c.json({ success: true, data: { certificate: race, alreadyIssued: true } })
+    }
+    // Cert insert failed — revert enrollment back to active so learner can retry
+    await db
+      .from('enrollments')
+      .update({ status: 'active', completed_at: null })
+      .eq('id', enrolment.id)
+    return c.json({ success: false, error: issueError.message }, 500)
   }
 
   // Fire-and-forget: gamification failure must never break the response

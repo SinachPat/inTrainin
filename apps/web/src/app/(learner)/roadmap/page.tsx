@@ -56,11 +56,15 @@ export default function RoadmapPage() {
   const [enrollments, setEnrollments] = useState<RoadmapEnrollment[]>([])
   const [nextRoles,   setNextRoles]   = useState<NextRole[]>([])
   const [loading,     setLoading]     = useState(true)
+  const [loadError,   setLoadError]   = useState(false)
 
   useEffect(() => {
     api.get<{ success: boolean; data: { enrollments: RoadmapEnrollment[]; nextRoles: NextRole[] } }>('/roadmap/me')
       .then(r => { setEnrollments(r.data.enrollments); setNextRoles(r.data.nextRoles) })
-      .catch(e => { if (e instanceof ApiError && e.status === 401) window.location.replace('/login') })
+      .catch(e => {
+        if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
+        else setLoadError(true)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -92,6 +96,17 @@ export default function RoadmapPage() {
       {loading && (
         <div className="space-y-4">
           {[1, 2].map(i => <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />)}
+        </div>
+      )}
+
+      {/* Error state */}
+      {!loading && loadError && (
+        <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Could not load your roadmap</p>
+          <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="mt-4 text-xs font-medium text-primary hover:underline">
+            Retry
+          </button>
         </div>
       )}
 

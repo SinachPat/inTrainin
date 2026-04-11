@@ -42,7 +42,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Search */}
-      <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-colors">
+      <div className="mb-5 flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-colors shadow-sm">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           type="text"
@@ -66,7 +66,7 @@ export default function ExplorePage() {
             'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors',
             !selectedCategory
               ? 'border-primary bg-primary/10 text-primary'
-              : 'border-foreground/20 text-foreground/70 hover:border-foreground/30 hover:text-foreground',
+              : 'border-border text-foreground/75 hover:border-foreground/40 hover:text-foreground',
           )}
         >
           All categories
@@ -79,7 +79,7 @@ export default function ExplorePage() {
               'rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors',
               selectedCategory === cat
                 ? 'border-primary bg-primary/10 text-primary'
-                : 'border-foreground/20 text-foreground/70 hover:border-foreground/30 hover:text-foreground',
+                : 'border-border text-foreground/75 hover:border-foreground/40 hover:text-foreground',
             )}
           >
             {cat}

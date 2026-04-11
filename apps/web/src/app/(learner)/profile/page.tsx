@@ -178,7 +178,7 @@ export default function ProfilePage() {
                 autoFocus
                 value={draftName}
                 onChange={e => setDraftName(e.target.value)}
-                className="h-8 flex-1 rounded-lg border border-primary bg-background px-3 text-sm outline-none"
+                className="h-8 flex-1 rounded-lg border border-primary bg-card px-3 text-sm outline-none"
                 onKeyDown={e => { if (e.key === 'Enter') saveName() }}
               />
               <Button size="xs" onClick={saveName}><Check className="h-3.5 w-3.5" /></Button>

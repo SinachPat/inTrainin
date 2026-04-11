@@ -107,7 +107,7 @@ function InviteModal({
                     value={phone}
                     onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     placeholder="8012345678"
-                    className="h-9 flex-1 rounded-r-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                    className="h-9 flex-1 rounded-r-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -118,7 +118,7 @@ function InviteModal({
                   value={jobTitle}
                   onChange={e => setJobTitle(e.target.value)}
                   placeholder="e.g. Cashier"
-                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                  className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
                 />
               </div>
 

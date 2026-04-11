@@ -190,7 +190,34 @@ learning.post(
       .select()
       .single()
 
-    if (enrolError) return c.json({ success: false, error: enrolError.message }, 500)
+    if (enrolError) {
+      // 23505 = unique_violation — concurrent request already enrolled this user
+      if (enrolError.code === '23505') {
+        return c.json(
+          { success: false, error: 'Already enrolled in this role', code: ERROR_CODES.ALREADY_ENROLLED },
+          409,
+        )
+      }
+      return c.json({ success: false, error: enrolError.message }, 500)
+    }
+
+    // Re-check free tier limit AFTER insert to close the race window.
+    // If two concurrent requests both passed the pre-check, the one that
+    // inserted last here may push the count over the limit — roll it back.
+    if (isPaid && !paymentReference) {
+      const { count: finalCount } = await db
+        .from('enrollments')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+
+      if ((finalCount ?? 0) > FREE_ROLES_LIMIT) {
+        await db.from('enrollments').delete().eq('id', enrolment.id)
+        return c.json(
+          { success: false, error: 'Payment required for this role', code: ERROR_CODES.PAYMENT_FAILED },
+          402,
+        )
+      }
+    }
 
     // Fire-and-forget: gamification + job matching must never break the response
     onEnrolment(db, userId).catch(console.error)

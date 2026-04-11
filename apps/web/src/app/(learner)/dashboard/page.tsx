@@ -42,6 +42,7 @@ export default function LearnerDashboardPage() {
   const [enrolments, setEnrolments]   = useState<Enrolment[]>([])
   const [pendingMatches, setPendingMatches] = useState<number>(0)
   const [loading, setLoading]         = useState(true)
+  const [loadError, setLoadError]     = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -60,6 +61,8 @@ export default function LearnerDashboardPage() {
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           window.location.replace('/login')
+        } else {
+          setLoadError(true)
         }
       } finally {
         setLoading(false)
@@ -96,6 +99,17 @@ export default function LearnerDashboardPage() {
           {[1, 2, 3].map(i => (
             <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
           ))}
+        </div>
+      )}
+
+      {/* ── Load error ────────────────────────────────────────────────────── */}
+      {!loading && loadError && (
+        <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">Could not load your dashboard</p>
+          <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="mt-4 text-xs font-medium text-primary hover:underline">
+            Retry
+          </button>
         </div>
       )}
 

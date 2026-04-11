@@ -206,6 +206,15 @@ webhookApp.post(
 
     const paymentType = metadata?.type
 
+    // Derive the authoritative user ID from the Paystack customer email.
+    // All InTrainin payments use {userId}@users.intrainin.com as the email so
+    // we can extract the real payer's ID from the webhook payload itself, which
+    // cannot be forged by client-side metadata. If the email doesn't match our
+    // pattern we fall back to metadata.user_id (e.g. legacy or business payments).
+    const customerEmail = event.data?.customer as { email?: string } | undefined
+    const emailParts    = customerEmail?.email?.match(/^([^@]+)@users\.intrainin\.com$/)
+    const verifiedUserId = emailParts ? emailParts[1] : metadata?.user_id
+
     // ── Enrollment activation ────────────────────────────────────────────────
     if (!paymentType || paymentType === 'enrollment') {
       const { data: enrollment } = await db
@@ -226,7 +235,7 @@ webhookApp.post(
     }
 
     // ── Business subscription activation ─────────────────────────────────────
-    if (paymentType === 'subscription' && metadata?.user_id && metadata?.plan) {
+    if (paymentType === 'subscription' && verifiedUserId && metadata?.plan) {
       const planInfo = BUSINESS_PLANS.find(p => p.key === metadata.plan)
       const amountNgn = amountKobo != null ? amountKobo / 100 : null
 
@@ -245,7 +254,7 @@ webhookApp.post(
             seat_limit:              planInfo.seats as number,
             payment_reference:       reference,
           })
-          .eq('owner_user_id', metadata.user_id)
+          .eq('owner_user_id', verifiedUserId)
           .is('payment_reference', null)
           .then(({ error: e }) => {
             if (e) console.error('[webhook] subscription activate error:', e.message)
@@ -254,7 +263,7 @@ webhookApp.post(
     }
 
     // ── Credits purchase ──────────────────────────────────────────────────────
-    if (paymentType === 'credits' && metadata?.user_id && amountKobo != null) {
+    if (paymentType === 'credits' && verifiedUserId && amountKobo != null) {
       const amountNgn = amountKobo / 100
       const pack = CREDITS_PACKS.find(p => p.priceNgn === amountNgn)
 
@@ -263,7 +272,7 @@ webhookApp.post(
         const { data: existing } = await db
           .from('job_hub_credits')
           .select('id')
-          .eq('user_id', metadata.user_id)
+          .eq('user_id', verifiedUserId)
           .eq('reference', reference)
           .eq('reason', 'purchase')
           .maybeSingle()
@@ -271,7 +280,7 @@ webhookApp.post(
         if (!existing) {
           await db
             .from('job_hub_credits')
-            .insert({ user_id: metadata.user_id, amount: pack.credits, reason: 'purchase', reference })
+            .insert({ user_id: verifiedUserId, amount: pack.credits, reason: 'purchase', reference })
             .then(({ error: e }) => {
               if (e) console.error('[webhook] credits insert error:', e.message)
             })

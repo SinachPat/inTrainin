@@ -5,13 +5,14 @@ import { useParams, notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, ArrowRight, BookOpen, CheckCircle2, Lock,
-  Clock, Award, Play, ChevronRight, XCircle,
+  Clock, Award, Play, ChevronRight, XCircle, Loader2,
 } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
+import { getSession } from '@/lib/auth'
 
 interface ApiTopic {
   id: string
@@ -71,6 +72,74 @@ const TYPE_LABEL: Record<string, string> = {
   text: 'Reading', guide: 'Guide', case_study: 'Case Study', workflow: 'Workflow',
 }
 
+// ── NotEnrolledGate ──────────────────────────────────────────────────────────
+// Shown when the user lands on a course page but isn't enrolled yet.
+// "Start for free" auto-enrolls them using the free tier (no payment needed
+// for the first FREE_ROLES_LIMIT courses). If they've exhausted free slots,
+// the API returns 402 and we send them to the explore page to pay.
+
+function NotEnrolledGate({
+  role,
+  onEnrolled,
+}: {
+  role: ApiRole
+  onEnrolled: () => void
+}) {
+  const [busy,  setBusy]  = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleStartFree() {
+    const session = getSession()
+    if (!session) { window.location.replace('/login'); return }
+
+    setBusy(true)
+    setError(null)
+    try {
+      await api.post('/learning/enrol', { roleId: role.id })
+      // Signal parent to re-fetch progress now that enrollment exists
+      onEnrolled()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 402) {
+        // Free slots exhausted — send to explore page to pay
+        window.location.href = `/explore/${role.slug}`
+      } else if (e instanceof ApiError && e.status === 401) {
+        window.location.replace('/login')
+      } else {
+        setError('Could not start course. Please try again.')
+        setBusy(false)
+      }
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 md:px-10">
+      <Link href="/explore" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
+        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> All roles
+      </Link>
+      <div className="rounded-xl border border-border bg-card p-6 text-center space-y-4">
+        <h1 className="font-heading text-xl font-bold">{role.title}</h1>
+        {role.description && <p className="text-sm text-muted-foreground">{role.description}</p>}
+        <button
+          onClick={handleStartFree}
+          disabled={busy}
+          className={cn(buttonVariants({ size: 'lg' }), 'w-full justify-center')}
+        >
+          {busy
+            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Starting…</>
+            : <>Start Module 1 — free <ArrowRight className="ml-1 h-4 w-4" /></>}
+        </button>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <p className="text-xs text-muted-foreground">
+          No payment needed to start.{' '}
+          <Link href={`/explore/${role.slug}`} className="underline underline-offset-2">
+            View full course
+          </Link>
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function RoleCurriculumPage() {
   const params   = useParams<{ roleSlug: string }>()
   const roleSlug = params.roleSlug
@@ -81,8 +150,11 @@ export default function RoleCurriculumPage() {
   const [history, setHistory]     = useState<TestAttempt[]>([])
   const [loading, setLoading]     = useState(true)
   const [gone, setGone]           = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
+    setLoading(true)
+    setEnrolled(null)
     async function load() {
       try {
         const roleRes = await api.get<{ success: boolean; data: { role: ApiRole } }>(
@@ -115,7 +187,7 @@ export default function RoleCurriculumPage() {
       }
     }
     load()
-  }, [roleSlug])
+  }, [roleSlug, refreshKey])
 
   if (loading) {
     return (
@@ -131,20 +203,7 @@ export default function RoleCurriculumPage() {
 
   // ── Not enrolled ──────────────────────────────────────────────────────────
   if (enrolled === false) {
-    return (
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-6 md:px-10">
-        <Link href="/explore" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-ml-2 text-muted-foreground')}>
-          <ArrowLeft className="mr-1 h-3.5 w-3.5" /> All roles
-        </Link>
-        <div className="rounded-xl border border-border bg-card p-6 text-center space-y-4">
-          <h1 className="font-heading text-xl font-bold">{role.title}</h1>
-          {role.description && <p className="text-sm text-muted-foreground">{role.description}</p>}
-          <Link href={`/explore/${role.slug}`} className={cn(buttonVariants(), 'w-full justify-center')}>
-            Enroll — ₦{role.price_ngn.toLocaleString()} <ArrowRight className="ml-1 h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-    )
+    return <NotEnrolledGate role={role} onEnrolled={() => setRefreshKey(k => k + 1)} />
   }
 
   // ── Enrolled ──────────────────────────────────────────────────────────────

@@ -493,7 +493,9 @@ business.post(
     const expiresAt = new Date(now)
     expiresAt.setFullYear(expiresAt.getFullYear() + 1)
 
-    const { error } = await db
+    // Atomic guard: only update if payment_reference is still null.
+    // If two requests race past the idempotency check, only one UPDATE wins.
+    const { error, count } = await db
       .from('businesses')
       .update({
         subscription_plan:       plan,
@@ -503,8 +505,15 @@ business.post(
         payment_reference:       paymentReference,
       })
       .eq('owner_user_id', userId)
+      .is('payment_reference', null)
+      .select('id', { count: 'exact', head: true })
 
     if (error) return c.json({ success: false, error: error.message }, 500)
+
+    // count=0 means another request already activated the subscription
+    if ((count ?? 0) === 0) {
+      return c.json({ success: true, data: { message: 'Subscription already active' } })
+    }
 
     return c.json({
       success: true,

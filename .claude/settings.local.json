@@ -71,7 +71,10 @@
       "Bash(grep -l \"job_hub_profiles\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
       "Bash(pnpm add:*)",
       "Bash(wc -l /Users/USER/Desktop/intrainin/packages/shared/src/*.ts)",
-      "Bash(grep -n \"console.info.*stub\\\\|console.log.*TODO\\\\|return.*stub\\\\|not implemented\\\\|NOT_IMPLEMENTED\" /Users/USER/Desktop/intrainin/apps/api/src/domains/**/*.ts /Users/USER/Desktop/intrainin/apps/api/src/lib/**/*.ts)"
+      "Bash(grep -n \"console.info.*stub\\\\|console.log.*TODO\\\\|return.*stub\\\\|not implemented\\\\|NOT_IMPLEMENTED\" /Users/USER/Desktop/intrainin/apps/api/src/domains/**/*.ts /Users/USER/Desktop/intrainin/apps/api/src/lib/**/*.ts)",
+      "Bash(grep -A 10 \"CREATE TABLE certificates\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
+      "Bash(grep -B 5 -A 15 \"CREATE TABLE enrollments\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
+      "Bash(grep -B 2 -A 15 \"CREATE TABLE business_members\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)"
     ]
   }
 }

@@ -345,7 +345,7 @@ function SignupContent() {
           <div className="space-y-1.5">
             <label htmlFor="phone" className="text-sm font-medium text-foreground">Phone number</label>
             <div className={cn(
-              'flex h-10 w-full items-center rounded-lg border bg-background text-sm transition-colors',
+              'flex h-10 w-full items-center rounded-lg border bg-card text-sm transition-colors',
               error ? 'border-destructive' : 'border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
             )}>
               <span className="shrink-0 border-r border-border px-3 text-sm text-muted-foreground">+234</span>
@@ -391,7 +391,7 @@ function SignupContent() {
                 onChange={e => handleOtpChange(i, e.target.value)}
                 onKeyDown={e => handleOtpKeyDown(i, e)}
                 className={cn(
-                  'h-12 w-10 rounded-lg border bg-background text-center text-xl font-bold outline-none transition-all',
+                  'h-12 w-10 rounded-lg border bg-card text-center text-xl font-bold outline-none transition-all',
                   'focus:border-primary focus:ring-2 focus:ring-primary/20',
                   digit ? 'border-primary bg-primary/5' : 'border-border',
                   error ? 'border-destructive' : '',
@@ -472,7 +472,7 @@ function SignupContent() {
               <input
                 type="text" placeholder="Amara Okafor" value={profile.fullName}
                 onChange={e => setProfile(p => ({ ...p, fullName: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -487,7 +487,7 @@ function SignupContent() {
               <input
                 type="email" inputMode="email" placeholder="amara@example.com"
                 value={email} onChange={e => setEmail(e.target.value)}
-                className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -501,7 +501,7 @@ function SignupContent() {
                 <input
                   type="text" placeholder="Sunshine Supermart" value={bizName}
                   onChange={e => setBizName(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
@@ -515,7 +515,7 @@ function SignupContent() {
               <select
                 value={profile.city}
                 onChange={e => setProfile(p => ({ ...p, city: e.target.value }))}
-                className="h-10 w-full appearance-none rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                className="h-10 w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Select your city</option>
                 {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
