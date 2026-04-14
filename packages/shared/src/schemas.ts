@@ -645,3 +645,54 @@ export const ApiErrorSchema = z.object({
   code:    z.string().optional(), // machine-readable error code e.g. "COOLDOWN_ACTIVE"
 })
 export type ApiError = z.infer<typeof ApiErrorSchema>
+
+// ── Email Auth ────────────────────────────────────────────────────────────────
+
+/** Email + password login for existing users */
+export const EmailLoginSchema = z.object({
+  email:    z.string().email('Enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+})
+export type EmailLoginInput = z.infer<typeof EmailLoginSchema>
+
+/** Email + password sign-up — profile completion is handled by /auth/profile/complete */
+export const EmailRegisterSchema = z.object({
+  email:    z.string().email('Enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
+export type EmailRegisterInput = z.infer<typeof EmailRegisterSchema>
+
+// ── Roadmap ───────────────────────────────────────────────────────────────────
+
+/** Set or update the user's career goal role */
+export const UpdateGoalSchema = z.object({
+  role_id: z.string().uuid('Invalid role ID'),
+})
+export type UpdateGoalInput = z.infer<typeof UpdateGoalSchema>
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+/** Initiate a course purchase */
+export const InitiateCoursePaymentSchema = z.object({
+  role_id: z.string().uuid('Invalid role ID'),
+})
+export type InitiateCoursePaymentInput = z.infer<typeof InitiateCoursePaymentSchema>
+
+/** Initiate a Job Hub credits pack purchase */
+export const InitiateJobHubCreditsSchema = z.object({
+  credits: z.union([z.literal(20), z.literal(50), z.literal(100)]),
+})
+export type InitiateJobHubCreditsInput = z.infer<typeof InitiateJobHubCreditsSchema>
+
+/** Initiate a hire-request payment */
+export const InitiateHireRequestPaymentSchema = z.object({
+  hire_request_id: z.string().uuid('Invalid hire request ID'),
+})
+export type InitiateHireRequestPaymentInput = z.infer<typeof InitiateHireRequestPaymentSchema>
+
+/** Initiate an enterprise package payment */
+export const InitiateEnterprisePaymentSchema = z.object({
+  plan:   z.enum(['starter', 'growth', 'business']),
+  months: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),
+})
+export type InitiateEnterprisePaymentInput = z.infer<typeof InitiateEnterprisePaymentSchema>

@@ -6,6 +6,8 @@ import {
   VerifyOtpSchema,
   CompleteProfileSchema,
   UpdateNotificationPrefsSchema,
+  EmailLoginSchema,
+  EmailRegisterSchema,
   ERROR_CODES,
   type AccountType,
 } from '@intrainin/shared'
@@ -452,6 +454,127 @@ auth.get('/users/:id/public', async (c) => {
         verificationCode: cert.verification_code,
         role:             cert.roles,
       })),
+    },
+  })
+})
+
+// ─── POST /auth/email/login ───────────────────────────────────────────────────
+// Email + password login. Returns the same session shape as /auth/otp/verify
+// so the frontend can use a single post-auth handler.
+
+auth.post('/email/login', zValidator('json', EmailLoginSchema), async (c) => {
+  const { email, password } = c.req.valid('json')
+  const db = createServerClient()
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    const msg = error.message.toLowerCase()
+    if (msg.includes('invalid') || msg.includes('credentials') || msg.includes('not found')) {
+      return c.json({ success: false, error: 'Invalid email or password', code: ERROR_CODES.OTP_INVALID }, 400)
+    }
+    if (msg.includes('email not confirmed')) {
+      return c.json({ success: false, error: 'Please confirm your email address before signing in.' }, 400)
+    }
+    return c.json({ success: false, error: error.message }, 400)
+  }
+
+  if (!data.session || !data.user) {
+    return c.json({ success: false, error: 'Login failed — no session returned' }, 400)
+  }
+
+  // Upsert public.users row (handles case where Google OAuth created the user
+  // but profile/complete was never called)
+  const rawType     = data.user.user_metadata?.account_type as string | undefined
+  const accountType = (rawType === 'business' || rawType === 'admin' ? rawType : 'learner') as AccountType
+
+  await db.from('users').upsert(
+    {
+      id:           data.user.id,
+      email:        email.toLowerCase(),
+      account_type: accountType,
+      full_name:    (data.user.user_metadata?.full_name as string | undefined) ?? '',
+    },
+    { onConflict: 'id', ignoreDuplicates: false },
+  ).then(({ error: e }) => {
+    if (e) console.error('[auth/email/login] users upsert error:', e.message)
+  })
+
+  const { data: profile } = await db
+    .from('users')
+    .select('full_name, location_city, account_type')
+    .eq('id', data.user.id)
+    .single()
+
+  const profileComplete   = Boolean(profile?.full_name?.trim() && profile?.location_city)
+  const returnedAccType   = profile?.account_type ?? accountType
+
+  return c.json({
+    success: true,
+    data: {
+      accessToken:     data.session.access_token,
+      refreshToken:    data.session.refresh_token,
+      expiresIn:       data.session.expires_in,
+      profileComplete,
+      accountType:     returnedAccType,
+    },
+  })
+})
+
+// ─── POST /auth/email/register ────────────────────────────────────────────────
+// Create a new account with email + password.
+// Profile setup (name, city, account type) is handled by /auth/profile/complete
+// so new users always land on the onboarding flow.
+
+auth.post('/email/register', zValidator('json', EmailRegisterSchema), async (c) => {
+  const { email, password } = c.req.valid('json')
+  const db = createServerClient()
+
+  // Check if an account already exists for this email
+  const { data: existing } = await db.auth.admin.listUsers()
+  const alreadyExists = existing?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase())
+
+  if (alreadyExists) {
+    return c.json({
+      success: false,
+      error: 'An account with this email already exists. Please sign in.',
+      code: 'EMAIL_TAKEN',
+    }, 409)
+  }
+
+  const { data, error } = await db.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true, // skip confirmation email — user is signing up directly
+  })
+
+  if (error || !data.user) {
+    return c.json({ success: false, error: error?.message ?? 'Registration failed' }, 400)
+  }
+
+  // Sign in immediately to get a session
+  const { data: signInData, error: signInErr } = await db.auth.signInWithPassword({ email, password })
+
+  if (signInErr || !signInData.session) {
+    return c.json({ success: false, error: 'Account created but sign-in failed. Please try signing in manually.' }, 500)
+  }
+
+  // Create a stub users row — profile/complete will fill in name, city, etc.
+  await db.from('users').upsert(
+    { id: data.user.id, email: email.toLowerCase(), account_type: 'learner', full_name: '' },
+    { onConflict: 'id', ignoreDuplicates: true },
+  ).then(({ error: e }) => {
+    if (e) console.error('[auth/email/register] users upsert error:', e.message)
+  })
+
+  return c.json({
+    success: true,
+    data: {
+      accessToken:     signInData.session.access_token,
+      refreshToken:    signInData.session.refresh_token,
+      expiresIn:       signInData.session.expires_in,
+      profileComplete: false, // always — new user must complete onboarding
+      accountType:     'learner' as AccountType,
     },
   })
 })

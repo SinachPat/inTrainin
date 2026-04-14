@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowRight, BookOpen, Award, ChevronRight, Briefcase } from 'lucide-react'
+import { ArrowRight, BookOpen, Award, ChevronRight, Briefcase, CheckCircle2, Lock, MapPin } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
@@ -37,9 +37,23 @@ interface Enrolment {
   progress: { completedTopics: number; totalTopics: number }
 }
 
+interface PathSpineItem {
+  role: { id: string; slug: string; title: string; price_ngn: number; category: string | null }
+  status: 'completed' | 'in_progress' | 'locked'
+  completionPct: number
+  isNext: boolean
+}
+
+interface RoadmapSummary {
+  mode: 'discovery' | 'path'
+  careerPath: { title: string } | null
+  spine: PathSpineItem[]
+}
+
 export default function LearnerDashboardPage() {
   const [user, setUser]               = useState<ApiUser | null>(null)
   const [enrolments, setEnrolments]   = useState<Enrolment[]>([])
+  const [roadmap, setRoadmap]         = useState<RoadmapSummary | null>(null)
   const [pendingMatches, setPendingMatches] = useState<number>(0)
   const [loading, setLoading]         = useState(true)
   const [loadError, setLoadError]     = useState(false)
@@ -54,7 +68,10 @@ export default function LearnerDashboardPage() {
         setUser(userRes.data.user)
         setEnrolments(enrRes.data.enrolments)
 
-        // Fetch pending match count in the background — non-critical
+        // Roadmap + job hub in background — non-critical
+        api.get<{ success: boolean; data: RoadmapSummary }>('/roadmap/me')
+          .then(r => setRoadmap(r.data))
+          .catch(() => {})
         api.get<{ success: boolean; data: { matches: { status: string }[] } }>('/jobhub/matches')
           .then(r => setPendingMatches(r.data.matches.filter(m => m.status === 'pending').length))
           .catch(() => {})
@@ -183,6 +200,95 @@ export default function LearnerDashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* ── Your Path widget ─────────────────────────────────────────── */}
+          {roadmap && roadmap.mode === 'path' && roadmap.spine.length > 0 && (() => {
+            const preview = roadmap.spine.slice(0, 2)
+            return (
+              <section>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-[13px] font-semibold text-foreground">Your Path</h2>
+                  <Link href="/roadmap" className="flex items-center gap-0.5 text-[12px] text-muted-foreground hover:text-foreground">
+                    View full roadmap <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+                  {roadmap.careerPath && (
+                    <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {roadmap.careerPath.title}
+                    </p>
+                  )}
+                  <div className="space-y-2.5">
+                    {preview.map((item, i) => {
+                      const isCompleted  = item.status === 'completed'
+                      const isInProgress = item.status === 'in_progress'
+                      return (
+                        <div key={item.role.id} className="flex items-center gap-3">
+                          {/* Node */}
+                          <div className={cn(
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2',
+                            isCompleted  ? 'border-primary bg-primary text-primary-foreground' :
+                            isInProgress ? 'border-primary bg-background text-primary' :
+                                           'border-muted bg-muted text-muted-foreground',
+                          )}>
+                            {isCompleted  ? <CheckCircle2 className="h-4 w-4" /> :
+                             isInProgress ? <span className="text-[10px] font-bold">{item.completionPct}%</span> :
+                                            <Lock className="h-3.5 w-3.5" />}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className={cn('text-[13px] font-medium leading-tight truncate',
+                              item.status === 'locked' ? 'text-muted-foreground' : 'text-foreground',
+                            )}>
+                              {item.role.title}
+                            </p>
+                            {isInProgress && (
+                              <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${item.completionPct}%` }} />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* CTA */}
+                          {item.isNext && (
+                            <Link
+                              href={isInProgress ? `/learn/${item.role.slug}` : `/explore/${item.role.slug}`}
+                              className={cn(buttonVariants({ size: 'sm', variant: isInProgress ? 'default' : 'outline' }), 'shrink-0 h-7 px-2.5 text-xs')}
+                            >
+                              {isInProgress ? 'Continue' : 'Enrol'}
+                            </Link>
+                          )}
+                          {isCompleted && (
+                            <span className="shrink-0 text-[11px] text-primary font-medium">Done ✓</span>
+                          )}
+
+                          {/* Connector (between items) */}
+                          {i < preview.length - 1 && (
+                            <div className="absolute" />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </section>
+            )
+          })()}
+
+          {/* ── Your Path empty state (discovery mode) ───────────────────── */}
+          {roadmap && roadmap.mode === 'discovery' && (
+            <section>
+              <div className="rounded-xl border border-dashed border-border bg-card p-5 text-center space-y-2">
+                <MapPin className="mx-auto h-5 w-5 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Set your career goal</p>
+                <p className="text-xs text-muted-foreground">Pick a track to get a personalised roadmap.</p>
+                <Link href="/roadmap" className={cn(buttonVariants({ size: 'sm' }), 'mt-1')}>
+                  Choose a path <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </section>
+          )}
 
           {/* ── Job Hub status ─────────────────────────────────────────────── */}
           <section>

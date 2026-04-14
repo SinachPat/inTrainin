@@ -495,7 +495,7 @@ business.post(
 
     // Atomic guard: only update if payment_reference is still null.
     // If two requests race past the idempotency check, only one UPDATE wins.
-    const { error, count } = await db
+    const { data: updated, error } = await db
       .from('businesses')
       .update({
         subscription_plan:       plan,
@@ -506,12 +506,12 @@ business.post(
       })
       .eq('owner_user_id', userId)
       .is('payment_reference', null)
-      .select('id', { count: 'exact', head: true })
+      .select('id')
 
     if (error) return c.json({ success: false, error: error.message }, 500)
 
-    // count=0 means another request already activated the subscription
-    if ((count ?? 0) === 0) {
+    // data=[] (zero rows updated) means another request already set payment_reference
+    if (!updated || updated.length === 0) {
       return c.json({ success: true, data: { message: 'Subscription already active' } })
     }
 
@@ -578,15 +578,19 @@ business.get('/analytics', authMiddleware, requireRole('business'), async (c) =>
   }, {})
 
   // Most recent topic activity per user (for at-risk detection)
+  // Use completed_at as the last-activity signal — topic_progress doesn't have
+  // an updated_at column; completed_at records when the learner marked it done.
   const { data: recentActivity } = await db
     .from('topic_progress')
-    .select('user_id, updated_at')
+    .select('user_id, completed_at')
     .in('user_id', userIds)
-    .order('updated_at', { ascending: false })
+    .order('completed_at', { ascending: false })
 
   const lastActivityByUser: Record<string, string> = {}
   for (const row of recentActivity ?? []) {
-    if (!lastActivityByUser[row.user_id]) lastActivityByUser[row.user_id] = row.updated_at
+    if (!lastActivityByUser[row.user_id] && row.completed_at) {
+      lastActivityByUser[row.user_id] = row.completed_at
+    }
   }
 
   // Total topics per assigned role (for completion %)

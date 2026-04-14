@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Volume2,
   ChevronRight, AlertTriangle, BookOpen,
-  Play, Pause, RotateCcw, RotateCw,
+  Play, Pause, RotateCcw, RotateCw, Loader2,
 } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -513,7 +513,8 @@ export default function TopicPage({ params }: Props) {
           <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => seekBy(-10)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              disabled={audioLoading}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
             >
               <RotateCcw className="h-4 w-4" />
             </button>
@@ -521,13 +522,19 @@ export default function TopicPage({ params }: Props) {
               size="sm"
               variant={audioPlaying ? 'default' : 'outline'}
               onClick={togglePlay}
+              disabled={audioLoading}
               className="h-9 w-9 rounded-full p-0"
             >
-              {audioPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {audioLoading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : audioPlaying
+                  ? <Pause className="h-4 w-4" />
+                  : <Play className="h-4 w-4" />}
             </Button>
             <button
               onClick={() => seekBy(10)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              disabled={audioLoading}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
             >
               <RotateCw className="h-4 w-4" />
             </button>

@@ -68,8 +68,10 @@ async function updateStreak(db: DbClient, userId: string): Promise<void> {
  * Returns the new XP total.
  */
 export async function awardXp(db: DbClient, userId: string, xp: number): Promise<number> {
-  const { data, error } = await (db as ReturnType<typeof import('@intrainin/db').createServerClient>)
-    .rpc('increment_user_xp', { p_user_id: userId, p_amount: xp })
+  // The Supabase generated types don't know about increment_user_xp (it's
+  // created by migration 009), so we cast to any to pass the args through.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (db as any).rpc('increment_user_xp', { p_user_id: userId, p_amount: xp })
 
   if (error) {
     console.error('[gamification] increment_user_xp RPC error:', error.message)
@@ -211,10 +213,12 @@ export async function checkBadges(db: DbClient, userId: string): Promise<void> {
   }
 
   if (toInsert.length > 0) {
-    // ignoreDuplicates handles the race where two concurrent checkBadges calls
-    // both pass the earnedIds check before either has inserted — the second
-    // insert is silently dropped rather than throwing a unique-violation error.
-    await db.from('user_badges').insert(toInsert, { ignoreDuplicates: true })
+    // upsert with ignoreDuplicates handles the race where two concurrent
+    // checkBadges calls both pass the earnedIds check before either inserts —
+    // the second write is silently dropped on unique-violation.
+    // Note: ignoreDuplicates was moved to upsert() in Supabase JS v2; insert()
+    // no longer accepts it.
+    await db.from('user_badges').upsert(toInsert, { onConflict: 'user_id,badge_id', ignoreDuplicates: true })
   }
 }
 

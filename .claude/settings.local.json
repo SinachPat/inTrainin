@@ -97,7 +97,11 @@
       "Bash(sips -g pixelWidth -g pixelHeight -g format /Users/USER/Desktop/intrainin/apps/web/public/icon-192.png /Users/USER/Desktop/intrainin/apps/web/public/icon-512.png)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/USER/Desktop/intrainin/apps/web/public/icon-maskable.png)",
       "Bash(kill -9 3548)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(pnpm --filter @intrainin/web exec tsc --noEmit)",
+      "Bash(pnpm --filter @intrainin/api exec tsc --noEmit)",
+      "Bash(python3)",
+      "Bash(pnpm --filter @intrainin/web add @supabase/supabase-js)"
     ]
   }
 }

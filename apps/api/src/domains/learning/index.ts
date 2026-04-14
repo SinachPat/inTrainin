@@ -222,19 +222,21 @@ learning.post(
     // Fire-and-forget: gamification + job matching must never break the response
     onEnrolment(db, userId).catch(console.error)
 
-    // Re-run matching for any open hire requests targeting this role
-    db.from('hire_requests')
-      .select('id')
-      .eq('role_id', roleId)
-      .eq('status', 'open')
-      .then(({ data: openReqs }) => {
-        for (const r of openReqs ?? []) {
-          runMatchingForHireRequest(r.id).catch(e =>
-            console.error('[learning/enrol] re-matching failed for', r.id, e)
-          )
-        }
-      })
-      .catch(console.error)
+    // Re-run matching for any open hire requests targeting this role.
+    // Promise.resolve() upgrades the Supabase PromiseLike to a full Promise
+    // so .catch() is available (PromiseLike only guarantees .then).
+    Promise.resolve(
+      db.from('hire_requests')
+        .select('id')
+        .eq('role_id', roleId)
+        .eq('status', 'open'),
+    ).then(({ data: openReqs }) => {
+      for (const r of openReqs ?? []) {
+        runMatchingForHireRequest(r.id).catch(e =>
+          console.error('[learning/enrol] re-matching failed for', r.id, e)
+        )
+      }
+    }).catch(console.error)
 
     return c.json({ success: true, data: { enrolment } }, 201)
   },
@@ -656,24 +658,19 @@ learning.get('/topics/:id/audio', authMiddleware, async (c) => {
       }
 
       const fallbackJson = await fallbackRes.json() as { audioContent: string }
-      const audioBytes   = Buffer.from(fallbackJson.audioContent, 'base64')
-      return new Response(audioBytes as unknown as BodyInit, {
-        headers: {
-          'Content-Type':  'audio/mpeg',
-          'Cache-Control': 'private, max-age=3600',
-        },
-      })
+      const fallbackBytes = Buffer.from(fallbackJson.audioContent, 'base64')
+      const fallbackAb    = fallbackBytes.buffer.slice(fallbackBytes.byteOffset, fallbackBytes.byteOffset + fallbackBytes.byteLength) as ArrayBuffer
+      c.header('Content-Type',  'audio/mpeg')
+      c.header('Cache-Control', 'private, max-age=3600')
+      return c.body(fallbackAb)
     }
 
     const json       = await ttsRes.json() as { audioContent: string }
     const audioBytes = Buffer.from(json.audioContent, 'base64')
-
-    return new Response(audioBytes as unknown as BodyInit, {
-      headers: {
-        'Content-Type':  'audio/mpeg',
-        'Cache-Control': 'private, max-age=3600',
-      },
-    })
+    const audioAb    = audioBytes.buffer.slice(audioBytes.byteOffset, audioBytes.byteOffset + audioBytes.byteLength) as ArrayBuffer
+    c.header('Content-Type',  'audio/mpeg')
+    c.header('Cache-Control', 'private, max-age=3600')
+    return c.body(audioAb)
   } catch (err) {
     console.error('[learning/audio] unexpected error:', err)
     return c.json({ success: false, error: 'TTS synthesis failed' }, 502)

@@ -1,49 +1,74 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  ArrowRight, CheckCircle2, Lock, BookOpen,
-  Plus, Award, ChevronRight,
+  CheckCircle2, Lock, ArrowRight, Award,
+  ChevronRight, MapPin, Loader2, RefreshCw,
+  Sparkles,
 } from 'lucide-react'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { api, ApiError } from '@/lib/api'
 
-interface RoadmapEnrollment {
-  id: string
-  status: string
-  enrolledAt: string
-  role: {
-    id: string | undefined
-    slug: string | undefined
-    title: string | undefined
-    category: string | null
-    estimatedHours: number | null
-  }
-  progress: { completedTopics: number; totalTopics: number; pct: number }
-  certificate: { verificationCode: string; issuedAt: string } | null
+// =============================================================================
+// Types — mirror the API response shape from GET /roadmap/me
+// =============================================================================
+
+interface SpineRole {
+  id: string; slug: string; title: string
+  price_ngn: number; estimated_hours: number | null; category: string | null
 }
 
-interface NextRole {
-  id: string
-  slug: string
-  title: string
-  price_ngn: number
-  estimated_hours: number | null
-  category: string | null
-  progressionType: 'next' | 'adjacent'
+interface SpineItem {
+  role:          SpineRole
+  level:         1 | 2 | 3
+  status:        'completed' | 'in_progress' | 'locked'
+  completionPct: number
+  isNext:        boolean
+  certificate:   { verificationCode: string; issuedAt: string } | null
+  enrollment:    { status: string; completionPct: number } | null
 }
 
-function ProgressRing({ pct, size = 40 }: { pct: number; size?: number }) {
+interface AdjacentRole {
+  role:                 SpineRole
+  connectedToRoleTitle: string | null
+  status:               'completed' | 'in_progress' | 'locked'
+  isNext:               boolean
+}
+
+interface CareerPath { id: string; slug: string; title: string; description: string | null }
+interface DiscoveryPath {
+  id: string; slug: string; title: string; description: string | null
+  spine: { level: number; role: SpineRole | null }[]
+}
+
+type RoadmapData =
+  | { mode: 'discovery'; paths: DiscoveryPath[] }
+  | { mode: 'path'; careerPath: CareerPath | null; spine: SpineItem[]; adjacentRoles: AdjacentRole[]; allSpineComplete: boolean }
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function formatNgn(amount: number) {
+  return `₦${amount.toLocaleString('en-NG')}`
+}
+
+// =============================================================================
+// Sub-components
+// =============================================================================
+
+function ProgressRing({ pct, size = 56 }: { pct: number; size?: number }) {
   const r    = (size - 6) / 2
   const circ = 2 * Math.PI * r
   const dash = (pct / 100) * circ
   return (
     <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={3} className="stroke-muted fill-none" />
+      <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={4} className="fill-none stroke-muted" />
       <circle
-        cx={size / 2} cy={size / 2} r={r} strokeWidth={3}
+        cx={size / 2} cy={size / 2} r={r} strokeWidth={4}
         strokeDasharray={`${dash} ${circ}`}
         strokeLinecap="round"
         className="fill-none stroke-primary transition-all duration-700"
@@ -52,201 +77,347 @@ function ProgressRing({ pct, size = 40 }: { pct: number; size?: number }) {
   )
 }
 
-export default function RoadmapPage() {
-  const [enrollments, setEnrollments] = useState<RoadmapEnrollment[]>([])
-  const [nextRoles,   setNextRoles]   = useState<NextRole[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [loadError,   setLoadError]   = useState(false)
+function TrackSkeleton() {
+  return (
+    <div className="flex flex-col items-center gap-0 py-4">
+      {[0, 1, 2].map(i => (
+        <div key={i} className="flex flex-col items-center">
+          <div className="h-14 w-14 rounded-full bg-muted animate-pulse" />
+          <div className="h-10 w-0.5 bg-muted" />
+          <div className="mb-3 h-4 w-28 rounded bg-muted animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
-  useEffect(() => {
-    api.get<{ success: boolean; data: { enrollments: RoadmapEnrollment[]; nextRoles: NextRole[] } }>('/roadmap/me')
-      .then(r => { setEnrollments(r.data.enrollments); setNextRoles(r.data.nextRoles) })
-      .catch(e => {
-        if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
-        else setLoadError(true)
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  // Group enrollments by category
-  const cats = [...new Set(enrollments.map(e => e.role.category).filter(Boolean))] as string[]
-
-  // Group next roles by category (next-type first, then adjacent)
-  const nextByCategory = nextRoles.reduce<Record<string, NextRole[]>>((acc, r) => {
-    const cat = r.category ?? 'Other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(r)
-    return acc
-  }, {})
+function SpineNode({ item, isLast }: { item: SpineItem; isLast: boolean }) {
+  const isCompleted  = item.status === 'completed'
+  const isInProgress = item.status === 'in_progress'
+  const isLocked     = item.status === 'locked'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 md:py-10 md:px-10">
-
-      {/* Header */}
-      <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
-          Career roadmap
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your learning paths and what comes next.
-        </p>
+    <div className="flex flex-col items-center">
+      {/* Circle node */}
+      <div className="relative flex items-center justify-center">
+        {/* Pulsing ring on is_next */}
+        {item.isNext && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full bg-primary/20 motion-safe:animate-ping"
+            style={{ animationDuration: '2s' }}
+          />
+        )}
+        <div className={cn(
+          'relative z-10 flex h-14 w-14 items-center justify-center rounded-full border-[3px] transition-all',
+          isCompleted  && 'border-primary bg-primary text-primary-foreground',
+          isInProgress && 'border-primary bg-background text-primary',
+          isLocked     && 'border-muted bg-muted text-muted-foreground',
+        )}>
+          {isCompleted && <CheckCircle2 className="h-6 w-6" />}
+          {isInProgress && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ProgressRing pct={item.completionPct} size={56} />
+              <span className="absolute text-[11px] font-bold text-primary">{item.completionPct}%</span>
+            </div>
+          )}
+          {isLocked && <Lock className="h-5 w-5" />}
+        </div>
+        {/* Level badge */}
+        <span className={cn(
+          'absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold',
+          isCompleted  ? 'bg-primary/20 text-primary' :
+          isInProgress ? 'bg-primary/10 text-primary' :
+                         'bg-muted-foreground/10 text-muted-foreground',
+        )}>
+          L{item.level}
+        </span>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-4">
-          {[1, 2].map(i => <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />)}
-        </div>
-      )}
+      {/* Label */}
+      <div className="mt-2 flex w-64 flex-col items-center text-center">
+        <p className={cn('text-sm font-semibold leading-tight', isLocked ? 'text-muted-foreground' : 'text-foreground')}>
+          {item.role.title}
+        </p>
+        {item.role.category && (
+          <span className="mt-0.5 text-[11px] text-muted-foreground">{item.role.category}</span>
+        )}
 
-      {/* Error state */}
-      {!loading && loadError && (
-        <div className="rounded-xl border border-border bg-card px-5 py-8 text-center">
-          <p className="text-sm font-medium text-foreground">Could not load your roadmap</p>
-          <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
-          <button onClick={() => window.location.reload()} className="mt-4 text-xs font-medium text-primary hover:underline">
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && enrollments.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <BookOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="font-heading text-base font-semibold text-foreground">No paths started yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enroll in a role to start building your career roadmap.
-          </p>
-          <Link href="/explore" className={cn(buttonVariants({ size: 'sm' }), 'mt-4')}>
-            Browse roles <ArrowRight className="ml-1 h-3.5 w-3.5" />
+        {isCompleted && item.certificate && (
+          <Link href="/certificates" className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            <Award className="h-3.5 w-3.5" /> Certified ✓
           </Link>
+        )}
+        {isCompleted && !item.certificate && (
+          <span className="mt-1.5 text-xs text-muted-foreground">Completed</span>
+        )}
+
+        {isInProgress && (
+          <div className="mt-2 w-full space-y-1.5">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${item.completionPct}%` }} />
+            </div>
+            <Link href={`/explore/${item.role.slug}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              Continue <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        )}
+
+        {isLocked && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {item.role.price_ngn > 0 ? formatNgn(item.role.price_ngn) : 'Free'}
+            </span>
+            <Link href={`/explore/${item.role.slug}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'h-6 px-2.5 text-xs')}>
+              Enrol
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Connector to next node */}
+      {!isLast && (
+        <div className="my-3 flex flex-col items-center">
+          {isCompleted
+            ? <div className="h-10 w-0.5 bg-primary" />
+            : <div className="h-10 w-0" style={{ borderLeft: '2px dashed hsl(var(--muted-foreground)/0.3)' }} />
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdjacentCard({ adj }: { adj: AdjacentRole }) {
+  return (
+    <div className={cn(
+      'flex-shrink-0 w-52 rounded-xl border bg-card p-4 space-y-2',
+      adj.isNext && 'border-primary/40 ring-1 ring-primary/20',
+    )}>
+      {adj.connectedToRoleTitle && (
+        <p className="text-[10px] text-muted-foreground leading-tight">Because you enrolled in {adj.connectedToRoleTitle}</p>
+      )}
+      <p className="text-sm font-semibold text-foreground leading-snug">{adj.role.title}</p>
+      {adj.role.category && <Badge variant="secondary" className="text-[10px]">{adj.role.category}</Badge>}
+      <div className="flex items-center justify-between pt-1">
+        <span className="text-xs text-muted-foreground">
+          {adj.role.price_ngn > 0 ? formatNgn(adj.role.price_ngn) : 'Free'}
+        </span>
+        <Link href={`/explore/${adj.role.slug}`} className={cn(buttonVariants({ size: 'sm' }), 'h-6 px-2.5 text-xs')}>
+          Enrol
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function DiscoveryPathCard({
+  path, onSelect, disabled,
+}: { path: DiscoveryPath; onSelect: (entryRoleId: string) => void; disabled: boolean }) {
+  const entryRole  = path.spine[0]?.role
+  const totalHours = path.spine.reduce((s, item) => s + (item.role?.estimated_hours ?? 0), 0)
+
+  return (
+    <button
+      onClick={() => entryRole && onSelect(entryRole.id)}
+      disabled={disabled || !entryRole}
+      className={cn(
+        'w-full rounded-xl border-2 border-border bg-background p-5 text-left transition-all',
+        'hover:border-primary hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/30',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <h3 className="font-semibold text-foreground text-sm leading-snug">{path.title}</h3>
+          {path.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{path.description}</p>
+          )}
+          <div className="flex flex-wrap gap-1 pt-1">
+            {path.spine.slice(0, 3).map((item, i) => item.role && (
+              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                {item.role.title}
+              </span>
+            ))}
+            {path.spine.length > 3 && (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                +{path.spine.length - 3} more
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="ml-3 mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      </div>
+      <div className="mt-3 flex gap-3 text-[11px] text-muted-foreground">
+        <span>{path.spine.length} level{path.spine.length !== 1 ? 's' : ''}</span>
+        {totalHours > 0 && <span>~{totalHours.toFixed(0)}h total</span>}
+      </div>
+    </button>
+  )
+}
+
+// =============================================================================
+// Page
+// =============================================================================
+
+export default function RoadmapPage() {
+  const [data,        setData]        = useState<RoadmapData | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [loadError,   setLoadError]   = useState(false)
+  const [goalLoading, setGoalLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const res = await api.get<{ success: boolean; data: RoadmapData }>('/roadmap/me')
+      setData(res.data)
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) window.location.replace('/login')
+      else setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleSelectPath(entryRoleId: string) {
+    setGoalLoading(true)
+    try {
+      const res = await api.patch<{ success: boolean; data: RoadmapData }>('/roadmap/goal', { role_id: entryRoleId })
+      setData(res.data)
+    } catch {
+      // keep discovery UI if goal update fails silently
+    } finally {
+      setGoalLoading(false)
+    }
+  }
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-8 space-y-6">
+        <div className="space-y-2">
+          <div className="h-6 w-40 rounded bg-muted animate-pulse" />
+          <div className="h-4 w-56 rounded bg-muted animate-pulse" />
+        </div>
+        <TrackSkeleton />
+      </div>
+    )
+  }
+
+  // Error
+  if (loadError || !data) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-16 text-center space-y-4">
+        <p className="text-sm text-muted-foreground">Couldn&apos;t load your roadmap.</p>
+        <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
+      </div>
+    )
+  }
+
+  // ── State A: Discovery ─────────────────────────────────────────────────────
+  if (data.mode === 'discovery') {
+    return (
+      <div className="mx-auto max-w-md px-4 py-6 space-y-6">
+        <div>
+          <h1 className="font-heading text-xl font-bold text-foreground">Choose your career path</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick a track to get a personalised roadmap and unlock your career goal.
+          </p>
+        </div>
+
+        {goalLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Setting your goal…
+          </div>
+        ) : data.paths.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-12 text-center">
+            <MapPin className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No career paths set up yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {data.paths.map(path => (
+              <DiscoveryPathCard key={path.id} path={path} onSelect={handleSelectPath} disabled={goalLoading} />
+            ))}
+          </div>
+        )}
+
+        <p className="text-center text-xs text-muted-foreground">You can change your path anytime from your profile.</p>
+      </div>
+    )
+  }
+
+  // ── State B / C: Path view ─────────────────────────────────────────────────
+  const { careerPath, spine, adjacentRoles, allSpineComplete } = data
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="font-heading text-xl font-bold text-foreground">
+            {careerPath?.title ?? 'Your Roadmap'}
+          </h1>
+          {careerPath?.description && (
+            <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{careerPath.description}</p>
+          )}
+        </div>
+        <button
+          onClick={() => setData({ mode: 'discovery', paths: [] })}
+          className="ml-3 mt-0.5 shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Change path
+        </button>
+      </div>
+
+      {/* State C: completion banner */}
+      {allSpineComplete && (
+        <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              You&apos;ve completed the {careerPath?.title ?? 'track'}! 🎉
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Explore adjacent roles below to keep growing.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Career paths grouped by category */}
-      {!loading && cats.map(cat => {
-        const catEnrollments = enrollments.filter(e => e.role.category === cat)
-        const catNextRoles   = (nextByCategory[cat] ?? []).slice(0, 3)
-        return (
-          <section key={cat} className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{cat}</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
+      {/* Spine track */}
+      {spine.length > 0 ? (
+        <div className="flex flex-col items-center pt-2">
+          {spine.map((item, i) => (
+            <SpineNode key={item.role.id} item={item} isLast={i === spine.length - 1} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border py-10 text-center">
+          <p className="text-sm text-muted-foreground">No roles on this path yet.</p>
+        </div>
+      )}
 
-            {/* Enrolled roles */}
-            <div className="space-y-3">
-              {catEnrollments.map(enr => {
-                const { pct } = enr.progress
-                return (
-                  <Link key={enr.id} href={`/learn/${enr.role.slug}`} className="group block">
-                    <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 shadow-sm transition-all hover:border-foreground/15 hover:shadow-md">
-                      <div className="relative flex shrink-0 items-center justify-center">
-                        <ProgressRing pct={pct} size={40} />
-                        <span className="absolute text-[10px] font-bold text-foreground">{pct}%</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[13px] font-semibold text-foreground">{enr.role.title}</p>
-                          {enr.certificate && (
-                            <span className="flex items-center gap-0.5 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-600">
-                              <Award className="h-3 w-3" /> Certified
-                            </span>
-                          )}
-                          {!enr.certificate && pct === 100 && (
-                            <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                              <CheckCircle2 className="h-3 w-3" /> Done
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {enr.progress.completedTopics} / {enr.progress.totalTopics} topics
-                          {pct === 100 && !enr.certificate && ' · Ready for final exam'}
-                        </p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-
-            {/* Next steps from progressions */}
-            {catNextRoles.length > 0 && (
-              <div>
-                <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Suggested next
-                </p>
-                <div className="space-y-2">
-                  {catNextRoles.map(role => (
-                    <Link key={role.id} href={`/explore/${role.slug}`} className="group flex items-center gap-4 rounded-xl border border-dashed border-border bg-card/60 px-5 py-4 transition-all hover:border-border hover:bg-card hover:shadow-sm">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted">
-                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-[13px] font-medium text-foreground">{role.title}</p>
-                          {role.progressionType === 'next' && (
-                            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">Next step</span>
-                          )}
-                          {role.progressionType === 'adjacent' && (
-                            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Adjacent</span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          ₦{role.price_ngn.toLocaleString()} · Module 1 free
-                          {role.estimated_hours ? ` · ${role.estimated_hours}h` : ''}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-all group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )
-      })}
-
-      {/* Add another path */}
-      {!loading && enrollments.length > 0 && (
-        <section className="rounded-xl border border-dashed border-border bg-card/60 px-5 py-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-muted">
-              <Plus className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold text-foreground">Add another career path</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Explore roles in a different category to grow your skills.
-              </p>
-            </div>
-            <Link href="/explore" className={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'shrink-0')}>
-              Browse <ArrowRight className="ml-0.5 h-3 w-3" />
-            </Link>
+      {/* Also explore */}
+      {adjacentRoles.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Also explore</h2>
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+            {adjacentRoles.map(adj => <AdjacentCard key={adj.role.id} adj={adj} />)}
           </div>
         </section>
       )}
 
-      {/* Certifications prompt */}
-      {!loading && enrollments.some(e => e.progress.pct === 100 && !e.certificate) && (
-        <section className="rounded-xl border border-primary/20 bg-primary/5 px-5 py-5">
-          <div className="flex items-center gap-4">
-            <Award className="h-8 w-8 shrink-0 text-primary" />
-            <div className="flex-1">
-              <p className="text-[13px] font-semibold text-foreground">Ready for certification</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                You've completed all topics in a role. Take the Final Exam to earn your certificate.
-              </p>
-            </div>
-            <Link href="/certificates" className={cn(buttonVariants({ size: 'xs' }), 'shrink-0')}>
-              View certs
-            </Link>
-          </div>
-        </section>
-      )}
-
+      <div className="pt-2 text-center">
+        <Link href="/explore" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}>
+          Browse all roles <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
     </div>
   )
 }

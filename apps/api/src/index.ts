@@ -10,6 +10,7 @@ import { jobhubRouter } from './domains/jobhub/index.js'
 import { businessRouter } from './domains/business/index.js'
 import { notificationsRouter } from './domains/notifications/index.js'
 import { roadmapRouter } from './domains/roadmap/index.js'
+import { paymentsRouter } from './domains/payments/index.js'
 
 const app = new Hono()
 
@@ -51,6 +52,7 @@ app.route('/jobhub', jobhubRouter)
 app.route('/business', businessRouter)
 app.route('/notifications', notificationsRouter)
 app.route('/roadmap', roadmapRouter)
+app.route('/payments', paymentsRouter)
 
 // ─── Server ──────────────────────────────────────────────────────────────────
 

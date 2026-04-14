@@ -396,13 +396,13 @@ certificates.get('/:id/image', authMiddleware, async (c) => {
   const png = canvas.toBuffer('image/png')
 
   const safeName = learnerName.replace(/[^a-z0-9]/gi, '-').toLowerCase()
-  return new Response(png as unknown as BodyInit, {
-    headers: {
-      'Content-Type':        'image/png',
-      'Content-Disposition': `attachment; filename="intrainin-certificate-${safeName}.png"`,
-      'Cache-Control':       'private, max-age=3600',
-    },
-  })
+  // Buffer is Uint8Array, not ArrayBuffer — extract the exact slice so we
+  // don't accidentally include data from a shared backing ArrayBuffer.
+  const pngAb = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer
+  c.header('Content-Type',        'image/png')
+  c.header('Content-Disposition', `attachment; filename="intrainin-certificate-${safeName}.png"`)
+  c.header('Cache-Control',       'private, max-age=3600')
+  return c.body(pngAb)
 })
 
 // ─── GET /certificates/verify/:code ──────────────────────────────────────────

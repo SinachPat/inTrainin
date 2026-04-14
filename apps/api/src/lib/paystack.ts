@@ -1,15 +1,48 @@
 /**
- * Paystack client — minimal typed wrapper around the Paystack REST API.
- * TODO Layer 8: replace with the official @paystack/paystack-sdk or expand as needed.
+ * Paystack client — typed wrapper around the Paystack REST API.
+ * All monetary values are in kobo (1 NGN = 100 kobo).
  */
 
-/** Relevant fields from the `data` object in a Paystack verify-transaction response. */
+// ─── Response types ────────────────────────────────────────────────────────────
+
+export interface PaystackInitData {
+  authorization_url: string
+  access_code:       string
+  reference:         string
+}
+
+export interface PaystackInitResponse {
+  status:  boolean
+  message: string
+  data:    PaystackInitData
+}
+
 export interface PaystackVerifyData {
   status:    'success' | 'failed' | 'abandoned' | string
   reference: string
-  amount:    number   // in kobo (1 NGN = 100 kobo)
+  amount:    number   // kobo
   currency:  string
+  metadata:  Record<string, unknown>
+  customer:  { email: string; phone?: string }
 }
+
+export interface PaystackVerifyResponse {
+  status:  boolean
+  message: string
+  data:    PaystackVerifyData
+}
+
+// ─── Request types ─────────────────────────────────────────────────────────────
+
+export interface PaystackInitParams {
+  email:        string
+  amount:       number
+  reference:    string
+  callback_url?: string
+  metadata?:    Record<string, unknown>
+}
+
+// ─── Internal helpers ──────────────────────────────────────────────────────────
 
 const BASE = 'https://api.paystack.co'
 
@@ -31,29 +64,26 @@ async function paystackFetch<T>(input: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// ─── Public client ─────────────────────────────────────────────────────────────
+
 export const paystack = {
   /**
-   * Initialise a transaction — returns the payment authorisation URL.
+   * Initialise a Paystack transaction.
+   * Returns an authorization_url to redirect the user to.
    *
-   * Note: Paystack requires an email address. Since InTrainin users sign up
-   * with phone only, generate a synthetic email when none is available:
-   *   `${userId}@users.intrainin.com`
+   * Note: Paystack requires an email. For phone-only accounts use the
+   * synthetic address: `${userId}@users.intrainin.com`
    */
-  async initializeTransaction(params: {
-    email: string
-    amount: number // in kobo (1 NGN = 100 kobo)
-    reference: string
-    metadata?: Record<string, unknown>
-  }) {
+  initializeTransaction(params: PaystackInitParams): Promise<PaystackInitResponse> {
     return paystackFetch(`${BASE}/transaction/initialize`, {
-      method: 'POST',
+      method:  'POST',
       headers: paystackHeaders(),
-      body: JSON.stringify(params),
+      body:    JSON.stringify(params),
     })
   },
 
-  /** Verify a transaction by reference. */
-  async verifyTransaction(reference: string) {
+  /** Verify a transaction by reference — used in enrollment endpoint and webhook. */
+  verifyTransaction(reference: string): Promise<PaystackVerifyResponse> {
     return paystackFetch(`${BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: paystackHeaders(),
     })
