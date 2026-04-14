@@ -29,6 +29,7 @@ function getClient(): SupabaseClient {
       persistSession:     true,
       autoRefreshToken:   true,
       detectSessionInUrl: true,
+      flowType:           'pkce',  // ensures ?code= redirect, never hash fragments
     },
   })
 

@@ -15,12 +15,15 @@
     "@hono/node-server": "^1.13.0",
     "@hono/zod-validator": "^0.4.3",
     "@intrainin/db": "workspace:*",
+    "@intrainin/emails": "workspace:*",
     "@intrainin/shared": "workspace:*",
     "@napi-rs/canvas": "^0.1.97",
+    "@react-email/render": "^2.0.6",
     "@supabase/supabase-js": "^2.49.4",
     "hono": "^4.7.0",
     "jose": "^5.9.6",
     "qrcode": "^1.5.4",
+    "resend": "^6.11.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

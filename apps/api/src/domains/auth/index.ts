@@ -12,6 +12,7 @@ import {
   type AccountType,
 } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
+import { email } from '../../lib/email.js'
 import type { AuthVariables } from '../../middleware/auth.js'
 
 const auth = new Hono<{ Variables: AuthVariables }>()
@@ -218,13 +219,23 @@ auth.post(
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
 
-    if ((count ?? 0) === 0) {
+    const isFirstCompletion = (count ?? 0) === 0
+
+    if (isFirstCompletion) {
       await db
         .from('job_hub_credits')
         .insert({ user_id: userId, amount: 10, reason: 'monthly_grant' })
         .then(({ error: e }) => {
           if (e) console.error('[auth/profile/complete] credits grant error:', e.message)
         })
+
+      // Send welcome email — fire-and-forget, never blocks the response.
+      // Requires the user to have an email address (phone-only users won't get one).
+      const recipientEmail = body.email?.trim() || user.email
+      if (recipientEmail) {
+        const firstName = body.fullName.trim().split(' ')[0]
+        email.sendWelcome({ to: recipientEmail, firstName })
+      }
     }
 
     return c.json({ success: true, data: { user } })
