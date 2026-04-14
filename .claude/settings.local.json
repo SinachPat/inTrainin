@@ -101,7 +101,8 @@
       "Bash(pnpm --filter @intrainin/web exec tsc --noEmit)",
       "Bash(pnpm --filter @intrainin/api exec tsc --noEmit)",
       "Bash(python3)",
-      "Bash(pnpm --filter @intrainin/web add @supabase/supabase-js)"
+      "Bash(pnpm --filter @intrainin/web add @supabase/supabase-js)",
+      "Bash(npm run:*)"
     ]
   }
 }

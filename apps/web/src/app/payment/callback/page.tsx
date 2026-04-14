@@ -16,7 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
-import { getSession } from '@/lib/auth'
+import { getSession, getAccessToken } from '@/lib/auth'
 
 type PollState = 'polling' | 'completed' | 'failed' | 'timeout'
 
@@ -40,7 +40,8 @@ function PaymentCallbackContent() {
     }
 
     const session = getSession()
-    if (!session) {
+    const token   = getAccessToken()
+    if (!session || !token) {
       router.replace('/login')
       return
     }
@@ -53,10 +54,10 @@ function PaymentCallbackContent() {
           success: boolean
           data: { status: 'pending' | 'completed' | 'failed'; redirect_to?: string }
         }>(`/payments/status/${reference}`, {
-          headers: { Authorization: `Bearer ${session!.accessToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         })
 
-        const { status, redirect_to } = res.data.data
+        const { status, redirect_to } = res.data
 
         if (status === 'completed') {
           setState('completed')

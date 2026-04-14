@@ -2,28 +2,46 @@
  * Supabase browser client — used ONLY for OAuth flows (Google sign-in).
  * All other auth calls go through the API (apps/api) for a single source
  * of truth. This client is never used for data queries.
+ *
+ * The client is created lazily on first call so that importing this module
+ * during SSR / static pre-rendering does not throw when the env vars are
+ * absent from the build environment.
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient, type GoTrueClient } from '@supabase/supabase-js'
 
-const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? ''
-const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+let _client: SupabaseClient | null = null
 
-if (!supabaseUrl || !supabaseAnon) {
-  // Development warning only — don't throw, so the app still builds without env vars
-  if (typeof window !== 'undefined') {
-    console.warn('[supabase] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY not set. OAuth will not work.')
+function getClient(): SupabaseClient {
+  if (_client) return _client
+
+  const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL  ?? ''
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+
+  if (!supabaseUrl || !supabaseAnon) {
+    throw new Error(
+      '[supabase] NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set for Google OAuth.',
+    )
   }
+
+  _client = createClient(supabaseUrl, supabaseAnon, {
+    auth: {
+      persistSession:     true,
+      autoRefreshToken:   true,
+      detectSessionInUrl: true,
+    },
+  })
+
+  return _client
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnon, {
-  auth: {
-    // Persist the Supabase session so the callback page can read it after redirect
-    persistSession:     true,
-    autoRefreshToken:   true,
-    detectSessionInUrl: true,
-  },
-})
+/**
+ * The Supabase client — only instantiated on first access (browser-only).
+ * Do not call this at module level; use it inside event handlers or effects.
+ */
+export const supabase: { readonly auth: GoTrueClient } = {
+  get auth(): GoTrueClient { return getClient().auth },
+}
 
 /**
  * Start Google OAuth sign-in. Redirects to Google, which then redirects
@@ -31,12 +49,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnon, {
  */
 export async function signInWithGoogle(): Promise<void> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await getClient().auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${appUrl}/auth/callback`,
       queryParams: {
-        // Request offline access so we get a refresh token
         access_type: 'offline',
         prompt:      'consent',
       },
