@@ -32,11 +32,12 @@ export const email = {
     to: string
     firstName: string
   }): Promise<void> {
+    console.log(`[email/sendWelcome] attempting → to=${to} firstName=${firstName} from=${FROM}`)
     try {
       const resend = getResend()
       const html   = await render(WelcomeEmail({ firstName, appUrl: APP_URL }))
 
-      const { error } = await resend.emails.send({
+      const { data, error } = await resend.emails.send({
         from:    FROM,
         to,
         subject: `Welcome to InTrainin, ${firstName}`,
@@ -44,7 +45,9 @@ export const email = {
       })
 
       if (error) {
-        console.error('[email/sendWelcome] Resend error:', error)
+        console.error('[email/sendWelcome] Resend error:', JSON.stringify(error))
+      } else {
+        console.log(`[email/sendWelcome] sent OK — id=${data?.id}`)
       }
     } catch (err) {
       console.error('[email/sendWelcome] unexpected error:', err)

@@ -237,6 +237,7 @@ auth.post(
       // Send welcome email — fire-and-forget, never blocks the response.
       // resolvedEmail covers Google users (from auth.users), email/password users
       // (from body.email), and is null for phone-only users (no email → skip).
+      console.log(`[profile/complete] isFirstCompletion=true resolvedEmail=${resolvedEmail ?? 'null'}`)
       if (resolvedEmail) {
         const firstName = body.fullName.trim().split(' ')[0]
         email.sendWelcome({ to: resolvedEmail, firstName })
