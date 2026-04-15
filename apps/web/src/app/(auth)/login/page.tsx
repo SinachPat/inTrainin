@@ -123,10 +123,11 @@ function LoginContent() {
         setAccType(accType)
         sessionStorage.removeItem('pending_account_type')
       }
-      // If account type was pre-selected (from signup page or URL hint), skip straight to profile
+      // If account type was pre-selected (from signup page or URL hint), skip straight to profile.
+      // This applies to both learner AND business — no reason to show the type-picker again.
       const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
-      if (resolvedType === 'business') {
-        setAccType('business')
+      if (resolvedType) {
+        setAccType(resolvedType)
         setStep('profile')
       } else {
         setStep('type')
@@ -252,6 +253,13 @@ function LoginContent() {
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
+      // Stash account type only when it was explicitly set via ?type=business.
+      // A plain /login visitor hasn't picked a type yet, so don't assume 'learner'
+      // — the type picker will show instead. The signup page always stashes because
+      // the user has already chosen a type before reaching the Google button.
+      if (typeHint === 'business') {
+        sessionStorage.setItem('pending_account_type', 'business')
+      }
       await signInWithGoogle()
       // signInWithGoogle triggers a full page redirect — execution stops here
     } catch (err: unknown) {
@@ -382,6 +390,17 @@ function LoginContent() {
           <GoogleButton loading={googleLoading} onClick={handleGoogle} />
 
           {error && <p className="text-center text-xs text-destructive">{error}</p>}
+
+          {/* Sign-up CTA — visible to both learner and business visitors */}
+          <p className="text-center text-xs text-muted-foreground">
+            Don&apos;t have an account?{' '}
+            <Link
+              href={typeHint === 'business' ? '/signup?type=business' : '/signup'}
+              className="font-medium text-primary hover:underline"
+            >
+              Create account
+            </Link>
+          </p>
         </div>
       )}
 

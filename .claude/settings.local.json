@@ -102,7 +102,12 @@
       "Bash(pnpm --filter @intrainin/api exec tsc --noEmit)",
       "Bash(python3)",
       "Bash(pnpm --filter @intrainin/web add @supabase/supabase-js)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node -e \"const pkg = require\\('/Users/USER/Desktop/intrainin/node_modules/@supabase/auth-js/package.json'\\); console.log\\(pkg.version\\)\")",
+      "Bash(pnpm --filter web tsc --noEmit)",
+      "Bash(/Users/USER/Desktop/intrainin/node_modules/.bin/tsc --noEmit)",
+      "Bash(ls -la /Users/USER/Desktop/intrainin/apps/api/.env*)",
+      "Bash(ls -la /Users/USER/Desktop/intrainin/apps/web/.env*)"
     ]
   }
 }

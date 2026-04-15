@@ -111,6 +111,7 @@ function SignupContent() {
   const [loading,        setLoading]        = useState(false)
   const [googleLoading,  setGoogleLoading]  = useState(false)
   const [error,          setError]          = useState('')
+  const [emailExists,    setEmailExists]    = useState(false)
 
   useEffect(() => {
     if (typeParam === 'business') {
@@ -232,8 +233,10 @@ function SignupContent() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed. Try again.'
       if (msg.toLowerCase().includes('already exists')) {
-        setError(`${msg} Use the sign in page instead.`)
+        setEmailExists(true)
+        setError(msg)
       } else {
+        setEmailExists(false)
         setError(msg)
       }
     } finally {
@@ -446,6 +449,12 @@ function SignupContent() {
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? 'Sending code…' : <span className="flex items-center gap-1.5">Get OTP code <ArrowRight className="h-4 w-4" /></span>}
           </Button>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{' '}
+            <Link href={accountType === 'business' ? '/login?type=business' : '/login'}
+              className="font-medium text-primary hover:underline">Sign in</Link>
+          </p>
         </form>
       )}
 
@@ -526,7 +535,21 @@ function SignupContent() {
             <p className="text-[11px] text-muted-foreground">Minimum 8 characters</p>
           </div>
 
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && (
+            emailExists
+              ? (
+                <p className="text-xs text-destructive">
+                  {error}{' '}
+                  <Link
+                    href={accountType === 'business' ? '/login?type=business' : '/login'}
+                    className="font-medium underline hover:opacity-80"
+                  >
+                    Sign in instead
+                  </Link>
+                </p>
+              )
+              : <p className="text-xs text-destructive">{error}</p>
+          )}
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? 'Creating account…' : <span className="flex items-center gap-1.5">Continue <ArrowRight className="h-4 w-4" /></span>}

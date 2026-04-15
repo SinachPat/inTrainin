@@ -28,12 +28,15 @@ function getClient(): SupabaseClient {
     auth: {
       persistSession:     true,
       autoRefreshToken:   true,
-      detectSessionInUrl: true,
+      // MUST be false: when true, Supabase calls exchangeCodeForSession inside
+      // its fire-and-forget initialize() and deletes the code_verifier from
+      // storage before our /auth/callback useEffect runs, causing:
+      //   "PKCE code verifier not found in storage"
+      // We handle the code exchange ourselves in /auth/callback/page.tsx.
+      detectSessionInUrl: false,
       flowType:           'pkce',   // ensures ?code= redirect, never hash fragments
       // Explicitly use localStorage so the PKCE code_verifier written during
       // signInWithOAuth is readable by exchangeCodeForSession after the redirect.
-      // Without this, Supabase may fall back to an in-memory store on SSR paths,
-      // losing the verifier and throwing "PKCE code verifier not found in storage".
       storage:            typeof window !== 'undefined' ? window.localStorage : undefined,
     },
   })
