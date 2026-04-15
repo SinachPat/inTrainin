@@ -1,58 +1,15 @@
 /**
- * Supabase browser client — used ONLY for OAuth flows (Google sign-in).
- * All other auth calls go through the API (apps/api) for a single source
- * of truth. This client is never used for data queries.
+ * Supabase browser client — used ONLY for Google OAuth flows.
+ * All other auth calls go through the API (apps/api).
  *
- * The client is created lazily on first call so that importing this module
- * during SSR / static pre-rendering does not throw when the env vars are
- * absent from the build environment.
+ * Uses @supabase/ssr createBrowserClient which stores the PKCE code_verifier
+ * in cookies (not localStorage), making it survive the cross-site redirect
+ * through accounts.google.com without being lost by browser privacy features
+ * (Safari ITP, Firefox ETP).
  */
 
-import { createClient, type SupabaseClient, type GoTrueClient } from '@supabase/supabase-js'
-
-// ─── Cookie-based storage adapter ─────────────────────────────────────────────
-//
-// localStorage is unreliable across OAuth redirects in privacy-hardened browsers
-// (Safari ITP, Firefox ETP): the cross-site hop through accounts.google.com can
-// cause the browser to partition or clear it before the callback page loads,
-// losing the PKCE code_verifier and throwing "PKCE code verifier not found".
-//
-// Cookies with SameSite=Lax survive top-level cross-site navigations by design —
-// they're sent when the browser returns to our origin after the Google redirect.
-// Max-age=600 (10 min) matches the OAuth code lifetime; other Supabase keys
-// (session, refresh token) get a longer 7-day TTL.
-
-const cookieStorage = {
-  getItem(key: string): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie
-      .split('; ')
-      .find(row => row.startsWith(`${encodeURIComponent(key)}=`))
-    return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : null
-  },
-
-  setItem(key: string, value: string): void {
-    if (typeof document === 'undefined') return
-    // PKCE verifier needs a short TTL; session tokens get 7 days.
-    const isPkce   = key.endsWith('-code-verifier')
-    const maxAge   = isPkce ? 600 : 60 * 60 * 24 * 7
-    document.cookie = [
-      `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
-      `path=/`,
-      `max-age=${maxAge}`,
-      `SameSite=Lax`,
-      // Omit Secure so it works on http://localhost during development.
-      // In production Next.js runs over HTTPS so this is fine.
-    ].join('; ')
-  },
-
-  removeItem(key: string): void {
-    if (typeof document === 'undefined') return
-    document.cookie = `${encodeURIComponent(key)}=; path=/; max-age=0; SameSite=Lax`
-  },
-}
-
-// ─── Lazy client ───────────────────────────────────────────────────────────────
+import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 let _client: SupabaseClient | null = null
 
@@ -68,33 +25,26 @@ function getClient(): SupabaseClient {
     )
   }
 
-  _client = createClient(supabaseUrl, supabaseAnon, {
+  _client = createBrowserClient(supabaseUrl, supabaseAnon, {
     auth: {
-      persistSession:     true,
-      autoRefreshToken:   true,
-      // MUST be false: when true, Supabase's fire-and-forget initialize() calls
-      // exchangeCodeForSession and deletes the code_verifier before our
-      // /auth/callback useEffect runs — causing "PKCE code verifier not found".
+      // MUST be false — when true, Supabase's fire-and-forget initialize()
+      // calls exchangeCodeForSession first and deletes the code_verifier
+      // before our /auth/callback useEffect runs.
       detectSessionInUrl: false,
       flowType:           'pkce',
-      storage:            typeof window !== 'undefined' ? cookieStorage : undefined,
     },
   })
 
   return _client
 }
 
-/**
- * The Supabase client — only instantiated on first access (browser-only).
- * Do not call this at module level; use it inside event handlers or effects.
- */
-export const supabase: { readonly auth: GoTrueClient } = {
-  get auth(): GoTrueClient { return getClient().auth },
+export const supabase = {
+  get auth() { return getClient().auth },
 }
 
 /**
- * Start Google OAuth sign-in. Redirects to Google, which then redirects
- * to /auth/callback where we extract the session and set our own session format.
+ * Start Google OAuth sign-in. Redirects the browser to Google, which then
+ * redirects to /auth/callback?code=... for session exchange.
  */
 export async function signInWithGoogle(): Promise<void> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
@@ -109,8 +59,5 @@ export async function signInWithGoogle(): Promise<void> {
     },
   })
 
-  if (error) {
-    throw new Error(error.message)
-  }
-  // signInWithOAuth causes a full page redirect — nothing to return
+  if (error) throw new Error(error.message)
 }
