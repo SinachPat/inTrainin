@@ -240,7 +240,7 @@ auth.post(
       console.log(`[profile/complete] isFirstCompletion=true resolvedEmail=${resolvedEmail ?? 'null'}`)
       if (resolvedEmail) {
         const firstName = body.fullName.trim().split(' ')[0]
-        email.sendWelcome({ to: resolvedEmail, firstName })
+        email.sendWelcome({ to: resolvedEmail, firstName, accountType: body.accountType })
       }
     }
 

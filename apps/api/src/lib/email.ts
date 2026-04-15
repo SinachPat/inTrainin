@@ -28,14 +28,16 @@ export const email = {
   async sendWelcome({
     to,
     firstName,
+    accountType,
   }: {
-    to: string
-    firstName: string
+    to:          string
+    firstName:   string
+    accountType: 'learner' | 'business'
   }): Promise<void> {
-    console.log(`[email/sendWelcome] attempting → to=${to} firstName=${firstName} from=${FROM}`)
+    console.log(`[email/sendWelcome] attempting → to=${to} firstName=${firstName} accountType=${accountType} from=${FROM}`)
     try {
       const resend = getResend()
-      const html   = await render(WelcomeEmail({ firstName, appUrl: APP_URL }))
+      const html   = await render(WelcomeEmail({ firstName, appUrl: APP_URL, accountType }))
 
       const { data, error } = await resend.emails.send({
         from:    FROM,
