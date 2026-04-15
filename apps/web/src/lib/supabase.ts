@@ -29,7 +29,12 @@ function getClient(): SupabaseClient {
       persistSession:     true,
       autoRefreshToken:   true,
       detectSessionInUrl: true,
-      flowType:           'pkce',  // ensures ?code= redirect, never hash fragments
+      flowType:           'pkce',   // ensures ?code= redirect, never hash fragments
+      // Explicitly use localStorage so the PKCE code_verifier written during
+      // signInWithOAuth is readable by exchangeCodeForSession after the redirect.
+      // Without this, Supabase may fall back to an in-memory store on SSR paths,
+      // losing the verifier and throwing "PKCE code verifier not found in storage".
+      storage:            typeof window !== 'undefined' ? window.localStorage : undefined,
     },
   })
 

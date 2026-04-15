@@ -108,17 +108,24 @@ function LoginContent() {
   const [error,       setError]       = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  // Pick up tokens stashed by the callback page for Google sign-in
+  // Pick up tokens and account type stashed by the callback/signup pages for Google sign-in
   useEffect(() => {
     if (methodParam === 'google_profile') {
-      const at = sessionStorage.getItem('pending_access_token')
-      const rt = sessionStorage.getItem('pending_refresh_token')
+      const at       = sessionStorage.getItem('pending_access_token')
+      const rt       = sessionStorage.getItem('pending_refresh_token')
+      const accType  = sessionStorage.getItem('pending_account_type') as AccountType | null
       if (at && rt) {
         setTokens({ accessToken: at, refreshToken: rt })
         sessionStorage.removeItem('pending_access_token')
         sessionStorage.removeItem('pending_refresh_token')
       }
-      if (typeHint === 'business') {
+      if (accType) {
+        setAccType(accType)
+        sessionStorage.removeItem('pending_account_type')
+      }
+      // If account type was pre-selected (from signup page or URL hint), skip straight to profile
+      const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
+      if (resolvedType === 'business') {
         setAccType('business')
         setStep('profile')
       } else {
