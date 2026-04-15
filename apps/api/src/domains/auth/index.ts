@@ -150,22 +150,26 @@ auth.post(
       careerGoalRoleId = roleRow?.id ?? null
     }
 
+    // Resolve email: prefer what the frontend sent (email/password signups),
+    // fall back to auth.users for Google OAuth users (Supabase stores their
+    // Google email there but it's never sent in the profile form body).
+    const { data: { user: authUser } } = await db.auth.admin.getUserById(userId)
+    const resolvedEmail = body.email?.trim().toLowerCase() || authUser?.email || null
+
     // Upsert (not update) — ensures the row exists even if the otp/verify upsert
     // silently failed (e.g. DB schema not yet migrated). Update would be a no-op
     // on a missing row without returning an error, leaving user as null below.
     //
     // NOTE: phone is intentionally excluded here. It is set exclusively by
     // otp/verify (phone users) and is null for Google/email users. Including it
-    // here caused "duplicate key value violates unique constraint users_phone_key"
-    // when a Google user also had a prior phone-OTP account — Supabase's identity
-    // linking returned the phone on getUserById, which then conflicted with the
-    // existing users row that already owned that phone.
+    // caused "duplicate key value violates unique constraint users_phone_key"
+    // when identity linking returned a linked phone on getUserById.
     const { error: userError } = await db
       .from('users')
       .upsert(
         {
           id:                  userId,
-          ...(body.email ? { email: body.email.trim().toLowerCase() } : {}),
+          ...(resolvedEmail ? { email: resolvedEmail } : {}),
           full_name:           body.fullName.trim(),
           location_city:       body.locationCity,
           account_type:        body.accountType,
@@ -231,11 +235,11 @@ auth.post(
         })
 
       // Send welcome email — fire-and-forget, never blocks the response.
-      // Requires the user to have an email address (phone-only users won't get one).
-      const recipientEmail = body.email?.trim() || user.email
-      if (recipientEmail) {
+      // resolvedEmail covers Google users (from auth.users), email/password users
+      // (from body.email), and is null for phone-only users (no email → skip).
+      if (resolvedEmail) {
         const firstName = body.fullName.trim().split(' ')[0]
-        email.sendWelcome({ to: recipientEmail, firstName })
+        email.sendWelcome({ to: resolvedEmail, firstName })
       }
     }
 
