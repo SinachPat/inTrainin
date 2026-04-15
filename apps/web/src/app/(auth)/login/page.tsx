@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowRight, Shield, ChevronLeft,
   User, MapPin, Briefcase, GraduationCap, Building2,
-  Mail, Phone, Eye, EyeOff, Loader2,
+  Mail, Phone, Eye, EyeOff, Loader2, Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,18 @@ const CITIES = [
   'Lagos', 'Abuja', 'Port Harcourt', 'Kano', 'Ibadan', 'Benin City',
   'Kaduna', 'Enugu', 'Aba', 'Jos', 'Ilorin', 'Onitsha', 'Warri',
   'Owerri', 'Calabar', 'Uyo', 'Asaba', 'Abeokuta', 'Akure', 'Maiduguri',
+]
+
+const CAREER_GOAL_ROLES = [
+  { slug: 'cashier-retail',    label: 'Cashier',              icon: '🛒' },
+  { slug: 'waiter-waitress',   label: 'Waiter / Waitress',    icon: '🍽️' },
+  { slug: 'front-desk-agent',  label: 'Hotel Receptionist',   icon: '🏨' },
+  { slug: 'dispatch-rider',    label: 'Delivery Rider',       icon: '🚚' },
+  { slug: 'sales-rep',         label: 'Sales Representative', icon: '🤝' },
+  { slug: 'receptionist',      label: 'Receptionist',         icon: '📋' },
+  { slug: 'security-guard',    label: 'Security Guard',       icon: '🛡️' },
+  { slug: 'barber',            label: 'Barber / Hair Stylist', icon: '💈' },
+  { slug: 'cook-kitchen-hand', label: 'Kitchen Assistant',    icon: '🍳' },
 ]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,7 +113,8 @@ function LoginContent() {
 
   // Shared
   const [accountType, setAccType]     = useState<AccountType>('learner')
-  const [profile,     setProfile]     = useState({ fullName: '', city: '' })
+  const [profile,     setProfile]     = useState({ fullName: '', city: '', careerGoalSlug: '' })
+  const [otherRole,   setOtherRole]   = useState('')
   const [bizName,     setBizName]     = useState('')
   const [tokens,      setTokens]      = useState<{ accessToken: string; refreshToken: string } | null>(null)
   const [loading,     setLoading]     = useState(false)
@@ -284,6 +297,8 @@ function LoginContent() {
         locationCity: profile.city,
         ...(accountType === 'business' && { businessName: bizName.trim() }),
         ...(authMethod === 'email' && email ? { email: email.trim().toLowerCase() } : {}),
+        ...(accountType === 'learner' && profile.careerGoalSlug && profile.careerGoalSlug !== 'other'
+          && { careerGoalRoleSlug: profile.careerGoalSlug }),
       }
       const profileRes = await api.post<{
         success: boolean
@@ -633,6 +648,46 @@ function LoginContent() {
               </select>
             </div>
           </div>
+
+          {/* Career goal (learners only) */}
+          {accountType === 'learner' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">What role are you aiming for?</label>
+              <p className="text-xs text-muted-foreground">We&apos;ll tailor your learning path. You can change this later.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {CAREER_GOAL_ROLES.map(role => (
+                  <button key={role.slug} type="button"
+                    onClick={() => setProfile(p => ({ ...p, careerGoalSlug: role.slug }))}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                      profile.careerGoalSlug === role.slug
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-background text-foreground hover:border-foreground/30',
+                    )}>
+                    <span>{role.icon}</span>
+                    <span>{role.label}</span>
+                    {profile.careerGoalSlug === role.slug && <Check className="ml-auto h-3 w-3 shrink-0" />}
+                  </button>
+                ))}
+                <button type="button"
+                  onClick={() => setProfile(p => ({ ...p, careerGoalSlug: 'other' }))}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
+                    profile.careerGoalSlug === 'other'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background text-foreground hover:border-foreground/30',
+                  )}>
+                  <span>✏️</span><span>Other</span>
+                  {profile.careerGoalSlug === 'other' && <Check className="ml-auto h-3 w-3 shrink-0" />}
+                </button>
+              </div>
+              {profile.careerGoalSlug === 'other' && (
+                <input autoFocus type="text" placeholder="e.g. Security Guard, Nurse Assistant…"
+                  value={otherRole} onChange={e => setOtherRole(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-primary bg-primary/5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+              )}
+            </div>
+          )}
 
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
