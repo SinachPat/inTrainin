@@ -21,8 +21,8 @@ const copy = {
   learner: {
     preview: 'Welcome to InTrainin — your career starts here',
     heading: 'Your career starts here',
-    body:    "You're now on InTrainin — Nigeria's fastest way to get trained, certified, and matched to the job you deserve. Your first 10 courses are completely free.",
-    cta:     'Start learning free',
+    body:    "You're now on InTrainin — Nigeria's fastest way to get trained, certified, and matched to the job you deserve. Start with any course today and earn your first certificate.",
+    cta:     'Go to my dashboard',
     ctaPath: '/dashboard',
     footer:  'Browse courses, earn your certificate, and get hired.',
   },
