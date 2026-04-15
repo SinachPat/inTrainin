@@ -108,7 +108,13 @@
       "Bash(/Users/USER/Desktop/intrainin/node_modules/.bin/tsc --noEmit)",
       "Bash(ls -la /Users/USER/Desktop/intrainin/apps/api/.env*)",
       "Bash(ls -la /Users/USER/Desktop/intrainin/apps/web/.env*)",
-      "Bash(grep -n \"phone\\\\|users_phone\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)"
+      "Bash(grep -n \"phone\\\\|users_phone\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)",
+      "Bash(claude mcp:*)",
+      "Read(//Users/USER/.claude/**)",
+      "Bash(ls ~/.claude/*.json)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/USER/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json'\\)\\); plugins=[p for p in d.get\\('plugins',[]\\) if 'figma' in p.get\\('name',''\\).lower\\(\\)]; print\\(json.dumps\\(plugins, indent=2\\)\\)\")",
+      "Bash(xargs cat:*)"
     ]
   }
 }
