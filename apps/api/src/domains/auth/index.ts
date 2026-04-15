@@ -150,20 +150,21 @@ auth.post(
       careerGoalRoleId = roleRow?.id ?? null
     }
 
-    // Resolve the phone from Supabase auth so the upsert's INSERT path never
-    // creates a row with phone = NULL (race: otp/verify may not have committed yet).
-    const { data: { user: authUser } } = await db.auth.admin.getUserById(userId)
-    const phone = authUser?.phone ?? null
-
     // Upsert (not update) — ensures the row exists even if the otp/verify upsert
     // silently failed (e.g. DB schema not yet migrated). Update would be a no-op
     // on a missing row without returning an error, leaving user as null below.
+    //
+    // NOTE: phone is intentionally excluded here. It is set exclusively by
+    // otp/verify (phone users) and is null for Google/email users. Including it
+    // here caused "duplicate key value violates unique constraint users_phone_key"
+    // when a Google user also had a prior phone-OTP account — Supabase's identity
+    // linking returned the phone on getUserById, which then conflicted with the
+    // existing users row that already owned that phone.
     const { error: userError } = await db
       .from('users')
       .upsert(
         {
           id:                  userId,
-          phone,
           ...(body.email ? { email: body.email.trim().toLowerCase() } : {}),
           full_name:           body.fullName.trim(),
           location_city:       body.locationCity,
@@ -203,7 +204,7 @@ auth.post(
 
     const { data: user, error: selectError } = await db
       .from('users')
-      .select('id, full_name, location_city, account_type, career_goal_role_id, created_at')
+      .select('id, email, full_name, location_city, account_type, career_goal_role_id, created_at')
       .eq('id', userId)
       .single()
 

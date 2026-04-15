@@ -107,7 +107,8 @@
       "Bash(pnpm --filter web tsc --noEmit)",
       "Bash(/Users/USER/Desktop/intrainin/node_modules/.bin/tsc --noEmit)",
       "Bash(ls -la /Users/USER/Desktop/intrainin/apps/api/.env*)",
-      "Bash(ls -la /Users/USER/Desktop/intrainin/apps/web/.env*)"
+      "Bash(ls -la /Users/USER/Desktop/intrainin/apps/web/.env*)",
+      "Bash(grep -n \"phone\\\\|users_phone\" /Users/USER/Desktop/intrainin/packages/db/migrations/*.sql)"
     ]
   }
 }
