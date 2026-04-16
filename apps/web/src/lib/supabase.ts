@@ -36,7 +36,7 @@ function getClient(): SupabaseClient {
   return _client
 }
 
-export const supabase = {
+export const supabase: { readonly auth: SupabaseClient['auth'] } = {
   get auth() { return getClient().auth },
 }
 
