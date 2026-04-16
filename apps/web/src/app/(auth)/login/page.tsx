@@ -643,7 +643,7 @@ function LoginContent() {
             Yes, convert to business <ArrowRight className="h-4 w-4" />
           </button>
           <button
-            onClick={() => router.replace('/login')}
+            onClick={() => router.replace('/dashboard')}
             className="flex w-full items-center justify-center rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
           >
             Keep my learner account
