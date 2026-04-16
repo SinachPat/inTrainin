@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowRight, Shield, ChevronLeft,
   User, MapPin, Briefcase, GraduationCap, Building2,
-  Mail, Phone, Eye, EyeOff, Loader2, Check,
+  Mail, Phone, Eye, EyeOff, Loader2, Check, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,7 +21,8 @@ type AuthMethod = 'phone' | 'email'
 // phone flow:   phone → otp → (new) type → profile
 // email flow:   email → (new) type → profile
 // google flow:  → (auto) type → profile  (tokens from sessionStorage)
-type Step = 'method' | 'phone' | 'otp' | 'email' | 'type' | 'profile'
+// google flow (mismatch): → convert → profile
+type Step = 'method' | 'phone' | 'otp' | 'email' | 'type' | 'profile' | 'convert'
 type AccountType = 'learner' | 'business'
 
 const CITIES = [
@@ -95,7 +96,10 @@ function LoginContent() {
   const typeHint     = searchParams.get('type') === 'business' ? 'business' : 'learner'
 
   // Determine initial step
-  const initialStep: Step = methodParam === 'google_profile' ? 'type' : 'method'
+  const initialStep: Step =
+    methodParam === 'google_profile' ? 'type'    :
+    methodParam === 'google_convert' ? 'convert' :
+    'method'
 
   const [step,        setStep]        = useState<Step>(initialStep)
   const [authMethod,  setAuthMethod]  = useState<AuthMethod>('phone')
@@ -121,30 +125,39 @@ function LoginContent() {
   const [error,       setError]       = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  // Pick up tokens and account type stashed by the callback/signup pages for Google sign-in
+  // Pick up tokens and account type stashed by finalise/signup pages for Google flows
   useEffect(() => {
-    if (methodParam === 'google_profile') {
-      const at       = sessionStorage.getItem('pending_access_token')
-      const rt       = sessionStorage.getItem('pending_refresh_token')
-      const accType  = sessionStorage.getItem('pending_account_type') as AccountType | null
-      if (at && rt) {
-        setTokens({ accessToken: at, refreshToken: rt })
-        sessionStorage.removeItem('pending_access_token')
-        sessionStorage.removeItem('pending_refresh_token')
-      }
-      if (accType) {
-        setAccType(accType)
-        sessionStorage.removeItem('pending_account_type')
-      }
-      // If account type was pre-selected (from signup page or URL hint), skip straight to profile.
-      // This applies to both learner AND business — no reason to show the type-picker again.
-      const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
-      if (resolvedType) {
-        setAccType(resolvedType)
-        setStep('profile')
-      } else {
-        setStep('type')
-      }
+    if (methodParam !== 'google_profile' && methodParam !== 'google_convert') return
+
+    const at      = sessionStorage.getItem('pending_access_token')
+    const rt      = sessionStorage.getItem('pending_refresh_token')
+    const accType = sessionStorage.getItem('pending_account_type') as AccountType | null
+
+    if (at && rt) {
+      setTokens({ accessToken: at, refreshToken: rt })
+      sessionStorage.removeItem('pending_access_token')
+      sessionStorage.removeItem('pending_refresh_token')
+    }
+    if (accType) {
+      setAccType(accType)
+      sessionStorage.removeItem('pending_account_type')
+    }
+
+    if (methodParam === 'google_convert') {
+      // Existing learner account tried to sign in/up as business — show convert banner
+      setAccType('business') // they want to become business
+      setStep('convert')
+      return
+    }
+
+    // google_profile: account type was pre-selected (from signup page or URL hint),
+    // skip straight to profile. Show type-picker only if we have no hint at all.
+    const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
+    if (resolvedType) {
+      setAccType(resolvedType)
+      setStep('profile')
+    } else {
+      setStep('type')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -339,6 +352,7 @@ function LoginContent() {
     email:   isNewUser ? 'Create account'  : 'Sign in with email',
     type:    'One more thing',
     profile: 'Almost done',
+    convert: 'Already a learner?',
   }
   const subtitle: Record<Step, string> = {
     method:  typeHint === 'business' ? 'Sign in to your business dashboard' : 'Sign in or create a new account',
@@ -347,6 +361,7 @@ function LoginContent() {
     email:   isNewUser ? 'You\'ll be set up in seconds' : 'Use your email and password',
     type:    'How will you be using InTrainin?',
     profile: 'Tell us a bit about yourself',
+    convert: 'Your Google account is linked to a learner account',
   }
 
   return (
@@ -599,6 +614,40 @@ function LoginContent() {
             Wrong details?{' '}
             <button onClick={() => { setStep('method'); setError('') }} className="font-medium text-primary hover:underline">Start over</button>
           </p>
+        </div>
+      )}
+
+      {/* ── Convert (Google account type mismatch) ───────────────────────── */}
+      {step === 'convert' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
+            <div className="flex gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+              <div className="space-y-2 text-sm">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">This will convert your learner account</p>
+                <ul className="space-y-1 text-amber-800 dark:text-amber-300">
+                  <li>• Your learner dashboard and training progress will no longer be accessible</li>
+                  <li>• Certificates you&apos;ve earned will remain on record</li>
+                  <li>• You&apos;ll get a new business dashboard to manage your team</li>
+                </ul>
+                <p className="text-amber-700 dark:text-amber-400">
+                  This action cannot be undone. Use a different Google account for a separate business account.
+                </p>
+              </div>
+            </div>
+          </div>
+          <button
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            onClick={() => { setAccType('business'); setStep('profile') }}
+          >
+            Yes, convert to business <ArrowRight className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => router.replace('/login')}
+            className="flex w-full items-center justify-center rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+          >
+            Keep my learner account
+          </button>
         </div>
       )}
 
