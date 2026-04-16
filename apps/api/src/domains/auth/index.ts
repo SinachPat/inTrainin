@@ -547,11 +547,11 @@ auth.post('/email/register', zValidator('json', EmailRegisterSchema), async (c) 
   const { email, password } = c.req.valid('json')
   const db = createServerClient()
 
-  // Check if an account already exists for this email
-  const { data: existing } = await db.auth.admin.listUsers()
-  const alreadyExists = existing?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase())
-
-  if (alreadyExists) {
+  // Check if an account already exists for this email.
+  // getUserByEmail is a direct lookup — listUsers() paginates at 50 users
+  // and .some() on that result silently misses users beyond the first page.
+  const { data: existingAuthUser } = await db.auth.admin.getUserByEmail(email)
+  if (existingAuthUser?.user) {
     return c.json({
       success: false,
       error: 'An account with this email already exists. Please sign in.',
@@ -576,9 +576,12 @@ auth.post('/email/register', zValidator('json', EmailRegisterSchema), async (c) 
     return c.json({ success: false, error: 'Account created but sign-in failed. Please try signing in manually.' }, 500)
   }
 
-  // Create a stub users row — profile/complete will fill in name, city, etc.
+  // Create a stub users row — profile/complete fills in email, name, city, etc.
+  // Email is intentionally excluded here: including it caused users_email_key
+  // violations when a Google user with the same email already had a users row.
+  // profile/complete resolves email from auth.users and sets it safely.
   await db.from('users').upsert(
-    { id: data.user.id, email: email.toLowerCase(), account_type: 'learner', full_name: '' },
+    { id: data.user.id, account_type: 'learner', full_name: '' },
     { onConflict: 'id', ignoreDuplicates: true },
   ).then(({ error: e }) => {
     if (e) console.error('[auth/email/register] users upsert error:', e.message)

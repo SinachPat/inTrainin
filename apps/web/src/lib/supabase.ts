@@ -3,9 +3,13 @@
  * All other auth calls go through the API (apps/api).
  *
  * Uses @supabase/ssr createBrowserClient which stores the PKCE code_verifier
- * in cookies (not localStorage), making it survive the cross-site redirect
- * through accounts.google.com without being lost by browser privacy features
- * (Safari ITP, Firefox ETP).
+ * in cookies, making it survive the cross-site redirect through
+ * accounts.google.com regardless of browser privacy settings.
+ *
+ * detectSessionInUrl is intentionally left at its default (true) so
+ * createBrowserClient handles the PKCE code exchange internally.
+ * The callback page listens via onAuthStateChange instead of calling
+ * exchangeCodeForSession manually — this eliminates the race condition.
  */
 
 import { createBrowserClient } from '@supabase/ssr'
@@ -25,15 +29,9 @@ function getClient(): SupabaseClient {
     )
   }
 
-  _client = createBrowserClient(supabaseUrl, supabaseAnon, {
-    auth: {
-      // MUST be false — when true, Supabase's fire-and-forget initialize()
-      // calls exchangeCodeForSession first and deletes the code_verifier
-      // before our /auth/callback useEffect runs.
-      detectSessionInUrl: false,
-      flowType:           'pkce',
-    },
-  })
+  // createBrowserClient handles cookie storage and PKCE correctly in Next.js.
+  // Do NOT pass detectSessionInUrl: false — that breaks the internal exchange.
+  _client = createBrowserClient(supabaseUrl, supabaseAnon)
 
   return _client
 }
@@ -44,7 +42,7 @@ export const supabase = {
 
 /**
  * Start Google OAuth sign-in. Redirects the browser to Google, which then
- * redirects to /auth/callback?code=... for session exchange.
+ * redirects to /auth/callback where onAuthStateChange fires with the session.
  */
 export async function signInWithGoogle(): Promise<void> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin

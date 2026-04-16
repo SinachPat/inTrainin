@@ -5,16 +5,16 @@
  *
  * Flow:
  *   1. Supabase redirects here with ?code=... after Google OAuth
- *   2. We call supabase.auth.exchangeCodeForSession() to get a session
- *   3. We extract access/refresh tokens and call /auth/me to get the user profile
- *   4. We set our own session format in localStorage (same shape as OTP login)
- *   5. If the profile is incomplete (new Google user), we redirect to /login?method=profile
- *      so the user completes their name/city before continuing
- *   6. If profile is complete, we route to /dashboard or /admin
+ *   2. createBrowserClient detects the code in the URL and exchanges it
+ *      internally (PKCE) — we do NOT call exchangeCodeForSession manually
+ *   3. We listen via onAuthStateChange for SIGNED_IN / INITIAL_SESSION
+ *   4. On session, we call /auth/me to get the user profile
+ *   5. If profile incomplete → stash tokens → /login?method=google_profile
+ *   6. If profile complete → /dashboard or /admin
  */
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -22,83 +22,78 @@ import { setSession } from '@/lib/auth'
 import { api } from '@/lib/api'
 
 function CallbackContent() {
-  const router       = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function handleCallback() {
-      const code = searchParams.get('code')
-
-      if (!code) {
-        // Might be hash-fragment based (implicit flow) — let Supabase handle it
-        const { data: { session }, error: sessionErr } = await supabase.auth.getSession()
-        if (sessionErr || !session) {
-          setError('Sign-in failed. No session was returned.')
-          return
+    // Let createBrowserClient handle the PKCE exchange internally.
+    // SIGNED_IN fires once the exchange succeeds; INITIAL_SESSION fires
+    // immediately if a session was already established (handles the case
+    // where initialize() finishes before this listener is registered).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+          subscription.unsubscribe()
+          await finaliseSession(
+            session.access_token,
+            session.refresh_token,
+            session.expires_in,
+          )
         }
-        await finaliseSession(session.access_token, session.refresh_token, session.expires_in)
-        return
-      }
+      },
+    )
 
-      // PKCE flow: exchange code for session
-      const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code)
-      if (exchangeErr || !data.session) {
-        setError(exchangeErr?.message ?? 'Sign-in failed. Please try again.')
-        return
-      }
+    // Safety timeout — if neither event fires within 15s something went wrong
+    const timeout = setTimeout(() => {
+      subscription.unsubscribe()
+      setError('Sign-in timed out. Please try again.')
+    }, 15_000)
 
-      await finaliseSession(
-        data.session.access_token,
-        data.session.refresh_token,
-        data.session.expires_in,
-      )
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    async function finaliseSession(accessToken: string, refreshToken: string, expiresIn: number) {
-      try {
-        // Fetch profile from our API (this also upserts the users row if needed)
-        const meRes = await api.get<{
-          success: boolean
-          data: { user: { id: string; full_name: string; account_type: string; phone: string | null; location_city: string | null } }
-        }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
+  async function finaliseSession(accessToken: string, refreshToken: string, expiresIn: number) {
+    try {
+      const meRes = await api.get<{
+        success: boolean
+        data: { user: { id: string; full_name: string; account_type: string; phone: string | null; location_city: string | null } }
+      }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
 
-        const user = meRes.data.user
-        const profileComplete = Boolean(user.full_name?.trim() && user.location_city)
+      const user = meRes.data.user
+      const profileComplete = Boolean(user.full_name?.trim() && user.location_city)
 
-        setSession({
-          accessToken,
-          refreshToken,
-          user: {
-            id:          user.id,
-            fullName:    user.full_name,
-            accountType: user.account_type as 'learner' | 'business' | 'admin',
-            phone:       user.phone,
-          },
-        })
+      setSession({
+        accessToken,
+        refreshToken,
+        user: {
+          id:          user.id,
+          fullName:    user.full_name,
+          accountType: user.account_type as 'learner' | 'business' | 'admin',
+          phone:       user.phone,
+        },
+      })
 
-        if (!profileComplete) {
-          // New Google user — send to login page in profile-completion mode
-          // We pass the tokens via sessionStorage so the login page can pick them up
-          sessionStorage.setItem('pending_access_token',  accessToken)
-          sessionStorage.setItem('pending_refresh_token', refreshToken)
-          router.replace('/login?method=google_profile')
-        } else {
-          const dest = user.account_type === 'business' || user.account_type === 'admin' ? '/admin' : '/dashboard'
-          router.replace(dest)
-        }
-      } catch {
-        // /auth/me failed — most likely a new Google user whose row doesn't exist yet
-        // Send to profile completion with tokens stashed in sessionStorage
+      if (!profileComplete) {
         sessionStorage.setItem('pending_access_token',  accessToken)
         sessionStorage.setItem('pending_refresh_token', refreshToken)
         router.replace('/login?method=google_profile')
+      } else {
+        const dest = user.account_type === 'business' || user.account_type === 'admin'
+          ? '/admin'
+          : '/dashboard'
+        router.replace(dest)
       }
+    } catch {
+      // /auth/me 404 — new Google user, no profile yet
+      sessionStorage.setItem('pending_access_token',  accessToken)
+      sessionStorage.setItem('pending_refresh_token', refreshToken)
+      router.replace('/login?method=google_profile')
     }
-
-    handleCallback()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }
 
   if (error) {
     return (
