@@ -3,16 +3,21 @@
 /**
  * Post-OAuth finalise page.
  *
- * The Route Handler at /auth/callback has already exchanged the PKCE code
- * for a session and set the session cookies. This page reads that session,
- * calls /auth/me, and routes the user appropriately:
+ * The Route Handler at /auth/callback has already:
+ *   1. Exchanged the PKCE code for a session (cookies set)
+ *   2. Called /auth/me server-to-server and stashed the result in _itnn_ps cookie
  *
- *   profileComplete + no type mismatch  → /dashboard or /admin
+ * This page reads the cookie, calls setSession, and routes — no API call needed.
+ * If the cookie is missing (pre-fetch timed out, etc.) it falls back to calling
+ * /auth/me itself so the flow is always correct.
+ *
+ * Routing decisions:
+ *   profileComplete + no mismatch        → /dashboard or /admin
  *   profileComplete + pending=business
- *     but account is learner            → /login?method=google_convert  (convert banner)
- *   profile incomplete                  → /login?method=google_profile  (onboarding)
- *   /auth/me 404 + pending_account_type → /login?method=google_profile  (new signup)
- *   /auth/me 404 + no pending type      → error: no account found        (sign-in with unknown Google account)
+ *     but account is learner             → /login?method=google_convert
+ *   profile incomplete                   → /login?method=google_profile
+ *   notFound + pending_account_type set  → /login?method=google_profile  (new signup)
+ *   notFound + no pending_account_type   → error: no account found        (unknown Google sign-in)
  */
 
 import { useEffect, useState } from 'react'
@@ -22,6 +27,35 @@ import { Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { setSession } from '@/lib/auth'
 import { api } from '@/lib/api'
+
+// ── Cookie helpers ────────────────────────────────────────────────────────────
+
+type PendingSession =
+  | { notFound: true }
+  | {
+      notFound?: false
+      id: string
+      fullName: string
+      accountType: string
+      phone: string | null
+      profileComplete: boolean
+    }
+
+/** Read and immediately clear the _itnn_ps cookie set by the Route Handler. */
+function consumePendingSessionCookie(): PendingSession | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.split('; ').find(r => r.startsWith('_itnn_ps='))
+  if (!match) return null
+  try {
+    const raw = decodeURIComponent(match.slice('_itnn_ps='.length))
+    document.cookie = '_itnn_ps=; path=/; max-age=0' // consume immediately
+    return JSON.parse(raw) as PendingSession
+  } catch {
+    return null
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 function FinaliseContent() {
   const router       = useRouter()
@@ -41,7 +75,6 @@ function FinaliseContent() {
     }
 
     async function finalise() {
-      // The session was set by the Route Handler — just read it
       const { data: { session }, error: sessionErr } = await supabase.auth.getSession()
 
       if (sessionErr || !session) {
@@ -51,72 +84,37 @@ function FinaliseContent() {
 
       const { access_token: accessToken, refresh_token: refreshToken } = session
 
-      // Read the account type stashed before the Google redirect.
-      // Signup page always stashes it (learner or business).
-      // Login page only stashes it for ?type=business.
+      // Intent signal stashed before the OAuth redirect.
+      // Signup page always stashes it; login page only stashes it for ?type=business.
       // Absence means the user came from the plain /login page (sign-in intent).
       const pendingAccountType = sessionStorage.getItem('pending_account_type') as 'learner' | 'business' | null
 
+      // ── Fast path: use the pre-fetched data from the Route Handler cookie ───
+      const cached = consumePendingSessionCookie()
+
+      if (cached) {
+        await route(accessToken, refreshToken, pendingAccountType, cached)
+        return
+      }
+
+      // ── Fallback: Route Handler prefetch failed — fetch /auth/me ourselves ──
       try {
         const meRes = await api.get<{
           success: boolean
           data: { user: { id: string; full_name: string; account_type: string; phone: string | null; location_city: string | null } }
         }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
 
-        const user = meRes.data.user
-        const profileComplete = Boolean(user.full_name?.trim() && user.location_city)
-
-        setSession({
-          accessToken,
-          refreshToken,
-          user: {
-            id:          user.id,
-            fullName:    user.full_name,
-            accountType: user.account_type as 'learner' | 'business' | 'admin',
-            phone:       user.phone,
-          },
+        const u = meRes.data.user
+        await route(accessToken, refreshToken, pendingAccountType, {
+          id:              u.id,
+          fullName:        u.full_name,
+          accountType:     u.account_type,
+          phone:           u.phone,
+          profileComplete: Boolean(u.full_name?.trim() && u.location_city),
         })
-
-        if (profileComplete) {
-          // Account-type mismatch: user tried to sign in/up as business but their
-          // Google account is registered to a learner account.
-          if (pendingAccountType === 'business' && user.account_type === 'learner') {
-            // Leave pending_account_type in sessionStorage — login page will consume it
-            sessionStorage.setItem('pending_access_token',  accessToken)
-            sessionStorage.setItem('pending_refresh_token', refreshToken)
-            router.replace('/login?method=google_convert')
-            return
-          }
-
-          // Happy path — clean up and route to dashboard
-          sessionStorage.removeItem('pending_account_type')
-          router.replace(
-            user.account_type === 'business' || user.account_type === 'admin'
-              ? '/admin'
-              : '/dashboard',
-          )
-        } else {
-          // Profile incomplete — send to onboarding.
-          // Leave pending_account_type so the login page can pick it up.
-          sessionStorage.setItem('pending_access_token',  accessToken)
-          sessionStorage.setItem('pending_refresh_token', refreshToken)
-          router.replace('/login?method=google_profile')
-        }
       } catch {
-        // /auth/me returned an error (most likely 404 — no InTrainin account yet)
-
-        if (pendingAccountType) {
-          // Came from signup page (always stashes account type) — new user, go to onboarding.
-          // Leave pending_account_type for the login page to consume.
-          sessionStorage.setItem('pending_access_token',  accessToken)
-          sessionStorage.setItem('pending_refresh_token', refreshToken)
-          router.replace('/login?method=google_profile')
-        } else {
-          // Came from the login page with no stashed account type — this Google account
-          // has no InTrainin account. Show a clear error rather than silently
-          // creating a new account.
-          setError('no_account')
-        }
+        // /auth/me 404 — treat as notFound
+        await route(accessToken, refreshToken, pendingAccountType, { notFound: true })
       }
     }
 
@@ -124,7 +122,65 @@ function FinaliseContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── No account found (sign-in attempt with unregistered Google account) ──────
+  // ── Routing logic ─────────────────────────────────────────────────────────
+  async function route(
+    accessToken:         string,
+    refreshToken:        string,
+    pendingAccountType:  'learner' | 'business' | null,
+    ps:                  PendingSession,
+  ) {
+    if (ps.notFound) {
+      if (pendingAccountType) {
+        // Came from signup page — new user, go to onboarding
+        sessionStorage.setItem('pending_access_token',  accessToken)
+        sessionStorage.setItem('pending_refresh_token', refreshToken)
+        // Leave pending_account_type for login page to consume
+        router.replace('/login?method=google_profile')
+      } else {
+        // Came from login page — no InTrainin account for this Google account
+        setError('no_account')
+      }
+      return
+    }
+
+    setSession({
+      accessToken,
+      refreshToken,
+      user: {
+        id:          ps.id,
+        fullName:    ps.fullName,
+        accountType: ps.accountType as 'learner' | 'business' | 'admin',
+        phone:       ps.phone,
+      },
+    })
+
+    if (ps.profileComplete) {
+      // Account-type mismatch: wanted business but account is learner
+      if (pendingAccountType === 'business' && ps.accountType === 'learner') {
+        // Leave pending_account_type for login page to consume
+        sessionStorage.setItem('pending_access_token',  accessToken)
+        sessionStorage.setItem('pending_refresh_token', refreshToken)
+        router.replace('/login?method=google_convert')
+        return
+      }
+
+      // Happy path
+      sessionStorage.removeItem('pending_account_type')
+      router.replace(
+        ps.accountType === 'business' || ps.accountType === 'admin'
+          ? '/admin'
+          : '/dashboard',
+      )
+    } else {
+      // Profile incomplete — send to onboarding
+      sessionStorage.setItem('pending_access_token',  accessToken)
+      sessionStorage.setItem('pending_refresh_token', refreshToken)
+      // Leave pending_account_type for login page
+      router.replace('/login?method=google_profile')
+    }
+  }
+
+  // ── Error states ─────────────────────────────────────────────────────────
   if (error === 'no_account') {
     return (
       <div className="space-y-4 text-center">
@@ -152,7 +208,6 @@ function FinaliseContent() {
     )
   }
 
-  // ── Generic error (oauth_denied, exchange_failed, session missing) ────────────
   if (error) {
     return (
       <div className="space-y-4 text-center">
@@ -170,7 +225,7 @@ function FinaliseContent() {
   return (
     <div className="flex flex-col items-center gap-3 py-8">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      <p className="text-sm text-muted-foreground">Completing sign-in…</p>
+      <p className="text-sm text-muted-foreground">Signing you in…</p>
     </div>
   )
 }
