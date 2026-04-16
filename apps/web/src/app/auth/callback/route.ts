@@ -97,12 +97,12 @@ export async function GET(request: NextRequest) {
             accountType:     user.account_type,
             phone:           user.phone ?? null,
             profileComplete,
-          }), { path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: false })
+          }), { path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: true })
         }
       } else if (meRes.status === 404) {
         // No InTrainin profile yet — new user or sign-in with no account
         response.cookies.set(PS_COOKIE, JSON.stringify({ notFound: true }), {
-          path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: false,
+          path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: true,
         })
       }
       // Any other HTTP error: leave cookie unset; finalise/page.tsx will retry

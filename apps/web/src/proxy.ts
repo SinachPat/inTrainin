@@ -31,5 +31,6 @@ export const config = {
     '/team/:path*',
     '/hire/:path*',
     '/account/:path*',
+    '/roadmap/:path*',
   ],
 }

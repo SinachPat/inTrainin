@@ -8,7 +8,8 @@ import {
   InitiateEnterprisePaymentSchema,
   ERROR_CODES,
 } from '@intrainin/shared'
-import { CREDITS_PACKS } from '@intrainin/shared'
+import { CREDITS_PACKS, BUSINESS_PLANS } from '@intrainin/shared'
+import type { SubscriptionPlan } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
 import { paystackWebhookVerify } from '../../middleware/webhookVerify.js'
 import { paystack } from '../../lib/paystack.js'
@@ -203,7 +204,7 @@ payments.post(
     const { data: business } = await db
       .from('businesses')
       .select('id')
-      .eq('owner_id', userId)
+      .eq('owner_user_id', userId)
       .maybeSingle()
 
     if (!business) {
@@ -278,7 +279,7 @@ payments.post(
     const { data: business } = await db
       .from('businesses')
       .select('id')
-      .eq('owner_id', userId)
+      .eq('owner_user_id', userId)
       .maybeSingle()
 
     if (!business) {
@@ -355,8 +356,13 @@ payments.post('/webhook', paystackWebhookVerify, async (c) => {
 
   // ── charge.success ───────────────────────────────────────────────────────────
   if (eventType === 'charge.success') {
-    const reference = data.reference as string
-    const paidKobo  = data.amount as number
+    const reference = typeof data.reference === 'string' ? data.reference : undefined
+    const paidKobo  = typeof data.amount    === 'number' ? data.amount    : undefined
+
+    if (!reference || paidKobo === undefined) {
+      console.warn('[webhook] charge.success missing reference or amount, ignoring')
+      return c.json({ received: true })
+    }
 
     // Fetch pending payment record
     const { data: payment, error: payErr } = await db
@@ -443,16 +449,23 @@ payments.post('/webhook', paystackWebhookVerify, async (c) => {
     } else if (meta.payment_type === 'enterprise') {
       const { business_id, plan, months: monthsStr } = meta
       const months = Number(monthsStr) || 1
+      // Use date-safe month addition: clamp to last day of resulting month
+      // to avoid e.g. Jan 31 + 1 month rolling over to Mar 3.
       const expiry = new Date()
-      expiry.setMonth(expiry.getMonth() + months)
+      const targetMonth = expiry.getMonth() + months
+      expiry.setMonth(targetMonth)
+      if (expiry.getMonth() !== ((targetMonth) % 12)) {
+        // Rolled over — set to last day of the intended month
+        expiry.setDate(0)
+      }
 
-      const seatMap: Record<string, number> = { starter: 10, growth: 30, business: 100 }
+      const seatLimit = BUSINESS_PLANS.find(p => p.key === plan)?.seats ?? 10
       const { error: bizErr } = await db
         .from('businesses')
         .update({
-          subscription_plan:       plan,
+          subscription_plan:       plan as SubscriptionPlan,
           subscription_expires_at: expiry.toISOString(),
-          seat_limit:              seatMap[plan] ?? 10,
+          seat_limit:              seatLimit === Infinity ? 999999 : seatLimit,
         })
         .eq('id', business_id)
       if (bizErr) console.error('[webhook] business update error:', bizErr.message)
@@ -463,7 +476,8 @@ payments.post('/webhook', paystackWebhookVerify, async (c) => {
 
   // ── charge.failed ────────────────────────────────────────────────────────────
   if (eventType === 'charge.failed') {
-    const reference = data.reference as string
+    const reference = typeof data.reference === 'string' ? data.reference : undefined
+    if (!reference) return c.json({ received: true })
     await db
       .from('payments')
       .update({ status: 'failed', paystack_response: data })

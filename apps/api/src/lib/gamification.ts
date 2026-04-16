@@ -14,11 +14,16 @@ const XP_ENROLMENT       = 5
 
 /** Updates streak_current and streak_last_activity_date for a user. */
 async function updateStreak(db: DbClient, userId: string): Promise<void> {
-  const { data: user } = await db
+  const { data: user, error: fetchError } = await db
     .from('users')
     .select('streak_current, streak_last_activity_date')
     .eq('id', userId)
     .single()
+
+  if (fetchError) {
+    console.error('[gamification] updateStreak fetch error:', fetchError.message)
+    return
+  }
 
   if (!user) return
 
@@ -34,7 +39,6 @@ async function updateStreak(db: DbClient, userId: string): Promise<void> {
   let newStreak: number
 
   if (lastDate) {
-    const last      = new Date(lastDate)
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayStr = yesterday.toISOString().slice(0, 10)
@@ -46,13 +50,17 @@ async function updateStreak(db: DbClient, userId: string): Promise<void> {
     newStreak = 1 // first ever activity
   }
 
-  await db
+  const { error: updateError } = await db
     .from('users')
     .update({
       streak_current:             newStreak,
       streak_last_activity_date:  todayStr,
     })
     .eq('id', userId)
+
+  if (updateError) {
+    console.error('[gamification] updateStreak update error:', updateError.message)
+  }
 }
 
 // =============================================================================
@@ -68,14 +76,18 @@ async function updateStreak(db: DbClient, userId: string): Promise<void> {
  * Returns the new XP total.
  */
 export async function awardXp(db: DbClient, userId: string, xp: number): Promise<number> {
-  // The Supabase generated types don't know about increment_user_xp (it's
-  // created by migration 009), so we cast to any to pass the args through.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (db as any).rpc('increment_user_xp', { p_user_id: userId, p_amount: xp })
+  // The Supabase generated types don't include increment_user_xp (migration 009
+  // custom function). Double-cast via unknown to satisfy TS strict overlap check
+  // without casting the whole db client.
+  type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: number | null; error: { message: string } | null }>
+  const { data, error } = await (db.rpc as unknown as RpcFn)(
+    'increment_user_xp', { p_user_id: userId, p_amount: xp },
+  )
 
   if (error) {
     console.error('[gamification] increment_user_xp RPC error:', error.message)
-    return 0
+    // Return -1 (not 0) so callers can distinguish "awarded 0 XP" from "award failed".
+    return -1
   }
 
   // Update streak alongside every XP award
@@ -90,17 +102,27 @@ export async function awardXp(db: DbClient, userId: string, xp: number): Promise
  */
 export async function checkBadges(db: DbClient, userId: string): Promise<void> {
   // Fetch all badges
-  const { data: badges } = await db
+  const { data: badges, error: badgesError } = await db
     .from('badges')
     .select('id, trigger_type, trigger_value')
+
+  if (badgesError) {
+    console.error('[gamification] checkBadges fetch badges error:', badgesError.message)
+    return
+  }
 
   if (!badges || badges.length === 0) return
 
   // Fetch already-earned badge ids for this user
-  const { data: earned } = await db
+  const { data: earned, error: earnedError } = await db
     .from('user_badges')
     .select('badge_id')
     .eq('user_id', userId)
+
+  if (earnedError) {
+    console.error('[gamification] checkBadges fetch earned badges error:', earnedError.message)
+    return
+  }
 
   const earnedIds = new Set((earned ?? []).map(e => e.badge_id))
 
@@ -168,7 +190,9 @@ export async function checkBadges(db: DbClient, userId: string): Promise<void> {
   for (const badge of badges) {
     if (earnedIds.has(badge.id)) continue  // already earned
 
-    const tv = badge.trigger_value
+    // trigger_value comes from Supabase as unknown/any; narrow to a plain object
+    // so we can safely read .count and .days without a TS error.
+    const tv = (badge.trigger_value ?? {}) as Record<string, unknown>
 
     let qualifies = false
 
@@ -179,25 +203,25 @@ export async function checkBadges(db: DbClient, userId: string): Promise<void> {
         break
       }
       case 'module_completed': {
-        const required = tv?.count ?? 1
+        const required = typeof tv.count === 'number' ? tv.count : 1
         const count    = await getModulePassedCount()
         qualifies      = count >= required
         break
       }
       case 'certificate_issued': {
-        const required = tv?.count ?? 1
+        const required = typeof tv.count === 'number' ? tv.count : 1
         const count    = await getCertificateCount()
         qualifies      = count >= required
         break
       }
       case 'roles_enrolled': {
-        const required = tv?.count ?? 1
+        const required = typeof tv.count === 'number' ? tv.count : 1
         const count    = await getEnrollmentCount()
         qualifies      = count >= required
         break
       }
       case 'streak_days': {
-        const required = tv?.days ?? 1
+        const required = typeof tv.days === 'number' ? tv.days : 1
         const streak   = await getStreakCurrent()
         qualifies      = streak >= required
         break
@@ -231,8 +255,12 @@ export async function checkBadges(db: DbClient, userId: string): Promise<void> {
  * Awards +10 XP, updates streak, checks badges.
  */
 export async function onTopicComplete(db: DbClient, userId: string): Promise<void> {
-  await awardXp(db, userId, XP_TOPIC_COMPLETE)
-  await checkBadges(db, userId)
+  try {
+    await awardXp(db, userId, XP_TOPIC_COMPLETE)
+    await checkBadges(db, userId)
+  } catch (err) {
+    console.error('[gamification] onTopicComplete error:', err instanceof Error ? err.message : String(err))
+  }
 }
 
 /**
@@ -240,9 +268,13 @@ export async function onTopicComplete(db: DbClient, userId: string): Promise<voi
  * Awards XP based on test type (module = +50, final = +200).
  */
 export async function onTestPass(db: DbClient, userId: string, testType: 'module' | 'final'): Promise<void> {
-  const xp = testType === 'final' ? XP_FINAL_EXAM_PASS : XP_MODULE_TEST_PASS
-  await awardXp(db, userId, xp)
-  await checkBadges(db, userId)
+  try {
+    const xp = testType === 'final' ? XP_FINAL_EXAM_PASS : XP_MODULE_TEST_PASS
+    await awardXp(db, userId, xp)
+    await checkBadges(db, userId)
+  } catch (err) {
+    console.error('[gamification] onTestPass error:', err instanceof Error ? err.message : String(err))
+  }
 }
 
 /**
@@ -250,6 +282,10 @@ export async function onTestPass(db: DbClient, userId: string, testType: 'module
  * Awards +5 XP and checks 'first_enrollment' / 'roles_enrolled' badges.
  */
 export async function onEnrolment(db: DbClient, userId: string): Promise<void> {
-  await awardXp(db, userId, XP_ENROLMENT)
-  await checkBadges(db, userId)
+  try {
+    await awardXp(db, userId, XP_ENROLMENT)
+    await checkBadges(db, userId)
+  } catch (err) {
+    console.error('[gamification] onEnrolment error:', err instanceof Error ? err.message : String(err))
+  }
 }

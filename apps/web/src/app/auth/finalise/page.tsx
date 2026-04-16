@@ -28,7 +28,7 @@ import { supabase } from '@/lib/supabase'
 import { setSession } from '@/lib/auth'
 import { api } from '@/lib/api'
 
-// ── Cookie helpers ────────────────────────────────────────────────────────────
+// ── Session hint helpers ──────────────────────────────────────────────────────
 
 type PendingSession =
   | { notFound: true }
@@ -41,15 +41,16 @@ type PendingSession =
       profileComplete: boolean
     }
 
-/** Read and immediately clear the _itnn_ps cookie set by the Route Handler. */
-function consumePendingSessionCookie(): PendingSession | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.split('; ').find(r => r.startsWith('_itnn_ps='))
-  if (!match) return null
+/**
+ * Fetch the pre-resolved session hint from the Route Handler at
+ * /auth/finalise/data. The cookie is httpOnly so it cannot be read directly
+ * by client JS — this same-origin fetch is the secure bridge (~5ms).
+ */
+async function fetchPendingSession(): Promise<PendingSession | null> {
   try {
-    const raw = decodeURIComponent(match.slice('_itnn_ps='.length))
-    document.cookie = '_itnn_ps=; path=/; max-age=0' // consume immediately
-    return JSON.parse(raw) as PendingSession
+    const res = await fetch('/auth/finalise/data', { credentials: 'same-origin' })
+    if (!res.ok) return null
+    return await res.json() as PendingSession | null
   } catch {
     return null
   }
@@ -90,7 +91,7 @@ function FinaliseContent() {
       const pendingAccountType = sessionStorage.getItem('pending_account_type') as 'learner' | 'business' | null
 
       // ── Fast path: use the pre-fetched data from the Route Handler cookie ───
-      const cached = consumePendingSessionCookie()
+      const cached = await fetchPendingSession()
 
       if (cached) {
         await route(accessToken, refreshToken, pendingAccountType, cached)

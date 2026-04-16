@@ -14,6 +14,7 @@ import { api } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 import { signInWithGoogle } from '@/lib/supabase'
 import { LogoMark } from '@/components/logo'
+import { NG_CITIES } from '@intrainin/shared'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,11 +26,8 @@ type AuthMethod = 'phone' | 'email'
 type Step = 'method' | 'phone' | 'otp' | 'email' | 'type' | 'profile' | 'convert'
 type AccountType = 'learner' | 'business'
 
-const CITIES = [
-  'Lagos', 'Abuja', 'Port Harcourt', 'Kano', 'Ibadan', 'Benin City',
-  'Kaduna', 'Enugu', 'Aba', 'Jos', 'Ilorin', 'Onitsha', 'Warri',
-  'Owerri', 'Calabar', 'Uyo', 'Asaba', 'Abeokuta', 'Akure', 'Maiduguri',
-]
+// City list is the single source of truth from @intrainin/shared
+const CITIES = NG_CITIES
 
 const CAREER_GOAL_ROLES = [
   { slug: 'cashier-retail',    label: 'Cashier',              icon: '🛒' },

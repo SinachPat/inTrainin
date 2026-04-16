@@ -13,6 +13,7 @@ import { onTopicComplete, onEnrolment } from '../../lib/gamification.js'
 import { paystack } from '../../lib/paystack.js'
 import type { PaystackVerifyData } from '../../lib/paystack.js'
 import { runMatchingForHireRequest } from '../jobhub/matcher.js'
+import { tts } from '../../lib/tts.js'
 
 const learning = new Hono<{ Variables: AuthVariables }>()
 
@@ -605,74 +606,29 @@ learning.get('/topics/:id/audio', authMiddleware, async (c) => {
   if (body.learning_outcome) parts.push('Learning outcome. ' + body.learning_outcome)
   const text = parts.join(' ')
 
-  // ── Google Cloud TTS ──────────────────────────────────────────────────────────
-  const apiKey = process.env.GOOGLE_TTS_API_KEY
-  if (!apiKey) {
-    // Not configured — frontend should fall back to Web Speech API
+  // ── Google Cloud TTS (via lib/tts.ts — API key sent as header, not query string) ──
+  if (!process.env.GOOGLE_TTS_API_KEY) {
     return c.json({ success: false, error: 'TTS not configured' }, 503)
   }
 
   try {
-    // Use the REST API directly (avoids the need for a service account keyfile
-    // in serverless/container environments — just an API key in env vars).
-    const ttsRes = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text },
-          voice: {
-            languageCode: 'en-NG',
-            name:         'en-NG-Standard-A',  // Nigerian English
-            ssmlGender:   'FEMALE',
-          },
-          audioConfig: {
-            audioEncoding: 'MP3',
-            speakingRate:  1.0,
-            pitch:         0,
-          },
-        }),
-      },
-    )
-
-    if (!ttsRes.ok) {
-      // Try falling back to en-GB if en-NG voice is not available on this project
-      const fallbackRes = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-        {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            input: { text },
-            voice: { languageCode: 'en-GB', ssmlGender: 'FEMALE' },
-            audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0 },
-          }),
-        },
-      )
-
-      if (!fallbackRes.ok) {
-        const errText = await fallbackRes.text()
-        console.error('[learning/audio] Google TTS fallback error:', errText)
-        return c.json({ success: false, error: 'TTS synthesis failed' }, 502)
-      }
-
-      const fallbackJson = await fallbackRes.json() as { audioContent: string }
-      const fallbackBytes = Buffer.from(fallbackJson.audioContent, 'base64')
-      const fallbackAb    = fallbackBytes.buffer.slice(fallbackBytes.byteOffset, fallbackBytes.byteOffset + fallbackBytes.byteLength) as ArrayBuffer
-      c.header('Content-Type',  'audio/mpeg')
-      c.header('Cache-Control', 'private, max-age=3600')
-      return c.body(fallbackAb)
+    // Try Nigerian English first, fall back to British English
+    let audioBuffer: Buffer
+    try {
+      audioBuffer = await tts.synthesise({ text, languageCode: 'en-NG' })
+    } catch {
+      audioBuffer = await tts.synthesise({ text, languageCode: 'en-GB' })
     }
 
-    const json       = await ttsRes.json() as { audioContent: string }
-    const audioBytes = Buffer.from(json.audioContent, 'base64')
-    const audioAb    = audioBytes.buffer.slice(audioBytes.byteOffset, audioBytes.byteOffset + audioBytes.byteLength) as ArrayBuffer
+    const audioAb = audioBuffer.buffer.slice(
+      audioBuffer.byteOffset,
+      audioBuffer.byteOffset + audioBuffer.byteLength,
+    ) as ArrayBuffer
     c.header('Content-Type',  'audio/mpeg')
     c.header('Cache-Control', 'private, max-age=3600')
     return c.body(audioAb)
   } catch (err) {
-    console.error('[learning/audio] unexpected error:', err)
+    console.error('[learning/audio] TTS synthesis failed:', err)
     return c.json({ success: false, error: 'TTS synthesis failed' }, 502)
   }
 })

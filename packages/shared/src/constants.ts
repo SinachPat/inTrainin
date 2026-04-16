@@ -36,6 +36,15 @@ export const FREE_ROLES_LIMIT = 1
 /** App-wide date format for display (use with date-fns or similar) */
 export const DATE_FORMAT = 'dd MMM yyyy'
 
+// ── Job location preference options ──────────────────────────────────────────
+
+export const JOB_LOCATION_PREF_OPTIONS = [
+  { value: 'onsite',  label: 'On-site'  },
+  { value: 'remote',  label: 'Remote'   },
+  { value: 'hybrid',  label: 'Hybrid'   },
+  { value: 'any',     label: 'Any'      },
+] as const satisfies ReadonlyArray<{ value: string; label: string }>
+
 // ── Availability options (Job Hub) ────────────────────────────────────────────
 
 export const AVAILABILITY_OPTIONS = [
@@ -159,6 +168,7 @@ export const ERROR_CODES = {
   OTP_MAX_ATTEMPTS:   'OTP_MAX_ATTEMPTS',
   PHONE_ALREADY_USED: 'PHONE_ALREADY_USED',
   UNAUTHORIZED:       'UNAUTHORIZED',
+  FORBIDDEN:          'FORBIDDEN',
   // Learning
   NOT_ENROLLED:       'NOT_ENROLLED',
   TOPIC_LOCKED:       'TOPIC_LOCKED',

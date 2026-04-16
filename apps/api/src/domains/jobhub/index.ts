@@ -354,7 +354,7 @@ jobhub.patch(
 // ─── GET /jobhub/jobs ─────────────────────────────────────────────────────────
 // Protected (learner) — public job listings the learner can browse.
 
-jobhub.get('/jobs', authMiddleware, async (c) => {
+jobhub.get('/jobs', authMiddleware, requireRole('learner'), async (c) => {
   const db = createServerClient()
 
   const { data: jobs, error } = await db
@@ -630,6 +630,10 @@ jobhub.get(
   },
 )
 
+const UpdateCandidateStatusSchema = z.object({
+  status: z.enum(['shortlisted', 'hired', 'rejected']),
+})
+
 // ─── PATCH /jobhub/candidates/:id ────────────────────────────────────────────
 // Protected (business) — update a candidate match status (shortlist, hire, reject).
 
@@ -637,18 +641,12 @@ jobhub.patch(
   '/candidates/:id',
   authMiddleware,
   requireRole('business'),
+  zValidator('json', UpdateCandidateStatusSchema),
   async (c) => {
-    const matchId = c.req.param('id')
-    const userId  = c.get('userId')
-    const db      = createServerClient()
-
-    let body: { status?: string }
-    try { body = await c.req.json() } catch { body = {} }
-
-    const validStatuses = ['shortlisted', 'hired', 'rejected']
-    if (!body.status || !validStatuses.includes(body.status)) {
-      return c.json({ success: false, error: 'Invalid status — must be shortlisted, hired, or rejected' }, 400)
-    }
+    const matchId      = c.req.param('id')
+    const userId       = c.get('userId')
+    const { status }   = c.req.valid('json')
+    const db           = createServerClient()
 
     // Verify the match belongs to a hire request owned by this business
     const { data: biz } = await db
@@ -689,7 +687,7 @@ jobhub.patch(
 
     const { data: updated, error } = await db
       .from('job_matches')
-      .update({ status: body.status as 'shortlisted' | 'hired' | 'rejected' })
+      .update({ status: status as 'shortlisted' | 'hired' | 'rejected' })
       .eq('id', matchId)
       .select('id, status')
       .single()

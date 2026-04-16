@@ -34,11 +34,21 @@ export const tts = {
       },
     }
 
-    const res = await fetch(`${TTS_ENDPOINT}?key=${apiKey}`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-    })
+    // Send the API key in a header rather than the query string so it does not
+    // appear in access logs, proxy logs, or crash-reporter breadcrumbs.
+    let res: Response
+    try {
+      res = await fetch(TTS_ENDPOINT, {
+        method:  'POST',
+        headers: {
+          'Content-Type':    'application/json',
+          'x-goog-api-key':  apiKey,
+        },
+        body: JSON.stringify(body),
+      })
+    } catch (err) {
+      throw new Error(`Google TTS network error: ${err instanceof Error ? err.message : String(err)}`)
+    }
 
     if (!res.ok) {
       const msg = await res.text().catch(() => res.statusText)
