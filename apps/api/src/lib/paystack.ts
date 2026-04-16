@@ -56,10 +56,22 @@ function paystackHeaders() {
 }
 
 async function paystackFetch<T>(input: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init)
+  // Extract just the path for error messages — avoid logging the full URL which
+  // may contain a transaction reference in the path segment.
+  const urlPath = (() => {
+    try { return new URL(input).pathname } catch { return input }
+  })()
+
+  let res: Response
+  try {
+    res = await fetch(input, init)
+  } catch (err) {
+    throw new Error(`Paystack ${init?.method ?? 'GET'} ${urlPath} network error: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Paystack ${init?.method ?? 'GET'} ${input} failed (${res.status}): ${body}`)
+    const body = await res.text().catch(() => '(unreadable)')
+    throw new Error(`Paystack ${init?.method ?? 'GET'} ${urlPath} failed (${res.status}): ${body}`)
   }
   return res.json() as Promise<T>
 }

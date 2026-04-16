@@ -21,7 +21,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- =============================================================================
@@ -32,7 +32,7 @@ $$ LANGUAGE plpgsql;
 -- categories
 -- Top-level groupings: Retail, F&B, Hospitality, etc.
 -- -----------------------------------------------------------------------------
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   name          VARCHAR(100) NOT NULL,
   slug          VARCHAR(100) NOT NULL UNIQUE,
@@ -46,7 +46,7 @@ CREATE TABLE categories (
 -- Specific job roles (Cashier, Waiter, Delivery Rider, etc.)
 -- Each role belongs to one category and has its own curriculum.
 -- -----------------------------------------------------------------------------
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
   id                         UUID           PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id                UUID           NOT NULL REFERENCES categories(id),
   title                      VARCHAR(150)   NOT NULL,
@@ -62,9 +62,13 @@ CREATE TABLE roles (
   updated_at                 TIMESTAMPTZ    NOT NULL DEFAULT NOW()
 );
 
-CREATE TRIGGER roles_set_updated_at
-  BEFORE UPDATE ON roles
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'roles_set_updated_at') THEN
+    CREATE TRIGGER roles_set_updated_at
+      BEFORE UPDATE ON roles
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+END $$;
 
 
 -- =============================================================================
@@ -82,7 +86,7 @@ CREATE TRIGGER roles_set_updated_at
 -- migration reruns or reordering. The column is created without a constraint
 -- and the FK is added immediately after.
 -- -----------------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id                         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   phone                      VARCHAR(20)  UNIQUE,
   email                      VARCHAR(255) UNIQUE,
@@ -108,9 +112,13 @@ ALTER TABLE users
   ADD CONSTRAINT fk_users_career_goal_role
   FOREIGN KEY (career_goal_role_id) REFERENCES roles(id);
 
-CREATE TRIGGER users_set_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'users_set_updated_at') THEN
+    CREATE TRIGGER users_set_updated_at
+      BEFORE UPDATE ON users
+      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  END IF;
+END $$;
 
 
 -- =============================================================================
@@ -121,7 +129,7 @@ CREATE TRIGGER users_set_updated_at
 -- modules
 -- A role is divided into ordered modules (e.g. "Module 1: POS Operations").
 -- -----------------------------------------------------------------------------
-CREATE TABLE modules (
+CREATE TABLE IF NOT EXISTS modules (
   id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   role_id      UUID         NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
   title        VARCHAR(200) NOT NULL,
@@ -136,7 +144,7 @@ CREATE TABLE modules (
 -- content_body stores the structured content as JSONB — see database.types.ts
 -- for the ContentBody interface shape.
 -- -----------------------------------------------------------------------------
-CREATE TABLE topics (
+CREATE TABLE IF NOT EXISTS topics (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   module_id          UUID        NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
   title              VARCHAR(200) NOT NULL,
@@ -158,7 +166,7 @@ CREATE TABLE topics (
 -- CONSTRAINT: A test belongs to exactly one of module_id OR role_id,
 -- enforced by the CHECK constraint to prevent orphaned or ambiguous tests.
 -- -----------------------------------------------------------------------------
-CREATE TABLE tests (
+CREATE TABLE IF NOT EXISTS tests (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   module_id           UUID        REFERENCES modules(id) ON DELETE CASCADE,
   role_id             UUID        REFERENCES roles(id) ON DELETE CASCADE,
@@ -180,7 +188,7 @@ CREATE TABLE tests (
 -- Directed edges for the career path graph.
 -- 'next' = natural next step, 'adjacent' = lateral related role.
 -- -----------------------------------------------------------------------------
-CREATE TABLE role_progressions (
+CREATE TABLE IF NOT EXISTS role_progressions (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   from_role_id     UUID        NOT NULL REFERENCES roles(id),
   to_role_id       UUID        NOT NULL REFERENCES roles(id),
@@ -199,7 +207,7 @@ CREATE TABLE role_progressions (
 -- Records a user's access to a role curriculum.
 -- UNIQUE(user_id, role_id) prevents duplicate enrollments.
 -- -----------------------------------------------------------------------------
-CREATE TABLE enrollments (
+CREATE TABLE IF NOT EXISTS enrollments (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id             UUID        NOT NULL REFERENCES users(id),
   role_id             UUID        NOT NULL REFERENCES roles(id),

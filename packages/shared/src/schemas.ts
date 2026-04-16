@@ -178,13 +178,16 @@ export type BadgeTriggerValue = z.infer<typeof BadgeTriggerValueSchema>
 
 // ── User ──────────────────────────────────────────────────────────────────────
 
+export const JobLocationPrefSchema = z.enum(['onsite', 'remote', 'hybrid', 'any'])
+export type JobLocationPref = z.infer<typeof JobLocationPrefSchema>
+
 export const UserSchema = z.object({
   id:                     uuid,
   phone:                  phone.nullable(),
-  email:                  z.string().email().nullable(),
-  fullName:               z.string().min(1),
-  locationCity:           z.string().nullable(),
-  locationState:          z.string().nullable(),
+  email:                  z.string().email().trim().toLowerCase().nullable(),
+  fullName:               z.string().trim().min(1),
+  locationCity:           z.string().trim().nullable(),
+  locationState:          z.string().trim().nullable(),
   careerGoalRoleId:       uuid.nullable(),
   accountType:            AccountTypeSchema,
   avatarUrl:              z.string().url().nullable(),
@@ -193,6 +196,8 @@ export const UserSchema = z.object({
   streakLastActivityDate: isoDateOnly.nullable(),
   fcmToken:               z.string().nullable(),
   notificationPrefs:      NotificationPrefsSchema,
+  jobLocationPref:        JobLocationPrefSchema.nullable(),
+  resumeUrl:              z.string().url().nullable(),
   createdAt:              isoDateTime,
   updatedAt:              isoDateTime,
   deletedAt:              isoDateTime.nullable(),
@@ -366,7 +371,7 @@ export const CertificateSchema = z.object({
   userId:           uuid,
   roleId:           uuid,
   enrollmentId:     uuid,
-  verificationCode: z.string().min(8),
+  verificationCode: z.string().uuid(), // DB stores this as UUID type
   issuedAt:         isoDateTime,
   imageUrl:         z.string().url().nullable(),
   isRevoked:        z.boolean(),
@@ -495,15 +500,15 @@ export type RequestOtpInput = z.infer<typeof RequestOtpSchema>
 /** Step 2 — verify the 6-digit OTP */
 export const VerifyOtpSchema = z.object({
   phone: phone,
-  code:  z.string().length(6, 'OTP must be exactly 6 digits'),
+  code:  z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must be 6 digits'),
 })
 export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>
 
 /** Step 3 — complete profile after first-time OTP verification */
 export const CompleteProfileSchema = z.object({
-  fullName:         z.string().min(1, 'Full name is required').max(120),
-  email:            z.string().email('Enter a valid email address').optional(),
-  locationCity:     z.string().min(1, 'City is required'),
+  fullName:         z.string().trim().min(1, 'Full name is required').max(120),
+  email:            z.string().trim().toLowerCase().email('Enter a valid email address').optional(),
+  locationCity:     z.string().trim().min(1, 'City is required'),
   accountType:      z.enum(['learner', 'business']),
   // Job location preference (onsite / remote / hybrid / any)
   jobLocationPref:  z.enum(['onsite', 'remote', 'hybrid', 'any']).optional(),
@@ -511,7 +516,7 @@ export const CompleteProfileSchema = z.object({
   careerGoalRoleId:   uuid.optional(),
   careerGoalRoleSlug: z.string().optional(),
   // Business-only: the name of the business being registered
-  businessName:     z.string().min(1).max(200).optional(),
+  businessName:     z.string().trim().min(1).max(200).optional(),
 }).superRefine((data, ctx) => {
   if (data.accountType === 'business' && !data.businessName?.trim()) {
     ctx.addIssue({
@@ -573,9 +578,18 @@ export type RespondToMatchInput = z.infer<typeof RespondToMatchSchema>
 // ── Business ──────────────────────────────────────────────────────────────────
 
 export const InviteMemberSchema = z.object({
-  phone:          phone,
-  jobTitle:       z.string().min(1, 'Job title is required').max(100),
+  phone:          phone.optional(),
+  email:          z.string().trim().toLowerCase().email('Enter a valid email address').optional(),
+  jobTitle:       z.string().trim().min(1, 'Job title is required').max(100),
   assignedRoleId: uuid.optional(),
+}).superRefine((data, ctx) => {
+  if (!data.phone && !data.email) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Either phone or email is required to invite a member',
+      path: ['phone'],
+    })
+  }
 })
 export type InviteMemberInput = z.infer<typeof InviteMemberSchema>
 
@@ -650,15 +664,15 @@ export type ApiError = z.infer<typeof ApiErrorSchema>
 
 /** Email + password login for existing users */
 export const EmailLoginSchema = z.object({
-  email:    z.string().email('Enter a valid email address'),
+  email:    z.string().trim().toLowerCase().email('Enter a valid email address'),
   password: z.string().min(1, 'Password is required'),
 })
 export type EmailLoginInput = z.infer<typeof EmailLoginSchema>
 
 /** Email + password sign-up — profile completion is handled by /auth/profile/complete */
 export const EmailRegisterSchema = z.object({
-  email:    z.string().email('Enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email:    z.string().trim().toLowerCase().email('Enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
 })
 export type EmailRegisterInput = z.infer<typeof EmailRegisterSchema>
 
@@ -690,7 +704,11 @@ export const InitiateHireRequestPaymentSchema = z.object({
 })
 export type InitiateHireRequestPaymentInput = z.infer<typeof InitiateHireRequestPaymentSchema>
 
-/** Initiate an enterprise package payment */
+/**
+ * Initiate an enterprise package payment.
+ * NOTE: 'enterprise_plus' is intentionally excluded — it requires custom pricing
+ * and is handled via a separate sales/contact flow, not Paystack self-serve.
+ */
 export const InitiateEnterprisePaymentSchema = z.object({
   plan:   z.enum(['starter', 'growth', 'business']),
   months: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]),

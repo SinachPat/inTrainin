@@ -18,6 +18,7 @@ export type {
   HireStatus,
   ProgressionType,
   SubscriptionPlan,
+  JobLocationPref,
 
   // JSONB sub-types
   NotificationPrefs,
@@ -63,6 +64,13 @@ export type {
   InviteMemberInput,
   PostHireRequestInput,
   UpdateHireRequestInput,
+  EmailLoginInput,
+  EmailRegisterInput,
+  UpdateGoalInput,
+  InitiateCoursePaymentInput,
+  InitiateJobHubCreditsInput,
+  InitiateHireRequestPaymentInput,
+  InitiateEnterprisePaymentInput,
 
   // API response
   ApiError,

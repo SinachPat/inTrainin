@@ -32,28 +32,35 @@ assessment.get('/tests/:testId', authMiddleware, async (c) => {
     return c.json({ success: false, error: 'Test not found', code: ERROR_CODES.NOT_FOUND }, 404)
   }
 
-  // Verify enrolment in the parent role
+  // Verify enrolment in the parent role.
+  // A null roleId means the test is an orphan (DB integrity problem) — we deny
+  // access rather than silently allowing it, so misconfigured tests never leak.
   const roleId = test.role_id ?? (
     test.module_id
       ? (await db.from('modules').select('role_id').eq('id', test.module_id).single()).data?.role_id
       : null
   )
 
-  if (roleId) {
-    const { data: enrolment } = await db
-      .from('enrollments')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('role_id', roleId)
-      .eq('status', 'active')
-      .maybeSingle()
+  if (!roleId) {
+    return c.json(
+      { success: false, error: 'Test configuration error', code: ERROR_CODES.NOT_FOUND },
+      500,
+    )
+  }
 
-    if (!enrolment) {
-      return c.json(
-        { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
-        403,
-      )
-    }
+  const { data: enrolment } = await db
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('role_id', roleId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!enrolment) {
+    return c.json(
+      { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
+      403,
+    )
   }
 
   // Check active cooldown
@@ -131,27 +138,33 @@ assessment.post(
 
     // Verify enrolment — same check as GET /tests/:testId but re-applied here
     // so a direct POST cannot bypass the enrollment gate.
+    // A null submitRoleId means the test is orphaned — deny rather than allow.
     const submitRoleId = test.role_id ?? (
       test.module_id
         ? (await db.from('modules').select('role_id').eq('id', test.module_id).single()).data?.role_id
         : null
     )
 
-    if (submitRoleId) {
-      const { data: enrolment } = await db
-        .from('enrollments')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('role_id', submitRoleId)
-        .eq('status', 'active')
-        .maybeSingle()
+    if (!submitRoleId) {
+      return c.json(
+        { success: false, error: 'Test configuration error', code: ERROR_CODES.NOT_FOUND },
+        500,
+      )
+    }
 
-      if (!enrolment) {
-        return c.json(
-          { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
-          403,
-        )
-      }
+    const { data: enrolment } = await db
+      .from('enrollments')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('role_id', submitRoleId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (!enrolment) {
+      return c.json(
+        { success: false, error: 'Not enrolled in this role', code: ERROR_CODES.NOT_ENROLLED },
+        403,
+      )
     }
 
     // ── Score the attempt ─────────────────────────────────────────────────────
@@ -214,11 +227,8 @@ assessment.post(
     }
 
     // ── Check if final exam is now unlocked for this role ─────────────────────
-    const roleId = test.role_id ?? (
-      test.module_id
-        ? (await db.from('modules').select('role_id').eq('id', test.module_id).single()).data?.role_id
-        : null
-    )
+    // Reuse submitRoleId resolved above — no third DB round-trip needed.
+    const roleId = submitRoleId
 
     let finalExamUnlocked = false
     if (passed && roleId) {

@@ -14,7 +14,7 @@ export const fcm = {
     title: string
     body: string
     data?: Record<string, string>
-  }) {
+  }): Promise<void> {
     // TODO Layer 8:
     // const message = {
     //   notification: { title: params.title, body: params.body },
@@ -22,14 +22,15 @@ export const fcm = {
     //   token: params.token,
     // }
     // return admin.messaging().send(message)
-    console.info('FCM sendToToken stub called', params)
+    // Do not log the FCM token — it is a sensitive device identifier.
+    console.info('[fcm] sendToToken stub called (title=%s)', params.title)
   },
 
   /**
    * Send a push notification to a topic (e.g. all learners in a role).
    * TODO Layer 8: implement with firebase-admin messaging().sendToTopic().
    */
-  async sendToTopic(params: { topic: string; title: string; body: string }) {
-    console.info('FCM sendToTopic stub called', params)
+  async sendToTopic(params: { topic: string; title: string; body: string }): Promise<void> {
+    console.info('[fcm] sendToTopic stub called (topic=%s title=%s)', params.topic, params.title)
   },
 }

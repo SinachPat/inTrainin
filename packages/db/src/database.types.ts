@@ -673,7 +673,7 @@ export interface Database {
           id: string
           user_id: string
           is_subscribed: boolean
-          subscription_plan: string | null
+          subscription_plan: SubscriptionPlan | null
           subscription_starts_at: string | null
           subscription_expires_at: string | null
           preferred_roles: string[]
@@ -689,7 +689,7 @@ export interface Database {
           id?: string
           user_id: string
           is_subscribed?: boolean
-          subscription_plan?: string | null
+          subscription_plan?: SubscriptionPlan | null
           subscription_starts_at?: string | null
           subscription_expires_at?: string | null
           preferred_roles?: string[]
@@ -862,9 +862,24 @@ export interface Database {
       }
     }
 
-    Views: Record<string, never>
+    Views: {
+      /** Derived credit balance per user — SUM(job_hub_credits.amount) */
+      job_hub_credit_balances: {
+        Row: {
+          user_id: string
+          balance: number
+        }
+        Relationships: []
+      }
+    }
 
-    Functions: Record<string, never>
+    Functions: {
+      /** Atomically increments a user's XP total and returns the new value */
+      increment_user_xp: {
+        Args: { p_user_id: string; p_amount: number }
+        Returns: number
+      }
+    }
 
     Enums: Record<string, never>
   }

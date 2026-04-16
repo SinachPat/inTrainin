@@ -12,8 +12,14 @@ import {
   type AccountType,
 } from '@intrainin/shared'
 import { authMiddleware } from '../../middleware/auth.js'
+import { rateLimit } from '../../middleware/rateLimit.js'
 import { email } from '../../lib/email.js'
 import type { AuthVariables } from '../../middleware/auth.js'
+
+// Reusable rate-limit instances scoped to auth endpoints
+const otpSendLimit   = rateLimit({ limit: 5,  windowSec: 300 }) // 5 OTPs per 5 min
+const otpVerifyLimit = rateLimit({ limit: 10, windowSec: 300 }) // 10 attempts per 5 min
+const loginLimit     = rateLimit({ limit: 10, windowSec: 60  }) // 10 login attempts per min
 
 const auth = new Hono<{ Variables: AuthVariables }>()
 
@@ -22,7 +28,7 @@ const auth = new Hono<{ Variables: AuthVariables }>()
 // Supabase handles OTP generation + delivery (swap to Termii in Layer 8
 // via Supabase custom SMS hook).
 
-auth.post('/otp/send', zValidator('json', RequestOtpSchema), async (c) => {
+auth.post('/otp/send', otpSendLimit, zValidator('json', RequestOtpSchema), async (c) => {
   const { phone } = c.req.valid('json')
   const db = createServerClient()
 
@@ -52,7 +58,7 @@ auth.post('/otp/send', zValidator('json', RequestOtpSchema), async (c) => {
 // We upsert the user row in public.users and return the tokens plus a flag
 // indicating whether the profile still needs to be completed.
 
-auth.post('/otp/verify', zValidator('json', VerifyOtpSchema), async (c) => {
+auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), async (c) => {
   const { phone, code } = c.req.valid('json')
   const db = createServerClient()
 
@@ -153,7 +159,11 @@ auth.post(
     // Resolve email: prefer what the frontend sent (email/password signups),
     // fall back to auth.users for Google OAuth users (Supabase stores their
     // Google email there but it's never sent in the profile form body).
-    const { data: { user: authUser } } = await db.auth.admin.getUserById(userId)
+    const { data: authUserData, error: authUserErr } = await db.auth.admin.getUserById(userId)
+    if (authUserErr) {
+      console.error('[auth/profile/complete] getUserById error:', authUserErr.message)
+    }
+    const authUser      = authUserData?.user ?? null
     const resolvedEmail = body.email?.trim().toLowerCase() || authUser?.email || null
 
     // Upsert (not update) — ensures the row exists even if the otp/verify upsert
@@ -311,7 +321,9 @@ auth.post('/refresh', async (c) => {
 
 auth.post('/logout', authMiddleware, async (c) => {
   const db    = createServerClient()
-  const token = c.req.header('Authorization')!.slice(7)
+  // authMiddleware already validated the header; slice is safe here
+  const authHeader = c.req.header('Authorization')
+  const token = authHeader ? authHeader.slice(7) : ''
 
   const { error } = await db.auth.admin.signOut(token)
   if (error) console.error('[auth/logout] signOut error:', error.message)
@@ -447,6 +459,11 @@ auth.get('/users/:id/public', async (c) => {
       .order('issued_at', { ascending: false }),
   ])
 
+  if (userRes.error) {
+    console.error('[auth/users/:id/public] DB error:', userRes.error.message)
+    return c.json({ success: false, error: 'Profile not found', code: ERROR_CODES.NOT_FOUND }, 404)
+  }
+
   if (!userRes.data) {
     return c.json({ success: false, error: 'Profile not found', code: ERROR_CODES.NOT_FOUND }, 404)
   }
@@ -479,7 +496,7 @@ auth.get('/users/:id/public', async (c) => {
 // Email + password login. Returns the same session shape as /auth/otp/verify
 // so the frontend can use a single post-auth handler.
 
-auth.post('/email/login', zValidator('json', EmailLoginSchema), async (c) => {
+auth.post('/email/login', loginLimit, zValidator('json', EmailLoginSchema), async (c) => {
   const { email, password } = c.req.valid('json')
   const db = createServerClient()
 

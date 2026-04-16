@@ -114,7 +114,9 @@
       "Bash(ls ~/.claude/*.json)",
       "Bash(python3 -m json.tool)",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/Users/USER/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json'\\)\\); plugins=[p for p in d.get\\('plugins',[]\\) if 'figma' in p.get\\('name',''\\).lower\\(\\)]; print\\(json.dumps\\(plugins, indent=2\\)\\)\")",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(pnpm --filter api exec tsc --noEmit)",
+      "Bash(git stash:*)"
     ]
   }
 }

@@ -310,40 +310,55 @@ business.get('/progress', authMiddleware, requireRole('business'), async (c) => 
 // ─── POST /business/assignments ────────────────────────────────────────────────
 // Protected (business) — assign a role to a member.
 
-business.post('/assignments', authMiddleware, requireRole('business'), async (c) => {
-  const userId = c.get('userId')
-  const db     = createServerClient()
-
-  let body: { memberId?: string; roleId?: string }
-  try { body = await c.req.json() } catch { body = {} }
-
-  if (!body.memberId || !body.roleId) {
-    return c.json({ success: false, error: 'memberId and roleId are required' }, 400)
-  }
-
-  const { data: biz } = await db
-    .from('businesses')
-    .select('id')
-    .eq('owner_user_id', userId)
-    .maybeSingle()
-
-  if (!biz) {
-    return c.json(
-      { success: false, error: 'Business profile not found', code: ERROR_CODES.NOT_FOUND },
-      404,
-    )
-  }
-
-  const { error } = await db
-    .from('business_members')
-    .update({ assigned_role_id: body.roleId })
-    .eq('id', body.memberId)
-    .eq('business_id', biz.id)
-
-  if (error) return c.json({ success: false, error: error.message }, 500)
-
-  return c.json({ success: true })
+const AssignRoleSchema = z.object({
+  memberId: z.string().uuid(),
+  roleId:   z.string().uuid(),
 })
+
+business.post(
+  '/assignments',
+  authMiddleware,
+  requireRole('business'),
+  zValidator('json', AssignRoleSchema),
+  async (c) => {
+    const userId             = c.get('userId')
+    const { memberId, roleId } = c.req.valid('json')
+    const db                 = createServerClient()
+
+    const { data: biz } = await db
+      .from('businesses')
+      .select('id')
+      .eq('owner_user_id', userId)
+      .maybeSingle()
+
+    if (!biz) {
+      return c.json(
+        { success: false, error: 'Business profile not found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    // Verify the member belongs to this business and return updated row
+    const { data: updated, error } = await db
+      .from('business_members')
+      .update({ assigned_role_id: roleId })
+      .eq('id', memberId)
+      .eq('business_id', biz.id)
+      .select('id')
+      .maybeSingle()
+
+    if (error) return c.json({ success: false, error: error.message }, 500)
+
+    if (!updated) {
+      return c.json(
+        { success: false, error: 'Member not found', code: ERROR_CODES.NOT_FOUND },
+        404,
+      )
+    }
+
+    return c.json({ success: true })
+  },
+)
 
 // ─── GET /business/assignments ────────────────────────────────────────────────
 // Protected (business) — list all role assignments.

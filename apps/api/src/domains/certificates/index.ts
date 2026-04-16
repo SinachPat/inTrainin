@@ -40,17 +40,18 @@ certificates.post('/issue', authMiddleware, async (c) => {
   const userId = c.get('userId')
   const db     = createServerClient()
 
-  // Expect { roleId } in the JSON body
+  // Expect { roleId } in the JSON body — must be a valid UUID
   let roleId: string | undefined
   try {
     const body = await c.req.json<{ roleId?: string }>()
-    roleId = body.roleId
+    roleId = typeof body.roleId === 'string' ? body.roleId : undefined
   } catch {
     // fall through to validation error
   }
 
-  if (!roleId) {
-    return c.json({ success: false, error: 'roleId is required' }, 400)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!roleId || !UUID_RE.test(roleId)) {
+    return c.json({ success: false, error: 'roleId is required and must be a valid UUID' }, 400)
   }
 
   // Verify active enrolment
@@ -410,7 +411,16 @@ certificates.get('/:id/image', authMiddleware, async (c) => {
 
 certificates.get('/verify/:code', async (c) => {
   const code = c.req.param('code')
-  const db   = createServerClient()
+
+  // Reject clearly invalid codes early to avoid unnecessary DB queries
+  if (!code || code.length > 64) {
+    return c.json(
+      { success: false, error: 'Certificate not found', code: ERROR_CODES.NOT_FOUND },
+      404,
+    )
+  }
+
+  const db = createServerClient()
 
   const { data: cert, error } = await db
     .from('certificates')
@@ -431,7 +441,7 @@ certificates.get('/verify/:code', async (c) => {
 
   if (cert.is_revoked) {
     return c.json(
-      { success: false, error: 'Certificate has been revoked', code: ERROR_CODES.UNAUTHORIZED },
+      { success: false, error: 'Certificate has been revoked', code: 'CERTIFICATE_REVOKED' },
       410,
     )
   }

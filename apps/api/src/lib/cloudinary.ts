@@ -52,17 +52,23 @@ export const cloudinary = {
     const form = new FormData()
     form.append('file',      new Blob([params.file]))
     form.append('api_key',   apiKey)
-    form.append('timestamp', timestamp)
     form.append('signature', signature)
+    // Append all signed params exactly once (timestamp, folder, public_id if present).
+    // Do NOT add timestamp/folder separately above — that would create duplicate fields.
     Object.entries(signParams).forEach(([k, v]) => form.append(k, v))
 
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
-      method: 'POST',
-      body:   form,
-    })
+    let res: Response
+    try {
+      res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+        method: 'POST',
+        body:   form,
+      })
+    } catch (err) {
+      throw new Error(`Cloudinary upload network error: ${err instanceof Error ? err.message : String(err)}`)
+    }
 
     if (!res.ok) {
-      const body = await res.text()
+      const body = await res.text().catch(() => '(unreadable)')
       throw new Error(`Cloudinary upload failed (${res.status}): ${body}`)
     }
 

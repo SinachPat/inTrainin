@@ -12,14 +12,22 @@ function termiiKey() {
 }
 
 async function termiiFetch<T>(input: string, body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(input, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  let res: Response
+  try {
+    res = await fetch(input, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    throw new Error(`Termii POST network error: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Termii POST ${input} failed (${res.status}): ${text}`)
+    const text = await res.text().catch(() => '(unreadable)')
+    // Extract just the path to avoid logging the full URL.
+    const urlPath = (() => { try { return new URL(input).pathname } catch { return input } })()
+    throw new Error(`Termii POST ${urlPath} failed (${res.status}): ${text}`)
   }
   return res.json() as Promise<T>
 }
@@ -30,7 +38,7 @@ export const termii = {
    * Uses the 'dnd' channel so messages reach DND-activated SIMs —
    * requires an approved Termii sender ID.
    */
-  async sendSms(params: { to: string; sms: string }) {
+  async sendSms(params: { to: string; sms: string }): Promise<unknown> {
     return termiiFetch(`${BASE}/sms/send`, {
       api_key: termiiKey(),
       to:      params.to,
@@ -45,7 +53,7 @@ export const termii = {
    * Send a 6-digit numeric OTP via Termii's token API.
    * OTP expires after 10 minutes and allows up to 3 verification attempts.
    */
-  async sendOtp(params: { phone_number: string }) {
+  async sendOtp(params: { phone_number: string }): Promise<unknown> {
     return termiiFetch(`${BASE}/sms/otp/send`, {
       api_key:         termiiKey(),
       message_type:    'NUMERIC',

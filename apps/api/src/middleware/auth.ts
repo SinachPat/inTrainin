@@ -31,16 +31,34 @@ export const authMiddleware: MiddlewareHandler<{ Variables: AuthVariables }> = c
     }
 
     // Read account_type from public.users — the canonical source of truth.
-    // JWT metadata can be updated by profile/complete and is not tamper-proof
-    // for role-escalation checks.
-    const { data: userRow } = await db
-      .from('users')
-      .select('account_type')
-      .eq('id', user.id)
-      .maybeSingle()
+    // Never fall back to JWT metadata: metadata is writable by the client and
+    // trusting it would allow role escalation (learner → admin).
+    let userRow: { account_type: string } | null = null
+    try {
+      const { data, error: dbError } = await db
+        .from('users')
+        .select('account_type')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    const metadata = user.user_metadata as Record<string, unknown> | undefined
-    const userRole = ((userRow?.account_type ?? metadata?.account_type ?? 'learner')) as AccountType
+      if (dbError) {
+        console.error('[auth] users lookup error:', dbError.message)
+        return c.json({ success: false, error: 'Authentication error' }, 500)
+      }
+
+      userRow = data
+    } catch (err) {
+      console.error('[auth] unexpected DB error:', err)
+      return c.json({ success: false, error: 'Authentication error' }, 500)
+    }
+
+    if (!userRow) {
+      // User authenticated with Supabase but has no row in public.users —
+      // this is an incomplete signup; treat as unauthorised.
+      return c.json({ success: false, error: 'User profile not found' }, 401)
+    }
+
+    const userRole = userRow.account_type as AccountType
 
     c.set('userId',   user.id)
     c.set('userRole', userRole)

@@ -34,7 +34,8 @@ export const email = {
     firstName:   string
     accountType: 'learner' | 'business'
   }): Promise<void> {
-    console.log(`[email/sendWelcome] attempting → to=${to} firstName=${firstName} accountType=${accountType} from=${FROM}`)
+    // Do not log PII (email address, first name) — log only account type for diagnostics.
+    console.log(`[email/sendWelcome] attempting → accountType=${accountType}`)
     try {
       const resend = getResend()
       const html   = await render(WelcomeEmail({ firstName, appUrl: APP_URL, accountType }))
@@ -47,12 +48,14 @@ export const email = {
       })
 
       if (error) {
-        console.error('[email/sendWelcome] Resend error:', JSON.stringify(error))
+        // Log error code/name only — avoid logging the full error object which
+        // may echo back the recipient address.
+        console.error('[email/sendWelcome] Resend error:', (error as { name?: string; message?: string }).name ?? 'unknown')
       } else {
         console.log(`[email/sendWelcome] sent OK — id=${data?.id}`)
       }
     } catch (err) {
-      console.error('[email/sendWelcome] unexpected error:', err)
+      console.error('[email/sendWelcome] unexpected error:', err instanceof Error ? err.message : String(err))
     }
   },
 }

@@ -29,11 +29,24 @@ export const paystackWebhookVerify: MiddlewareHandler<{ Variables: WebhookVariab
       return c.json({ success: false, error: 'Missing webhook signature' }, 400)
     }
 
-    const rawBody  = await c.req.text()
+    let rawBody: string
+    try {
+      rawBody = await c.req.text()
+    } catch (err) {
+      console.error('[webhookVerify] failed to read request body:', err)
+      return c.json({ success: false, error: 'Failed to read request body' }, 400)
+    }
+
     const expected = createHmac('sha512', secret).update(rawBody).digest('hex')
 
-    // Paystack sends the signature as a hex string — both buffers must be equal length
-    // before timingSafeEqual can compare them (otherwise it throws)
+    // Paystack sends the signature as a lowercase hex string.
+    // Buffer.from(str, 'hex') silently truncates on invalid chars, so we validate
+    // the format first to prevent a length mismatch from hiding a malformed header.
+    if (!/^[0-9a-fA-F]+$/.test(signature)) {
+      return c.json({ success: false, error: 'Invalid webhook signature' }, 401)
+    }
+
+    // Both buffers must be equal length before timingSafeEqual (it throws otherwise).
     const sigBuffer = Buffer.from(signature, 'hex')
     const expBuffer = Buffer.from(expected,  'hex')
 
