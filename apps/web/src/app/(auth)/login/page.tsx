@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowRight, Shield, ChevronLeft,
   User, MapPin, Briefcase, GraduationCap, Building2,
-  Mail, Eye, EyeOff, Loader2, Check, AlertTriangle,
+  Mail, Phone, Eye, EyeOff, Loader2, Check, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -376,20 +376,19 @@ function LoginContent() {
       {/* ── Method selector ─────────────────────────────────────────────────── */}
       {step === 'method' && (
         <div className="space-y-4">
-          {/* Phone — temporarily hidden until SMS service is integrated
-          <button
-            onClick={() => { setAuthMethod('phone'); setStep('phone'); setError('') }}
-            className="w-full flex items-center gap-3 rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {/* Phone — disabled until SMS service is integrated */}
+          <div className="w-full flex items-center gap-3 rounded-xl border-2 border-border bg-muted/40 p-4 opacity-50 cursor-not-allowed select-none">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <Phone className="h-5 w-5" />
             </span>
-            <div>
-              <p className="font-semibold text-sm text-foreground">Continue with phone</p>
+            <div className="flex-1">
+              <p className="font-semibold text-sm text-muted-foreground">Continue with phone</p>
               <p className="mt-0.5 text-xs text-muted-foreground">Get a one-time code via SMS</p>
             </div>
-          </button>
-          */}
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Under maintenance
+            </span>
+          </div>
 
           {/* Email */}
           <button
