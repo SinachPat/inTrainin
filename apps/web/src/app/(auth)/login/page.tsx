@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowRight, Shield, ChevronLeft,
-  User, MapPin, Briefcase, GraduationCap, Building2,
-  Mail, Phone, Eye, EyeOff, Loader2, Check, AlertTriangle,
+  Mail, Phone, Eye, EyeOff, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -14,32 +13,14 @@ import { api } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 import { signInWithGoogle } from '@/lib/supabase'
 import { LogoMark } from '@/components/logo'
-import { NG_CITIES } from '@intrainin/shared'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AuthMethod = 'phone' | 'email'
-// phone flow:   phone → otp → (new) type → profile
-// email flow:   email → (new) type → profile
-// google flow:  → (auto) type → profile  (tokens from sessionStorage)
-// google flow (mismatch): → convert → profile
-type Step = 'method' | 'phone' | 'otp' | 'email' | 'type' | 'profile' | 'convert'
-type AccountType = 'learner' | 'business'
-
-// City list is the single source of truth from @intrainin/shared
-const CITIES = NG_CITIES
-
-const CAREER_GOAL_ROLES = [
-  { slug: 'cashier-retail',    label: 'Cashier',              icon: '🛒' },
-  { slug: 'waiter-waitress',   label: 'Waiter / Waitress',    icon: '🍽️' },
-  { slug: 'front-desk-agent',  label: 'Hotel Receptionist',   icon: '🏨' },
-  { slug: 'dispatch-rider',    label: 'Delivery Rider',       icon: '🚚' },
-  { slug: 'sales-rep',         label: 'Sales Representative', icon: '🤝' },
-  { slug: 'receptionist',      label: 'Receptionist',         icon: '📋' },
-  { slug: 'security-guard',    label: 'Security Guard',       icon: '🛡️' },
-  { slug: 'barber',            label: 'Barber / Hair Stylist', icon: '💈' },
-  { slug: 'cook-kitchen-hand', label: 'Kitchen Assistant',    icon: '🍳' },
-]
+// phone flow:  phone → otp → (existing) dashboard  |  (new) /onboarding
+// email flow:  email → (existing) dashboard         |  (new) /onboarding
+// google flow: → /auth/callback → /auth/finalise    →  /onboarding
+type Step = 'method' | 'phone' | 'otp' | 'email'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,95 +71,39 @@ function LoginContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('next')
-  const methodParam  = searchParams.get('method')    // 'google_profile' = coming back from OAuth
   const typeHint     = searchParams.get('type') === 'business' ? 'business' : 'learner'
 
-  // Determine initial step
-  const initialStep: Step =
-    methodParam === 'google_profile' ? 'type'    :
-    methodParam === 'google_convert' ? 'convert' :
-    'method'
-
-  const [step,        setStep]        = useState<Step>(initialStep)
-  const [authMethod,  setAuthMethod]  = useState<AuthMethod>('email')
+  const [step,          setStep]          = useState<Step>('method')
+  const [authMethod,    setAuthMethod]    = useState<AuthMethod>('email')
 
   // Phone state
-  const [phone,      setPhone]      = useState('')
-  const [otp,        setOtp]        = useState(['', '', '', '', '', ''])
-  const [countdown,  setCountdown]  = useState(0)
+  const [phone,     setPhone]     = useState('')
+  const [otp,       setOtp]       = useState(['', '', '', '', '', ''])
+  const [countdown, setCountdown] = useState(0)
 
   // Email state
-  const [email,       setEmail]       = useState('')
-  const [password,    setPassword]    = useState('')
-  const [showPass,    setShowPass]    = useState(false)
-  const [isNewUser,   setIsNewUser]   = useState(false)
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [showPass,  setShowPass]  = useState(false)
+  const [isNewUser, setIsNewUser] = useState(false)
 
   // Shared
-  const [accountType, setAccType]     = useState<AccountType>('learner')
-  const [profile,     setProfile]     = useState({ fullName: '', city: '', careerGoalSlug: '' })
-  const [otherRole,   setOtherRole]   = useState('')
-  const [bizName,     setBizName]     = useState('')
-  const [tokens,      setTokens]      = useState<{ accessToken: string; refreshToken: string } | null>(null)
-  const [loading,     setLoading]     = useState(false)
-  const [error,       setError]       = useState('')
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
-
-  // Pick up tokens, account type, and Google profile data stashed by finalise/signup
-  useEffect(() => {
-    if (methodParam !== 'google_profile' && methodParam !== 'google_convert') return
-
-    const at          = sessionStorage.getItem('pending_access_token')
-    const rt          = sessionStorage.getItem('pending_refresh_token')
-    const accType     = sessionStorage.getItem('pending_account_type') as AccountType | null
-    const googleName  = sessionStorage.getItem('pending_google_name')
-    const googleEmail = sessionStorage.getItem('pending_google_email')
-
-    if (at && rt) {
-      setTokens({ accessToken: at, refreshToken: rt })
-      sessionStorage.removeItem('pending_access_token')
-      sessionStorage.removeItem('pending_refresh_token')
-    }
-    if (accType) {
-      setAccType(accType)
-      sessionStorage.removeItem('pending_account_type')
-    }
-    // Pre-fill the profile form with the user's Google name so they don't
-    // have to retype what Google already knows about them
-    if (googleName) {
-      setProfile(p => ({ ...p, fullName: googleName }))
-      sessionStorage.removeItem('pending_google_name')
-    }
-    if (googleEmail) {
-      setEmail(googleEmail)
-      sessionStorage.removeItem('pending_google_email')
-    }
-
-    if (methodParam === 'google_convert') {
-      // Existing learner account tried to sign in/up as business — show convert banner
-      setAccType('business')
-      setStep('convert')
-      return
-    }
-
-    // google_profile: account type was pre-selected (from signup page or URL hint),
-    // skip straight to profile. Show type-picker if we have no hint at all.
-    const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
-    if (resolvedType) {
-      setAccType(resolvedType)
-      setStep('profile')
-    } else {
-      setStep('type')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   function startCountdown() {
     setCountdown(60)
     const t = setInterval(() => setCountdown(c => { if (c <= 1) { clearInterval(t); return 0 } return c - 1 }), 1000)
   }
 
-  // ─── After auth: route or continue onboarding ──────────────────────────────
-  async function handlePostAuth(accessToken: string, refreshToken: string, profileComplete: boolean, returnedAccountType: string) {
+  // ─── After auth: route or hand off to onboarding ──────────────────────────
+  async function handlePostAuth(
+    accessToken:        string,
+    refreshToken:       string,
+    profileComplete:    boolean,
+    returnedAccountType: string,
+  ) {
     if (profileComplete) {
       const meRes = await api.get<{
         data: { user: { id: string; full_name: string; account_type: string; phone: string | null } }
@@ -199,13 +124,15 @@ function LoginContent() {
       )
       router.push(dest)
     } else {
-      setTokens({ accessToken, refreshToken })
+      // New user — stash tokens and route to dedicated onboarding page.
+      // Only stash an account type when we have a definitive signal; otherwise
+      // the onboarding type picker will show so the user can choose.
+      sessionStorage.setItem('pending_access_token',  accessToken)
+      sessionStorage.setItem('pending_refresh_token', refreshToken)
       if (typeHint === 'business' || returnedAccountType === 'business') {
-        setAccType('business')
-        setStep('profile')
-      } else {
-        setStep('type')
+        sessionStorage.setItem('pending_account_type', 'business')
       }
+      router.push('/onboarding')
     }
   }
 
@@ -274,7 +201,6 @@ function LoginContent() {
       await handlePostAuth(res.data.accessToken, res.data.refreshToken, res.data.profileComplete, res.data.accountType)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed. Try again.'
-      // Suggest switching to register if the credentials were wrong and we're in login mode
       if (!isNewUser && (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('not found'))) {
         setError(`${msg} Don't have an account?`)
       } else {
@@ -289,89 +215,33 @@ function LoginContent() {
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
-      // Stash account type only when it was explicitly set via ?type=business.
-      // A plain /login visitor hasn't picked a type yet, so don't assume 'learner'
-      // — the type picker will show instead. The signup page always stashes because
-      // the user has already chosen a type before reaching the Google button.
+      // Stash account type only when explicitly set via ?type=business.
+      // A plain /login visitor hasn't chosen a type — the onboarding type picker
+      // will show. The signup page always stashes because the user already chose.
       if (typeHint === 'business') {
         sessionStorage.setItem('pending_account_type', 'business')
       }
       await signInWithGoogle()
-      // signInWithGoogle triggers a full page redirect — execution stops here
+      // Full page redirect — execution stops here
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Google sign-in failed. Try again.')
       setGoogleLoading(false)
     }
   }
 
-  // ─── Profile submit (shared by all methods) ────────────────────────────────
-  async function handleProfileSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!profile.fullName.trim())                          { setError('Enter your full name'); return }
-    if (!profile.city)                                     { setError('Select your city'); return }
-    if (accountType === 'business' && !bizName.trim())     { setError('Enter your business name'); return }
-    if (!tokens)                                           { setError('Session expired — please start over.'); setStep('method'); return }
-    setError('')
-    setLoading(true)
-    try {
-      const body: Record<string, unknown> = {
-        fullName:     profile.fullName.trim(),
-        accountType,
-        locationCity: profile.city,
-        ...(accountType === 'business' && { businessName: bizName.trim() }),
-        ...(authMethod === 'email' && email ? { email: email.trim().toLowerCase() } : {}),
-        ...(accountType === 'learner' && profile.careerGoalSlug && profile.careerGoalSlug !== 'other'
-          && { careerGoalRoleSlug: profile.careerGoalSlug }),
-      }
-      const profileRes = await api.post<{
-        success: boolean
-        data: { user: { id: string; full_name: string; account_type: string } }
-      }>('/auth/profile/complete', body, { headers: { Authorization: `Bearer ${tokens.accessToken}` } })
-
-      const user = profileRes.data.user
-      if (!user) throw new Error('Profile setup failed.')
-
-      const meRes = await api.get<{ data: { user: { phone: string | null } } }>(
-        '/auth/me', { headers: { Authorization: `Bearer ${tokens.accessToken}` } },
-      ).catch(() => null)
-
-      setSession({
-        accessToken:  tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: {
-          id:          user.id,
-          fullName:    user.full_name,
-          accountType: user.account_type as 'learner' | 'business' | 'admin',
-          phone:       meRes?.data.user.phone ?? null,
-        },
-      })
-      router.push(accountType === 'business' ? '/admin' : '/dashboard')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Profile setup failed. Try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const title: Record<Step, string> = {
-    method:  typeHint === 'business' ? 'Business sign in'   : 'Welcome back',
-    phone:   'Enter your number',
-    otp:     'Check your phone',
-    email:   isNewUser ? 'Create account'  : 'Sign in with email',
-    type:    'One more thing',
-    profile: 'Almost done',
-    convert: 'Already a learner?',
+    method: typeHint === 'business' ? 'Business sign in' : 'Welcome back',
+    phone:  'Enter your number',
+    otp:    'Check your phone',
+    email:  isNewUser ? 'Create account' : 'Sign in with email',
   }
   const subtitle: Record<Step, string> = {
-    method:  typeHint === 'business' ? 'Sign in to your business dashboard' : 'Sign in or create a new account',
-    phone:   'We\'ll send a one-time code via SMS',
-    otp:     `Code sent to ${formatPhoneDisplay(phone)}`,
-    email:   isNewUser ? 'You\'ll be set up in seconds' : 'Use your email and password',
-    type:    'How will you be using InTrainin?',
-    profile: 'Tell us a bit about yourself',
-    convert: 'Your Google account is linked to a learner account',
+    method: typeHint === 'business' ? 'Sign in to your business dashboard' : 'Sign in or create a new account',
+    phone:  "We'll send a one-time code via SMS",
+    otp:    `Code sent to ${formatPhoneDisplay(phone)}`,
+    email:  isNewUser ? "You'll be set up in seconds" : 'Use your email and password',
   }
 
   return (
@@ -431,7 +301,6 @@ function LoginContent() {
 
           {error && <p className="text-center text-xs text-destructive">{error}</p>}
 
-          {/* Sign-up CTA — visible to both learner and business visitors */}
           <p className="text-center text-xs text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link
@@ -586,181 +455,6 @@ function LoginContent() {
             <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or</span></div>
           </div>
           <GoogleButton loading={googleLoading} onClick={handleGoogle} />
-        </form>
-      )}
-
-      {/* ── Account type (new users) ─────────────────────────────────────── */}
-      {step === 'type' && (
-        <div className="space-y-3">
-          <button
-            onClick={() => { setAccType('learner'); setStep('profile') }}
-            className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
-          >
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <GraduationCap className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="font-semibold text-foreground">I&apos;m a learner / job seeker</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">Get trained, certified, and matched to jobs</p>
-              </div>
-            </div>
-          </button>
-          <button
-            onClick={() => { setAccType('business'); setStep('profile') }}
-            className="w-full rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
-          >
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Building2 className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="font-semibold text-foreground">I&apos;m a business owner / manager</p>
-                <p className="mt-0.5 text-sm text-muted-foreground">Train your team and hire certified workers</p>
-              </div>
-            </div>
-          </button>
-          <p className="text-center text-xs text-muted-foreground">
-            Wrong details?{' '}
-            <button onClick={() => { setStep('method'); setError('') }} className="font-medium text-primary hover:underline">Start over</button>
-          </p>
-        </div>
-      )}
-
-      {/* ── Convert (Google account type mismatch) ───────────────────────── */}
-      {step === 'convert' && (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
-            <div className="flex gap-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
-              <div className="space-y-2 text-sm">
-                <p className="font-semibold text-amber-900 dark:text-amber-200">This will convert your learner account</p>
-                <ul className="space-y-1 text-amber-800 dark:text-amber-300">
-                  <li>• Your learner dashboard and training progress will no longer be accessible</li>
-                  <li>• Certificates you&apos;ve earned will remain on record</li>
-                  <li>• You&apos;ll get a new business dashboard to manage your team</li>
-                </ul>
-                <p className="text-amber-700 dark:text-amber-400">
-                  This action cannot be undone. Use a different Google account for a separate business account.
-                </p>
-              </div>
-            </div>
-          </div>
-          <button
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            onClick={() => { setAccType('business'); setStep('profile') }}
-          >
-            Yes, convert to business <ArrowRight className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => router.replace('/dashboard')}
-            className="flex w-full items-center justify-center rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-          >
-            Keep my learner account
-          </button>
-        </div>
-      )}
-
-      {/* ── Profile (new users) ──────────────────────────────────────────── */}
-      {step === 'profile' && (
-        <form onSubmit={handleProfileSubmit} className="space-y-4">
-          {methodParam !== 'google_profile' && typeHint !== 'business' && (
-            <button type="button" onClick={() => setStep('type')}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="h-3.5 w-3.5" /> Back
-            </button>
-          )}
-
-          {/* Full name */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Full name</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" placeholder="Amara Okafor" value={profile.fullName}
-                onChange={e => setProfile(p => ({ ...p, fullName: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-            </div>
-          </div>
-
-          {/* Business name (business accounts only) */}
-          {accountType === 'business' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Business name</label>
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" placeholder="Sunshine Supermart" value={bizName}
-                  onChange={e => setBizName(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-              </div>
-            </div>
-          )}
-
-          {/* City */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Your city</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <select value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))}
-                className="h-10 w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                <option value="">Select your city</option>
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Career goal (learners only) */}
-          {accountType === 'learner' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">What role are you aiming for?</label>
-              <p className="text-xs text-muted-foreground">We&apos;ll tailor your learning path. You can change this later.</p>
-              <div className="grid grid-cols-2 gap-2">
-                {CAREER_GOAL_ROLES.map(role => (
-                  <button key={role.slug} type="button"
-                    onClick={() => setProfile(p => ({ ...p, careerGoalSlug: role.slug }))}
-                    className={cn(
-                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
-                      profile.careerGoalSlug === role.slug
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-background text-foreground hover:border-foreground/30',
-                    )}>
-                    <span>{role.icon}</span>
-                    <span>{role.label}</span>
-                    {profile.careerGoalSlug === role.slug && <Check className="ml-auto h-3 w-3 shrink-0" />}
-                  </button>
-                ))}
-                <button type="button"
-                  onClick={() => setProfile(p => ({ ...p, careerGoalSlug: 'other' }))}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
-                    profile.careerGoalSlug === 'other'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-background text-foreground hover:border-foreground/30',
-                  )}>
-                  <span>✏️</span><span>Other</span>
-                  {profile.careerGoalSlug === 'other' && <Check className="ml-auto h-3 w-3 shrink-0" />}
-                </button>
-              </div>
-              {profile.careerGoalSlug === 'other' && (
-                <input autoFocus type="text" placeholder="e.g. Security Guard, Nurse Assistant…"
-                  value={otherRole} onChange={e => setOtherRole(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-primary bg-primary/5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              )}
-            </div>
-          )}
-
-          {error && <p className="text-xs text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? 'Creating account…' : (
-              <span className="flex items-center gap-1.5">
-                {accountType === 'business' ? 'Set up my dashboard' : 'Get started'}
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Wrong details?{' '}
-            <button type="button" onClick={() => { setStep('method'); setError('') }} className="font-medium text-primary hover:underline">Start over</button>
-          </p>
         </form>
       )}
     </div>

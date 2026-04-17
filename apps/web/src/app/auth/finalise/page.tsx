@@ -14,10 +14,10 @@
  * Routing decisions:
  *   profileComplete + no mismatch        → /dashboard or /admin
  *   profileComplete + pending=business
- *     but account is learner             → /login?method=google_convert
- *   profile incomplete                   → /login?method=google_profile  (name pre-filled)
- *   notFound + pending_account_type set  → /login?method=google_profile  (new signup, name pre-filled)
- *   notFound + no pending_account_type   → /login?method=google_profile  (new user from login page, type picker shown first)
+ *     but account is learner             → /onboarding  (pending_convert=true, convert warning shown)
+ *   profile incomplete                   → /onboarding  (name pre-filled via sessionStorage)
+ *   notFound + pending_account_type set  → /onboarding  (new signup, type pre-selected)
+ *   notFound + no pending_account_type   → /onboarding  (new user from login page, type picker shown)
  */
 
 import { useEffect, useState } from 'react'
@@ -138,16 +138,14 @@ function FinaliseContent() {
       // so the type picker shows first — Google sign-in works as sign-in OR sign-up.
       sessionStorage.setItem('pending_access_token',  accessToken)
       sessionStorage.setItem('pending_refresh_token', refreshToken)
-      if (pendingAccountType) {
-        // pending_account_type already in sessionStorage — login page will read it
-      } else {
-        // Leave pending_account_type unset — type picker will show
+      if (!pendingAccountType) {
+        // No type hint — type picker will show on /onboarding
         sessionStorage.removeItem('pending_account_type')
       }
       // Stash Google name/email so the profile form can be pre-filled
       if (ps.googleName)  sessionStorage.setItem('pending_google_name',  ps.googleName)
       if (ps.googleEmail) sessionStorage.setItem('pending_google_email', ps.googleEmail)
-      router.replace('/login?method=google_profile')
+      router.replace('/onboarding')
       return
     }
 
@@ -156,8 +154,9 @@ function FinaliseContent() {
       if (pendingAccountType === 'business' && ps.accountType === 'learner') {
         sessionStorage.setItem('pending_access_token',  accessToken)
         sessionStorage.setItem('pending_refresh_token', refreshToken)
-        // Leave pending_account_type for login page to consume
-        router.replace('/login?method=google_convert')
+        sessionStorage.setItem('pending_convert',       'true')
+        // pending_account_type ('business') already in sessionStorage
+        router.replace('/onboarding')
         return
       }
 
@@ -182,13 +181,14 @@ function FinaliseContent() {
       // Profile exists but is incomplete (has auth row, missing name/city).
       // Do NOT call setSession here — the middleware cookie would let an
       // incomplete profile straight into /dashboard. setSession is called by
-      // handleProfileSubmit in the login page after completion.
+      // handleProfileSubmit in /onboarding after completion.
       sessionStorage.setItem('pending_access_token',  accessToken)
       sessionStorage.setItem('pending_refresh_token', refreshToken)
+      // Stash the account type so /onboarding skips the type picker
+      if (ps.accountType) sessionStorage.setItem('pending_account_type', ps.accountType)
       // Stash Google name so the profile form can be pre-filled
       if (ps.fullName?.trim()) sessionStorage.setItem('pending_google_name', ps.fullName.trim())
-      // Leave pending_account_type for login page
-      router.replace('/login?method=google_profile')
+      router.replace('/onboarding')
     }
   }
 

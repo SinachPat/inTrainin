@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowRight, Shield, ChevronLeft, User, MapPin, Briefcase,
-  Check, GraduationCap, Building2, AlertTriangle, Mail, Phone,
+  ArrowRight, Shield, ChevronLeft,
+  GraduationCap, Building2, Mail, Phone,
   Eye, EyeOff, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,28 +14,12 @@ import { api } from '@/lib/api'
 import { setSession } from '@/lib/auth'
 import { signInWithGoogle } from '@/lib/supabase'
 import { LogoMark } from '@/components/logo'
-import { NG_CITIES } from '@intrainin/shared'
 
-// phone flow:   type → method → phone → otp → profile
-// email flow:   type → method → email → profile
-// google flow:  type → method → (redirect) → /login?method=google_profile (account type stashed in sessionStorage)
-type Step = 'type' | 'method' | 'phone' | 'otp' | 'email' | 'convert' | 'profile'
+// phone flow:   type → method → phone → otp → /onboarding
+// email flow:   type → method → email → /onboarding
+// google flow:  type → method → (redirect) → /auth/finalise → /onboarding
+type Step = 'type' | 'method' | 'phone' | 'otp' | 'email'
 type AccountType = 'learner' | 'business'
-
-const CAREER_GOAL_ROLES = [
-  { slug: 'cashier-retail',      label: 'Cashier',              icon: '🛒' },
-  { slug: 'waiter-waitress',     label: 'Waiter / Waitress',    icon: '🍽️' },
-  { slug: 'front-desk-agent',    label: 'Hotel Receptionist',   icon: '🏨' },
-  { slug: 'dispatch-rider',      label: 'Delivery Rider',       icon: '🚚' },
-  { slug: 'sales-rep',           label: 'Sales Representative', icon: '🤝' },
-  { slug: 'receptionist',        label: 'Receptionist',         icon: '📋' },
-  { slug: 'security-guard',      label: 'Security Guard',       icon: '🛡️' },
-  { slug: 'barber',              label: 'Barber / Hair Stylist', icon: '💈' },
-  { slug: 'cook-kitchen-hand',   label: 'Kitchen Assistant',    icon: '🍳' },
-]
-
-// City list is the single source of truth from @intrainin/shared
-const CITIES = NG_CITIES
 
 function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
@@ -99,17 +83,11 @@ function SignupContent() {
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
 
-  // Profile state
-  const [profile,   setProfile]   = useState({ fullName: '', city: '', careerGoalSlug: '' })
-  const [otherRole, setOtherRole] = useState('')
-  const [bizName,   setBizName]   = useState('')
-
   // Shared
-  const [pendingTokens,  setPendingTokens]  = useState<{ accessToken: string; refreshToken: string } | null>(null)
-  const [loading,        setLoading]        = useState(false)
-  const [googleLoading,  setGoogleLoading]  = useState(false)
-  const [error,          setError]          = useState('')
-  const [emailExists,    setEmailExists]    = useState(false)
+  const [loading,       setLoading]       = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [error,         setError]         = useState('')
+  const [emailExists,   setEmailExists]   = useState(false)
 
   useEffect(() => {
     if (typeParam === 'business') {
@@ -128,11 +106,25 @@ function SignupContent() {
     setStep('method')
   }
 
+  // ─── Shared: hand off to onboarding page ──────────────────────────────────
+  function routeToOnboarding(
+    accessToken:  string,
+    refreshToken: string,
+    opts?: { convert?: boolean; email?: string },
+  ) {
+    sessionStorage.setItem('pending_access_token',  accessToken)
+    sessionStorage.setItem('pending_refresh_token', refreshToken)
+    sessionStorage.setItem('pending_account_type',  accountType)
+    if (opts?.convert) sessionStorage.setItem('pending_convert', 'true')
+    if (opts?.email)   sessionStorage.setItem('pending_email',   opts.email)
+    router.push('/onboarding')
+  }
+
   // ─── Google ────────────────────────────────────────────────────────────────
   async function handleGoogle() {
     setGoogleLoading(true)
     try {
-      // Stash account type so the login page can pick it up after the OAuth redirect
+      // Stash account type so /auth/finalise can pass it along to /onboarding
       sessionStorage.setItem('pending_account_type', accountType)
       await signInWithGoogle()
       // Full page redirect — execution stops here
@@ -185,25 +177,29 @@ function SignupContent() {
       const { accessToken, refreshToken, profileComplete, accountType: returnedType } = res.data
 
       if (profileComplete) {
-        // Returning user — check for account type mismatch
+        // Returning user: account type mismatch → route to onboarding convert flow
         if (accountType === 'business' && returnedType !== 'business' && returnedType !== 'admin') {
-          setPendingTokens({ accessToken, refreshToken })
-          setStep('convert')
+          routeToOnboarding(accessToken, refreshToken, { convert: true })
           return
         }
+        // Happy path — complete profile, set session and navigate
         const meRes = await api.get<{
           data: { user: { id: string; full_name: string; account_type: string; phone: string } }
         }>('/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
         const user = meRes.data.user
-        setSession({ accessToken, refreshToken, user: {
-          id: user.id, fullName: user.full_name,
-          accountType: user.account_type as 'learner' | 'business' | 'admin',
-          phone: user.phone,
-        }})
+        setSession({
+          accessToken, refreshToken,
+          user: {
+            id:          user.id,
+            fullName:    user.full_name,
+            accountType: user.account_type as 'learner' | 'business' | 'admin',
+            phone:       user.phone,
+          },
+        })
         router.push(returnedType === 'business' || returnedType === 'admin' ? '/admin' : '/dashboard')
       } else {
-        setPendingTokens({ accessToken, refreshToken })
-        setStep('profile')
+        // New user — hand off to onboarding for profile completion
+        routeToOnboarding(accessToken, refreshToken)
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed. Check the code and try again.')
@@ -216,8 +212,8 @@ function SignupContent() {
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!email.trim())          { setError('Enter your email address'); return }
-    if (password.length < 8)    { setError('Password must be at least 8 characters'); return }
+    if (!email.trim())       { setError('Enter your email address'); return }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return }
     setLoading(true)
     try {
       const res = await api.post<{
@@ -225,87 +221,30 @@ function SignupContent() {
         data: { accessToken: string; refreshToken: string; profileComplete: boolean }
       }>('/auth/email/register', { email: email.trim().toLowerCase(), password })
 
-      // New email accounts always have profileComplete: false
-      setPendingTokens({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken })
-      setStep('profile')
+      // New email accounts always have profileComplete: false — route to onboarding
+      routeToOnboarding(res.data.accessToken, res.data.refreshToken, {
+        email: email.trim().toLowerCase(),
+      })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed. Try again.'
-      if (msg.toLowerCase().includes('already exists')) {
-        setEmailExists(true)
-        setError(msg)
-      } else {
-        setEmailExists(false)
-        setError(msg)
-      }
+      setEmailExists(msg.toLowerCase().includes('already exists'))
+      setError(msg)
     } finally {
-      setLoading(false)
-    }
-  }
-
-  // ─── Profile submit ───────────────────────────────────────────────────────
-  async function handleProfileSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!profile.fullName.trim())                        { setError('Enter your full name'); return }
-    if (!profile.city)                                   { setError('Select your city'); return }
-    if (accountType === 'business' && !bizName.trim())   { setError('Enter your business name'); return }
-    if (!pendingTokens)                                  { setError('Session expired. Please start over.'); setStep('type'); return }
-    setError('')
-    setLoading(true)
-    try {
-      const body: Record<string, unknown> = {
-        fullName:     profile.fullName.trim(),
-        accountType,
-        locationCity: profile.city,
-        ...(email.trim() && { email: email.trim().toLowerCase() }),
-        ...(accountType === 'business' && { businessName: bizName.trim() }),
-        ...(accountType === 'learner' && profile.careerGoalSlug && profile.careerGoalSlug !== 'other'
-          && { careerGoalRoleSlug: profile.careerGoalSlug }),
-      }
-
-      const profileRes = await api.post<{
-        success: boolean
-        data: { user: { id: string; full_name: string; account_type: string } }
-      }>('/auth/profile/complete', body, {
-        headers: { Authorization: `Bearer ${pendingTokens.accessToken}` },
-      })
-
-      const user = profileRes.data.user
-      if (!user) throw new Error('Profile setup failed — please try again.')
-
-      const meRes = await api.get<{ data: { user: { phone: string | null } } }>(
-        '/auth/me', { headers: { Authorization: `Bearer ${pendingTokens.accessToken}` } },
-      ).catch(() => null)
-
-      setSession({
-        accessToken:  pendingTokens.accessToken,
-        refreshToken: pendingTokens.refreshToken,
-        user: {
-          id:          user.id,
-          fullName:    user.full_name,
-          accountType: user.account_type as 'learner' | 'business' | 'admin',
-          phone:       (meRes?.data.user.phone ?? normalizePhone(phone)) || null,
-        },
-      })
-      router.push(accountType === 'business' ? '/admin' : '/dashboard')
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Profile setup failed. Try again.')
       setLoading(false)
     }
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  const stepIndex  = { type: 0, method: 1, phone: 2, email: 2, otp: 2, convert: 2, profile: 3 }[step]
-  const totalSteps = 3
+  const stepIndex  = { type: 0, method: 1, phone: 2, email: 2, otp: 2 }[step]
+  const totalSteps = 2
 
   const headings: Record<Step, { title: string; sub: string }> = {
-    type:    { title: 'Get started',           sub: 'Sign up as a learner or a business' },
-    method:  { title: 'Create your account',   sub: accountType === 'business' ? 'For business owners & managers' : 'For job seekers & learners' },
-    phone:   { title: 'Enter your number',     sub: 'We\'ll send a one-time code via SMS' },
-    otp:     { title: 'Check your phone',      sub: `Code sent to ${formatPhoneDisplay(phone)}` },
-    email:   { title: 'Create your account',   sub: 'Use your email address and a password' },
-    convert: { title: 'Number already in use', sub: 'This number is registered to a learner account' },
-    profile: { title: accountType === 'business' ? 'Set up your business' : 'Almost done', sub: 'A few details and you\'re ready to go' },
+    type:   { title: 'Get started',         sub: 'Sign up as a learner or a business' },
+    method: { title: 'Create your account', sub: accountType === 'business' ? 'For business owners & managers' : 'For job seekers & learners' },
+    phone:  { title: 'Enter your number',   sub: "We'll send a one-time code via SMS" },
+    otp:    { title: 'Check your phone',    sub: `Code sent to ${formatPhoneDisplay(phone)}` },
+    email:  { title: 'Create your account', sub: 'Use your email address and a password' },
   }
 
   return (
@@ -560,131 +499,6 @@ function SignupContent() {
             Already have an account?{' '}
             <Link href={accountType === 'business' ? '/login?type=business' : '/login'}
               className="font-medium text-primary hover:underline">Sign in</Link>
-          </p>
-        </form>
-      )}
-
-      {/* ── Convert step ──────────────────────────────────────────────────── */}
-      {step === 'convert' && (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/30">
-            <div className="flex gap-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
-              <div className="space-y-2 text-sm">
-                <p className="font-semibold text-amber-900 dark:text-amber-200">This will convert your learner account</p>
-                <ul className="space-y-1 text-amber-800 dark:text-amber-300">
-                  <li>• Your learner dashboard and training progress will no longer be accessible</li>
-                  <li>• Certificates you&apos;ve earned will remain on record</li>
-                  <li>• You&apos;ll get a new business dashboard to manage your team</li>
-                </ul>
-                <p className="text-amber-700 dark:text-amber-400">
-                  This action cannot be undone. Use a different phone number for a separate business account.
-                </p>
-              </div>
-            </div>
-          </div>
-          <Button className="w-full" size="lg" onClick={() => setStep('profile')}>
-            <span className="flex items-center gap-1.5">Yes, convert to business <ArrowRight className="h-4 w-4" /></span>
-          </Button>
-          <Link href="/login"
-            className="flex w-full items-center justify-center rounded-lg border border-border py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground">
-            Keep my learner account
-          </Link>
-        </div>
-      )}
-
-      {/* ── Profile step ──────────────────────────────────────────────────── */}
-      {step === 'profile' && (
-        <form onSubmit={handleProfileSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Full name</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" placeholder="Amara Okafor" value={profile.fullName}
-                onChange={e => setProfile(p => ({ ...p, fullName: e.target.value }))}
-                className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-            </div>
-          </div>
-
-          {accountType === 'business' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Business name</label>
-              <div className="relative">
-                <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" placeholder="Sunshine Supermart" value={bizName}
-                  onChange={e => setBizName(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Your city</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <select value={profile.city} onChange={e => setProfile(p => ({ ...p, city: e.target.value }))}
-                className="h-10 w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                <option value="">Select your city</option>
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {accountType === 'learner' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">What role are you aiming for?</label>
-              <p className="text-xs text-muted-foreground">We&apos;ll tailor your learning path. You can change this later.</p>
-              <div className="grid grid-cols-2 gap-2">
-                {CAREER_GOAL_ROLES.map(role => (
-                  <button key={role.slug} type="button"
-                    onClick={() => setProfile(p => ({ ...p, careerGoalSlug: role.slug }))}
-                    className={cn(
-                      'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
-                      profile.careerGoalSlug === role.slug
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-background text-foreground hover:border-foreground/30',
-                    )}>
-                    <span>{role.icon}</span>
-                    <span>{role.label}</span>
-                    {profile.careerGoalSlug === role.slug && <Check className="ml-auto h-3 w-3 shrink-0" />}
-                  </button>
-                ))}
-                <button type="button"
-                  onClick={() => setProfile(p => ({ ...p, careerGoalSlug: 'other' }))}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all',
-                    profile.careerGoalSlug === 'other'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-background text-foreground hover:border-foreground/30',
-                  )}>
-                  <span>✏️</span><span>Other</span>
-                  {profile.careerGoalSlug === 'other' && <Check className="ml-auto h-3 w-3 shrink-0" />}
-                </button>
-              </div>
-              {profile.careerGoalSlug === 'other' && (
-                <input autoFocus type="text" placeholder="e.g. Security Guard, Nurse Assistant…"
-                  value={otherRole} onChange={e => setOtherRole(e.target.value)}
-                  className="h-10 w-full rounded-lg border border-primary bg-primary/5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-              )}
-            </div>
-          )}
-
-          {error && <p className="text-xs text-destructive">{error}</p>}
-
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? 'Creating account…' : (
-              <span className="flex items-center gap-1.5">
-                {accountType === 'learner' ? 'Get started' : 'Set up my dashboard'}
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
-
-          <p className="text-center text-[11px] text-muted-foreground">
-            By continuing you agree to our{' '}
-            <Link href="/terms" className="underline hover:text-foreground">Terms</Link>
-            {' '}and{' '}
-            <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
           </p>
         </form>
       )}
