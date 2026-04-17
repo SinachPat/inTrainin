@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowRight, Shield, ChevronLeft,
   User, MapPin, Briefcase, GraduationCap, Building2,
-  Mail, Phone, Eye, EyeOff, Loader2, Check, AlertTriangle,
+  Mail, Eye, EyeOff, Loader2, Check, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -100,7 +100,7 @@ function LoginContent() {
     'method'
 
   const [step,        setStep]        = useState<Step>(initialStep)
-  const [authMethod,  setAuthMethod]  = useState<AuthMethod>('phone')
+  const [authMethod,  setAuthMethod]  = useState<AuthMethod>('email')
 
   // Phone state
   const [phone,      setPhone]      = useState('')
@@ -376,7 +376,7 @@ function LoginContent() {
       {/* ── Method selector ─────────────────────────────────────────────────── */}
       {step === 'method' && (
         <div className="space-y-4">
-          {/* Phone */}
+          {/* Phone — temporarily hidden until SMS service is integrated
           <button
             onClick={() => { setAuthMethod('phone'); setStep('phone'); setError('') }}
             className="w-full flex items-center gap-3 rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
@@ -389,6 +389,7 @@ function LoginContent() {
               <p className="mt-0.5 text-xs text-muted-foreground">Get a one-time code via SMS</p>
             </div>
           </button>
+          */}
 
           {/* Email */}
           <button
