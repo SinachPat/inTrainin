@@ -15,9 +15,9 @@
  *   profileComplete + no mismatch        → /dashboard or /admin
  *   profileComplete + pending=business
  *     but account is learner             → /login?method=google_convert
- *   profile incomplete                   → /login?method=google_profile
- *   notFound + pending_account_type set  → /login?method=google_profile  (new signup)
- *   notFound + no pending_account_type   → error: no account found        (unknown Google sign-in)
+ *   profile incomplete                   → /login?method=google_profile  (name pre-filled)
+ *   notFound + pending_account_type set  → /login?method=google_profile  (new signup, name pre-filled)
+ *   notFound + no pending_account_type   → /login?method=google_profile  (new user from login page, type picker shown first)
  */
 
 import { useEffect, useState } from 'react'
@@ -31,7 +31,7 @@ import { api } from '@/lib/api'
 // ── Session hint helpers ──────────────────────────────────────────────────────
 
 type PendingSession =
-  | { notFound: true }
+  | { notFound: true; googleName?: string | null; googleEmail?: string | null }
   | {
       notFound?: false
       id: string
@@ -131,84 +131,68 @@ function FinaliseContent() {
     ps:                  PendingSession,
   ) {
     if (ps.notFound) {
+      // Brand-new Google user — no public.users row yet.
+      // Route to onboarding regardless of which page they came from.
+      // If pendingAccountType is set (came from signup), keep it so the login
+      // page skips the type picker. If not (came from login), leave it unset
+      // so the type picker shows first — Google sign-in works as sign-in OR sign-up.
+      sessionStorage.setItem('pending_access_token',  accessToken)
+      sessionStorage.setItem('pending_refresh_token', refreshToken)
       if (pendingAccountType) {
-        // Came from signup page — new user, go to onboarding
-        sessionStorage.setItem('pending_access_token',  accessToken)
-        sessionStorage.setItem('pending_refresh_token', refreshToken)
-        // Leave pending_account_type for login page to consume
-        router.replace('/login?method=google_profile')
+        // pending_account_type already in sessionStorage — login page will read it
       } else {
-        // Came from login page — no InTrainin account for this Google account
-        setError('no_account')
+        // Leave pending_account_type unset — type picker will show
+        sessionStorage.removeItem('pending_account_type')
       }
+      // Stash Google name/email so the profile form can be pre-filled
+      if (ps.googleName)  sessionStorage.setItem('pending_google_name',  ps.googleName)
+      if (ps.googleEmail) sessionStorage.setItem('pending_google_email', ps.googleEmail)
+      router.replace('/login?method=google_profile')
       return
     }
 
-    setSession({
-      accessToken,
-      refreshToken,
-      user: {
-        id:          ps.id,
-        fullName:    ps.fullName,
-        accountType: ps.accountType as 'learner' | 'business' | 'admin',
-        phone:       ps.phone,
-      },
-    })
-
     if (ps.profileComplete) {
-      // Account-type mismatch: wanted business but account is learner
+      // Account-type mismatch: user signed up as business but account is learner
       if (pendingAccountType === 'business' && ps.accountType === 'learner') {
-        // Leave pending_account_type for login page to consume
         sessionStorage.setItem('pending_access_token',  accessToken)
         sessionStorage.setItem('pending_refresh_token', refreshToken)
+        // Leave pending_account_type for login page to consume
         router.replace('/login?method=google_convert')
         return
       }
 
-      // Happy path
+      // Happy path — profile is complete, set session and go to dashboard
       sessionStorage.removeItem('pending_account_type')
+      setSession({
+        accessToken,
+        refreshToken,
+        user: {
+          id:          ps.id,
+          fullName:    ps.fullName,
+          accountType: ps.accountType as 'learner' | 'business' | 'admin',
+          phone:       ps.phone,
+        },
+      })
       router.replace(
         ps.accountType === 'business' || ps.accountType === 'admin'
           ? '/admin'
           : '/dashboard',
       )
     } else {
-      // Profile incomplete — send to onboarding
+      // Profile exists but is incomplete (has auth row, missing name/city).
+      // Do NOT call setSession here — the middleware cookie would let an
+      // incomplete profile straight into /dashboard. setSession is called by
+      // handleProfileSubmit in the login page after completion.
       sessionStorage.setItem('pending_access_token',  accessToken)
       sessionStorage.setItem('pending_refresh_token', refreshToken)
+      // Stash Google name so the profile form can be pre-filled
+      if (ps.fullName?.trim()) sessionStorage.setItem('pending_google_name', ps.fullName.trim())
       // Leave pending_account_type for login page
       router.replace('/login?method=google_profile')
     }
   }
 
   // ── Error states ─────────────────────────────────────────────────────────
-  if (error === 'no_account') {
-    return (
-      <div className="space-y-4 text-center">
-        <p className="text-sm font-medium text-destructive">
-          No InTrainin account found for this Google account.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Would you like to sign up instead?
-        </p>
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => router.replace('/signup')}
-            className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Create an account
-          </button>
-          <button
-            onClick={() => router.replace('/login')}
-            className="text-sm text-primary hover:underline"
-          >
-            Back to sign in
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   if (error) {
     return (
       <div className="space-y-4 text-center">

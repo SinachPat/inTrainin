@@ -123,13 +123,15 @@ function LoginContent() {
   const [error,       setError]       = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  // Pick up tokens and account type stashed by finalise/signup pages for Google flows
+  // Pick up tokens, account type, and Google profile data stashed by finalise/signup
   useEffect(() => {
     if (methodParam !== 'google_profile' && methodParam !== 'google_convert') return
 
-    const at      = sessionStorage.getItem('pending_access_token')
-    const rt      = sessionStorage.getItem('pending_refresh_token')
-    const accType = sessionStorage.getItem('pending_account_type') as AccountType | null
+    const at          = sessionStorage.getItem('pending_access_token')
+    const rt          = sessionStorage.getItem('pending_refresh_token')
+    const accType     = sessionStorage.getItem('pending_account_type') as AccountType | null
+    const googleName  = sessionStorage.getItem('pending_google_name')
+    const googleEmail = sessionStorage.getItem('pending_google_email')
 
     if (at && rt) {
       setTokens({ accessToken: at, refreshToken: rt })
@@ -140,16 +142,26 @@ function LoginContent() {
       setAccType(accType)
       sessionStorage.removeItem('pending_account_type')
     }
+    // Pre-fill the profile form with the user's Google name so they don't
+    // have to retype what Google already knows about them
+    if (googleName) {
+      setProfile(p => ({ ...p, fullName: googleName }))
+      sessionStorage.removeItem('pending_google_name')
+    }
+    if (googleEmail) {
+      setEmail(googleEmail)
+      sessionStorage.removeItem('pending_google_email')
+    }
 
     if (methodParam === 'google_convert') {
       // Existing learner account tried to sign in/up as business — show convert banner
-      setAccType('business') // they want to become business
+      setAccType('business')
       setStep('convert')
       return
     }
 
     // google_profile: account type was pre-selected (from signup page or URL hint),
-    // skip straight to profile. Show type-picker only if we have no hint at all.
+    // skip straight to profile. Show type-picker if we have no hint at all.
     const resolvedType = accType ?? (typeHint === 'business' ? 'business' : null)
     if (resolvedType) {
       setAccType(resolvedType)

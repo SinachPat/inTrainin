@@ -53,9 +53,18 @@ export const authMiddleware: MiddlewareHandler<{ Variables: AuthVariables }> = c
     }
 
     if (!userRow) {
-      // User authenticated with Supabase but has no row in public.users —
-      // this is an incomplete signup; treat as unauthorised.
-      return c.json({ success: false, error: 'User profile not found' }, 401)
+      // User authenticated with Supabase but has no row in public.users yet.
+      // This is the normal state between /email/register and /profile/complete
+      // (the stub upsert may have raced or the row creation is in-flight).
+      // Allow through so /profile/complete can create the row.
+      // Derive the role from auth metadata (set by Google OAuth and profile/complete)
+      // so a business signup gets the right role, not a hardcoded learner default.
+      const rawMeta    = user.user_metadata?.account_type as string | undefined
+      const metaRole   = rawMeta === 'business' || rawMeta === 'admin' ? rawMeta : 'learner'
+      c.set('userId',   user.id)
+      c.set('userRole', metaRole as AccountType)
+      await next()
+      return
     }
 
     const userRole = userRow.account_type as AccountType

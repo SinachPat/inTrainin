@@ -100,10 +100,16 @@ export async function GET(request: NextRequest) {
           }), { path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: true })
         }
       } else if (meRes.status === 404) {
-        // No InTrainin profile yet — new user or sign-in with no account
-        response.cookies.set(PS_COOKIE, JSON.stringify({ notFound: true }), {
-          path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: true,
-        })
+        // No InTrainin profile yet — brand-new Google user.
+        // Include their Google name/email from the OAuth session metadata so
+        // the profile form can be pre-filled even without a public.users row.
+        const { data: { session: sess } } = await supabase.auth.getSession()
+        const meta = sess?.user?.user_metadata
+        response.cookies.set(PS_COOKIE, JSON.stringify({
+          notFound:    true,
+          googleName:  (meta?.full_name ?? meta?.name ?? null) as string | null,
+          googleEmail: (sess?.user?.email ?? null) as string | null,
+        }), { path: '/', maxAge: PS_MAX_AGE, sameSite: 'lax', httpOnly: true })
       }
       // Any other HTTP error: leave cookie unset; finalise/page.tsx will retry
     }

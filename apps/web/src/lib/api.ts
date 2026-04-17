@@ -75,16 +75,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (res.status === 401) {
-    // Auth routes (login, otp, refresh) must not be retried — that causes loops.
-    const isAuthRoute = path.startsWith('/auth/')
-    if (!isAuthRoute) {
+    // Pure session endpoints must not be retried — doing so causes infinite loops.
+    // Protected /auth/* routes (e.g. /auth/profile/complete, /auth/me) are NOT
+    // excluded — they should go through the refresh cycle like any other route.
+    const isPureAuthRoute =
+      path === '/auth/refresh' ||
+      path.startsWith('/auth/otp/') ||
+      path.startsWith('/auth/email/')
+
+    if (!isPureAuthRoute) {
       if (!refreshPromise) {
         refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null })
       }
       const newToken = await refreshPromise
 
       if (newToken) {
-        // Retry original request with the fresh token
+        // Retry the original request with the fresh token.
+        // init.headers comes last so any caller-supplied Authorization still wins.
         const retryRes = await fetch(`${BASE_URL}${path}`, {
           ...init,
           headers: {
@@ -97,9 +104,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
     }
 
-    // Refresh failed or was an auth route — clear session and bail
+    // Refresh failed (or pure auth route) — surface the real API error message
+    // so the user sees a meaningful reason instead of the generic fallback.
+    let errMsg = 'Session expired — please sign in again.'
+    try {
+      const body = await res.clone().json() as { error?: unknown }
+      if (typeof body.error === 'string' && body.error) errMsg = body.error
+    } catch { /* non-JSON body — keep the fallback */ }
+
     clearSession()
-    throw new ApiError(401, 'Session expired — please sign in again.', 'UNAUTHORIZED')
+    throw new ApiError(401, errMsg, 'UNAUTHORIZED')
   }
 
   if (!res.ok) {
