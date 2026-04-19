@@ -150,44 +150,40 @@ auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), as
     authUserId = newUser.user.id
   }
 
-  // ── 3. Mint a session via GoTrue admin REST ─────────────────────────────────
-  // The Supabase JS SDK does not expose admin.createSession(), so we call the
-  // underlying GoTrue REST endpoint directly.
-  const supabaseUrl    = process.env.SUPABASE_URL!
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  // ── 3. Mint a session via temp-password sign-in ─────────────────────────────
+  // The Supabase JS SDK has no admin.createSession() for phone users.
+  // Workaround: set a single-use random password → signInWithPassword → immediately
+  // overwrite the password so it can never be reused. The window is sub-millisecond.
+  const tempPassword = crypto.randomUUID() + crypto.randomUUID() // 72 random hex chars
 
-  let sessionData: {
-    access_token:  string
-    refresh_token: string
-    expires_in:    number
+  const { error: pwErr } = await db.auth.admin.updateUserById(authUserId, {
+    password:      tempPassword,
+    phone_confirm: true,
+  })
+
+  if (pwErr) {
+    console.error('[auth/otp/verify] updateUserById failed:', pwErr.message)
+    return c.json({ success: false, error: 'Failed to create session. Please try again.' }, 500)
   }
 
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}/session`, {
-      method:  'POST',
-      headers: {
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'apikey':        serviceRoleKey,
-        'Content-Type':  'application/json',
-      },
-    })
+  const { data: signInData, error: signInErr } = await db.auth.signInWithPassword({
+    phone:    e164,
+    password: tempPassword,
+  })
 
-    if (!res.ok) {
-      const body = await res.text()
-      console.error('[auth/otp/verify] session mint failed:', res.status, body)
-      return c.json({ success: false, error: 'Failed to create session. Please try again.' }, 500)
-    }
+  // Invalidate the temp password immediately — fire and forget, non-blocking
+  db.auth.admin.updateUserById(authUserId, { password: crypto.randomUUID() + crypto.randomUUID() })
+    .catch(err => console.error('[auth/otp/verify] password invalidation failed:', err))
 
-    sessionData = await res.json() as typeof sessionData
-  } catch (err) {
-    console.error('[auth/otp/verify] session fetch error:', err)
+  if (signInErr || !signInData.session) {
+    console.error('[auth/otp/verify] signInWithPassword failed:', signInErr?.message)
     return c.json({ success: false, error: 'Failed to create session. Please try again.' }, 500)
   }
 
   // ── 4. Upsert public.users + determine profile state ────────────────────────
   const { error: upsertError } = await db.from('users').upsert(
     { id: authUserId, phone: e164, account_type: 'learner', full_name: '' },
-    { onConflict: 'id', ignoreDuplicates: true },  // ignoreDuplicates = don't overwrite existing data
+    { onConflict: 'id', ignoreDuplicates: true },
   )
 
   if (upsertError) {
@@ -200,17 +196,17 @@ auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), as
     .eq('id', authUserId)
     .single()
 
-  const profileComplete      = Boolean(profile?.full_name?.trim() && profile?.location_city)
-  const returnedAccountType  = profile?.account_type ?? 'learner'
+  const profileComplete     = Boolean(profile?.full_name?.trim() && profile?.location_city)
+  const returnedAccountType = profile?.account_type ?? 'learner'
 
   return c.json({
     success: true,
     data: {
-      accessToken:     sessionData.access_token,
-      refreshToken:    sessionData.refresh_token,
-      expiresIn:       sessionData.expires_in,
+      accessToken:  signInData.session.access_token,
+      refreshToken: signInData.session.refresh_token,
+      expiresIn:    signInData.session.expires_in,
       profileComplete,
-      accountType:     returnedAccountType,
+      accountType:  returnedAccountType,
     },
   })
 })
