@@ -152,9 +152,14 @@ auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), as
 
   // ── 3. Mint a session via temp-password sign-in ─────────────────────────────
   // The Supabase JS SDK has no admin.createSession() for phone users.
-  // Workaround: set a single-use random password → signInWithPassword → immediately
-  // overwrite the password so it can never be reused. The window is sub-millisecond.
-  const tempPassword = crypto.randomUUID() + crypto.randomUUID() // 72 random hex chars
+  // Workaround: set a one-time random password → signInWithPassword → session.
+  //
+  // IMPORTANT: do NOT update the password again after signing in.
+  // GoTrue's adminUpdateUser calls DeleteAllSessionsForUser whenever the password
+  // is changed, which would immediately invalidate the session we just minted.
+  // The temp password is 72 cryptographically random chars and rate-limited —
+  // it is effectively unguessable without a second update step.
+  const tempPassword = crypto.randomUUID() + crypto.randomUUID() // 72 random chars
 
   const { error: pwErr } = await db.auth.admin.updateUserById(authUserId, {
     password:      tempPassword,
@@ -170,10 +175,6 @@ auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), as
     phone:    e164,
     password: tempPassword,
   })
-
-  // Invalidate the temp password immediately — fire and forget, non-blocking
-  db.auth.admin.updateUserById(authUserId, { password: crypto.randomUUID() + crypto.randomUUID() })
-    .catch(err => console.error('[auth/otp/verify] password invalidation failed:', err))
 
   if (signInErr || !signInData.session) {
     console.error('[auth/otp/verify] signInWithPassword failed:', signInErr?.message)
@@ -596,8 +597,12 @@ auth.post('/email/login', loginLimit, zValidator('json', EmailLoginSchema), asyn
     return c.json({ success: false, error: 'Login failed — no session returned' }, 400)
   }
 
-  // Upsert public.users row (handles case where Google OAuth created the user
-  // but profile/complete was never called)
+  // Ensure a public.users stub exists (handles the edge case where a Supabase
+  // auth row exists but profile/complete was never called — e.g. a Google OAuth
+  // user who abandoned onboarding and is now trying email/password).
+  // ignoreDuplicates: true → INSERT OR DO NOTHING on conflict so we never
+  // overwrite an existing user's full_name, account_type, or any other profile
+  // field that was set by profile/complete. Email is set by profile/complete too.
   const rawType     = data.user.user_metadata?.account_type as string | undefined
   const accountType = (rawType === 'business' || rawType === 'admin' ? rawType : 'learner') as AccountType
 
@@ -606,9 +611,9 @@ auth.post('/email/login', loginLimit, zValidator('json', EmailLoginSchema), asyn
       id:           data.user.id,
       email:        email.toLowerCase(),
       account_type: accountType,
-      full_name:    (data.user.user_metadata?.full_name as string | undefined) ?? '',
+      full_name:    '',
     },
-    { onConflict: 'id', ignoreDuplicates: false },
+    { onConflict: 'id', ignoreDuplicates: true },
   ).then(({ error: e }) => {
     if (e) console.error('[auth/email/login] users upsert error:', e.message)
   })

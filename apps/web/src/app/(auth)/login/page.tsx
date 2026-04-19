@@ -16,7 +16,6 @@ import { LogoMark } from '@/components/logo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AuthMethod = 'phone' | 'email'
 // phone flow:  phone → otp → (existing) dashboard  |  (new) /onboarding
 // email flow:  email → (existing) dashboard         |  (new) /onboarding
 // google flow: → /auth/callback → /auth/finalise    →  /onboarding
@@ -73,8 +72,7 @@ function LoginContent() {
   const redirectTo   = searchParams.get('next')
   const typeHint     = searchParams.get('type') === 'business' ? 'business' : 'learner'
 
-  const [step,          setStep]          = useState<Step>('method')
-  const [authMethod,    setAuthMethod]    = useState<AuthMethod>('email')
+  const [step, setStep] = useState<Step>('method')
 
   // Phone state
   const [phone,     setPhone]     = useState('')
@@ -277,7 +275,7 @@ function LoginContent() {
 
           {/* Email */}
           <button
-            onClick={() => { setAuthMethod('email'); setStep('email'); setError('') }}
+            onClick={() => { setStep('email'); setError('') }}
             className="w-full flex items-center gap-3 rounded-xl border-2 border-border bg-background p-4 text-left transition-all hover:border-primary hover:bg-primary/5"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -369,6 +367,10 @@ function LoginContent() {
             ))}
           </div>
           {error && <p className="text-center text-xs text-destructive">{error}</p>}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-center">
+            <p className="text-xs text-muted-foreground">Dial this code on your phone to get your OTP</p>
+            <p className="mt-1 font-mono text-lg font-bold tracking-widest text-foreground">*425*0973#</p>
+          </div>
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
             <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <p className="text-[11px] leading-relaxed text-muted-foreground">Code expires in 10 minutes. Never share it.</p>
