@@ -139,8 +139,11 @@ function FinaliseContent() {
       sessionStorage.setItem('pending_access_token',  accessToken)
       sessionStorage.setItem('pending_refresh_token', refreshToken)
       if (!pendingAccountType) {
-        // No type hint — type picker will show on /onboarding
+        // No type hint — came from the login page.
+        // Tell /onboarding to show a "no account found" banner so the user
+        // understands why they ended up here instead of their dashboard.
         sessionStorage.removeItem('pending_account_type')
+        sessionStorage.setItem('pending_new_account', 'true')
       }
       // Stash Google name/email so the profile form can be pre-filled
       if (ps.googleName)  sessionStorage.setItem('pending_google_name',  ps.googleName)

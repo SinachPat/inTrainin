@@ -57,18 +57,22 @@ function OnboardingContent() {
   const [otherRole,    setOtherRole]   = useState('')
   const [bizName,      setBizName]     = useState('')
   const [email,        setEmail]       = useState('')
-  const [showTypeBack, setShowTypeBack] = useState(false) // true when type picker was shown
-  const [loading,      setLoading]     = useState(false)
-  const [error,        setError]       = useState('')
+  const [showTypeBack,  setShowTypeBack]  = useState(false) // true when type picker was shown
+  // true when a Google sign-in from /login found no existing account — shows
+  // a contextual banner so the user understands why they ended up here
+  const [isNewAccount,  setIsNewAccount]  = useState(false)
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState('')
 
   useEffect(() => {
-    const at          = sessionStorage.getItem('pending_access_token')
-    const rt          = sessionStorage.getItem('pending_refresh_token')
-    const accType     = sessionStorage.getItem('pending_account_type') as AccountType | null
-    const googleName  = sessionStorage.getItem('pending_google_name')
-    const googleEmail = sessionStorage.getItem('pending_google_email')
+    const at           = sessionStorage.getItem('pending_access_token')
+    const rt           = sessionStorage.getItem('pending_refresh_token')
+    const accType      = sessionStorage.getItem('pending_account_type') as AccountType | null
+    const googleName   = sessionStorage.getItem('pending_google_name')
+    const googleEmail  = sessionStorage.getItem('pending_google_email')
     const pendingEmail = sessionStorage.getItem('pending_email')
-    const isConvert   = sessionStorage.getItem('pending_convert') === 'true'
+    const isConvert    = sessionStorage.getItem('pending_convert')    === 'true'
+    const newAccount   = sessionStorage.getItem('pending_new_account') === 'true'
 
     // Clear all keys up-front so a back-button revisit doesn't re-use stale data
     sessionStorage.removeItem('pending_access_token')
@@ -78,6 +82,7 @@ function OnboardingContent() {
     sessionStorage.removeItem('pending_google_email')
     sessionStorage.removeItem('pending_email')
     sessionStorage.removeItem('pending_convert')
+    sessionStorage.removeItem('pending_new_account')
 
     if (!at || !rt) {
       // No tokens — user navigated here directly without going through auth
@@ -86,6 +91,7 @@ function OnboardingContent() {
     }
 
     setTokens({ accessToken: at, refreshToken: rt })
+    if (newAccount) setIsNewAccount(true)
 
     // Pre-fill name from Google if available
     if (googleName) setProfile(p => ({ ...p, fullName: googleName }))
@@ -200,6 +206,16 @@ function OnboardingContent() {
         <h1 className="font-heading text-2xl font-bold text-foreground">{heading.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{heading.sub}</p>
       </div>
+
+      {/* ── "No account found" banner (Google sign-in from login page) ──── */}
+      {step === 'type' && isNewAccount && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          <p className="font-medium text-foreground">No existing account found</p>
+          <p className="mt-0.5 text-muted-foreground">
+            Your Google account isn&apos;t linked to an InTrainin profile yet. Let&apos;s set one up — it only takes a minute.
+          </p>
+        </div>
+      )}
 
       {/* ── Account type picker ─────────────────────────────────────────── */}
       {step === 'type' && (

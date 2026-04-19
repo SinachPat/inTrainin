@@ -91,6 +91,10 @@ function LoginContent() {
   const [loading,       setLoading]       = useState(false)
   const [error,         setError]         = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
+  // Set to true when sign-in fails because the email isn't registered —
+  // shows a "create account" CTA below the error without conflating it
+  // with "wrong password" (both return the same API error for security).
+  const [noAccountHint, setNoAccountHint] = useState(false)
 
   function startCountdown() {
     setCountdown(60)
@@ -190,6 +194,7 @@ function LoginContent() {
     if (!password.trim()) { setError('Enter your password'); return }
     if (isNewUser && password.length < 8) { setError('Password must be at least 8 characters'); return }
 
+    setNoAccountHint(false)
     setLoading(true)
     try {
       const endpoint = isNewUser ? '/auth/email/register' : '/auth/email/login'
@@ -201,11 +206,11 @@ function LoginContent() {
       await handlePostAuth(res.data.accessToken, res.data.refreshToken, res.data.profileComplete, res.data.accountType)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed. Try again.'
-      if (!isNewUser && (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('not found'))) {
-        setError(`${msg} Don't have an account?`)
-      } else {
-        setError(msg)
-      }
+      setError(msg)
+      // Show a signup CTA whenever sign-in fails — we can't distinguish "wrong
+      // password" from "no account" at this level (API returns the same error
+      // for both, intentionally, to prevent user enumeration).
+      if (!isNewUser) setNoAccountHint(true)
     } finally {
       setLoading(false)
     }
@@ -432,6 +437,21 @@ function LoginContent() {
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
+          {/* No-account hint — shown after a failed sign-in attempt so the user
+              knows they can create an account. Shown in addition to the error, not
+              instead of it, so a wrong-password user still sees the error. */}
+          {noAccountHint && !isNewUser && (
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+              No account with that email?{' '}
+              <Link
+                href={typeHint === 'business' ? '/signup?type=business' : '/signup'}
+                className="font-medium text-primary hover:underline"
+              >
+                Create a free account
+              </Link>
+            </div>
+          )}
+
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? 'Please wait…' : (
               <span className="flex items-center gap-1.5">
@@ -443,7 +463,7 @@ function LoginContent() {
           {/* Toggle between login and register */}
           <p className="text-center text-xs text-muted-foreground">
             {isNewUser ? 'Already have an account? ' : 'New to InTrainin? '}
-            <button type="button" onClick={() => { setIsNewUser(p => !p); setError('') }}
+            <button type="button" onClick={() => { setIsNewUser(p => !p); setError(''); setNoAccountHint(false) }}
               className="font-medium text-primary hover:underline">
               {isNewUser ? 'Sign in instead' : 'Create an account'}
             </button>
