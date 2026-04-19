@@ -8,7 +8,7 @@ import { createServerClient } from '@intrainin/db'
  * We look up the user's latest valid OTP (stored by the Supabase SMS hook)
  * and return it in the Qrios response envelope.
  *
- * Endpoint:  POST /ussd          (registered in apps/api/src/index.ts)
+ * Endpoint:  POST /ussd[/:p1][/:p2]   (registered in apps/api/src/index.ts)
  * Auth:      Authorization: Bearer <QRIOS_WEBHOOK_SECRET>
  *
  * Qrios response envelope:
@@ -41,9 +41,12 @@ function toE164(msisdn: string): string {
   return `+${digits}`
 }
 
-// ── POST / ────────────────────────────────────────────────────────────────────
+// ── POST / | /:p1 | /:p1/:p2 ─────────────────────────────────────────────────
+// Qrios appends optional path segments to the webhook URL depending on the
+// USSD session state. Both segments are accepted but ignored — all routing
+// logic is driven by the msisdn in the POST body.
 
-ussdRouter.post('/', async (c) => {
+ussdRouter.post('/:p1?/:p2?', async (c) => {
   // ── 1. Authenticate ────────────────────────────────────────────────────────
   // const expected = process.env.QRIOS_WEBHOOK_SECRET
 
