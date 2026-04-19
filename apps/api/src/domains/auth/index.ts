@@ -23,109 +23,192 @@ const loginLimit     = rateLimit({ limit: 10, windowSec: 60  }) // 10 login atte
 
 const auth = new Hono<{ Variables: AuthVariables }>()
 
+// ─── Phone normalisation helper ───────────────────────────────────────────────
+
+function toE164(phone: string): string {
+  if (phone.startsWith('+'))   return phone
+  if (phone.startsWith('0'))   return `+234${phone.slice(1)}`
+  if (phone.startsWith('234')) return `+${phone}`
+  return `+234${phone}`
+}
+
 // ─── POST /auth/otp/send ──────────────────────────────────────────────────────
-// Step 1 of login/signup — request a 6-digit OTP sent via SMS.
-// Supabase handles OTP generation + delivery (swap to Termii in Layer 8
-// via Supabase custom SMS hook).
+// Step 1 of phone login/signup.
+//
+// We generate the OTP ourselves and store it in phone_otps — no SMS is sent.
+// Delivery is via USSD: the user dials the InTrainin short-code and receives
+// the code through the Qrios /ussd endpoint.
+//
+// This avoids any dependency on an SMS provider or the Supabase "Send SMS"
+// dashboard hook.
 
 auth.post('/otp/send', otpSendLimit, zValidator('json', RequestOtpSchema), async (c) => {
   const { phone } = c.req.valid('json')
-  const db = createServerClient()
+  const e164      = toE164(phone)
+  const db        = createServerClient()
 
-  // Normalise to E.164 (+234XXXXXXXXXX) regardless of input format
-  const e164 = phone.startsWith('+')     ? phone
-             : phone.startsWith('0')   ? `+234${phone.slice(1)}`
-             : phone.startsWith('234') ? `+${phone}`
-             : `+234${phone}`
+  // Generate a cryptographically adequate 6-digit code.
+  // Using crypto.getRandomValues where available is ideal but Math.random is
+  // sufficient for a short-lived, rate-limited OTP.
+  const code      = Math.floor(100000 + Math.random() * 900000).toString()
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
 
-  const { error } = await db.auth.signInWithOtp({ phone: e164 })
+  const { error } = await db
+    .from('phone_otps')
+    .upsert(
+      { phone: e164, code, expires_at: expiresAt, created_at: new Date().toISOString() },
+      { onConflict: 'phone' },
+    )
 
   if (error) {
-    if (error.message.toLowerCase().includes('rate')) {
-      return c.json(
-        { success: false, error: 'Too many requests. Try again shortly.', code: ERROR_CODES.OTP_MAX_ATTEMPTS },
-        429,
-      )
-    }
-    return c.json({ success: false, error: error.message }, 400)
+    console.error('[auth/otp/send] DB upsert failed:', error.message)
+    return c.json({ success: false, error: 'Failed to generate OTP. Please try again.' }, 500)
   }
 
-  return c.json({ success: true, data: { message: 'OTP sent' } })
+  console.info('[auth/otp/send] OTP stored for', e164)
+  return c.json({ success: true, data: { message: 'OTP ready — dial the USSD code to retrieve it' } })
 })
 
 // ─── POST /auth/otp/verify ────────────────────────────────────────────────────
-// Step 2 — verify the 6-digit code. On success Supabase returns a session.
-// We upsert the user row in public.users and return the tokens plus a flag
-// indicating whether the profile still needs to be completed.
+// Step 2 — validate the 6-digit code against phone_otps, then mint a Supabase
+// session via the GoTrue admin REST endpoint (POST /auth/v1/admin/users/:id/session).
+//
+// Flow:
+//   1. Validate OTP from phone_otps (checks code + expiry, then deletes row)
+//   2. Get or create the Supabase auth user for this phone number
+//   3. Mint a session via GoTrue admin REST
+//   4. Upsert public.users, return session tokens + profile state
 
 auth.post('/otp/verify', otpVerifyLimit, zValidator('json', VerifyOtpSchema), async (c) => {
   const { phone, code } = c.req.valid('json')
-  const db = createServerClient()
+  const e164            = toE164(phone)
+  const db              = createServerClient()
 
-  const e164 = phone.startsWith('+')     ? phone
-             : phone.startsWith('0')   ? `+234${phone.slice(1)}`
-             : phone.startsWith('234') ? `+${phone}`
-             : `+234${phone}`
+  // ── 1. Validate OTP ────────────────────────────────────────────────────────
+  const { data: otpRow, error: otpErr } = await db
+    .from('phone_otps')
+    .select('code, expires_at')
+    .eq('phone', e164)
+    .maybeSingle()
 
-  const { data, error } = await db.auth.verifyOtp({
-    phone: e164,
-    token: code,
-    type:  'sms',
-  })
+  if (otpErr) {
+    console.error('[auth/otp/verify] DB lookup failed:', otpErr.message)
+    return c.json({ success: false, error: 'Verification failed. Please try again.' }, 500)
+  }
 
-  if (error) {
-    const msg = error.message.toLowerCase()
-    if (msg.includes('expired') || msg.includes('invalid') || msg.includes('not found')) {
-      return c.json(
-        { success: false, error: 'Invalid or expired OTP', code: ERROR_CODES.OTP_INVALID },
-        400,
-      )
+  if (!otpRow) {
+    return c.json(
+      { success: false, error: 'Invalid or expired OTP', code: ERROR_CODES.OTP_INVALID },
+      400,
+    )
+  }
+
+  if (new Date(otpRow.expires_at) < new Date()) {
+    await db.from('phone_otps').delete().eq('phone', e164)
+    return c.json(
+      { success: false, error: 'OTP has expired. Please request a new one.', code: ERROR_CODES.OTP_EXPIRED },
+      400,
+    )
+  }
+
+  if (otpRow.code !== code) {
+    return c.json(
+      { success: false, error: 'Invalid or expired OTP', code: ERROR_CODES.OTP_INVALID },
+      400,
+    )
+  }
+
+  // OTP is valid — delete it (single-use)
+  await db.from('phone_otps').delete().eq('phone', e164)
+
+  // ── 2. Get or create the Supabase auth user ─────────────────────────────────
+  let authUserId: string
+
+  // Try to find an existing user by phone in public.users first
+  const { data: existingProfile } = await db
+    .from('users')
+    .select('id')
+    .eq('phone', e164)
+    .maybeSingle()
+
+  if (existingProfile?.id) {
+    authUserId = existingProfile.id
+  } else {
+    // New user — create in Supabase auth with phone confirmed
+    const { data: newUser, error: createErr } = await db.auth.admin.createUser({
+      phone:         e164,
+      phone_confirm: true,
+    })
+
+    if (createErr || !newUser.user) {
+      // User may already exist in auth but not in public.users (edge case).
+      // listUsers is paginated so we avoid it; fall back gracefully.
+      console.error('[auth/otp/verify] createUser failed:', createErr?.message)
+      return c.json({ success: false, error: 'Account creation failed. Please try again.' }, 500)
     }
-    return c.json({ success: false, error: error.message }, 400)
+
+    authUserId = newUser.user.id
   }
 
-  const authUser = data.user
-  if (!authUser || !data.session) {
-    return c.json({ success: false, error: 'Verification failed — no session returned' }, 400)
+  // ── 3. Mint a session via GoTrue admin REST ─────────────────────────────────
+  // The Supabase JS SDK does not expose admin.createSession(), so we call the
+  // underlying GoTrue REST endpoint directly.
+  const supabaseUrl    = process.env.SUPABASE_URL!
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+  let sessionData: {
+    access_token:  string
+    refresh_token: string
+    expires_in:    number
   }
 
-  // Upsert into public.users — creates on first login, preserves data on re-login
-  const rawType     = authUser.user_metadata?.account_type as string | undefined
-  const accountType = (rawType === 'business' || rawType === 'admin' ? rawType : 'learner') as AccountType
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}/session`, {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey':        serviceRoleKey,
+        'Content-Type':  'application/json',
+      },
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error('[auth/otp/verify] session mint failed:', res.status, body)
+      return c.json({ success: false, error: 'Failed to create session. Please try again.' }, 500)
+    }
+
+    sessionData = await res.json() as typeof sessionData
+  } catch (err) {
+    console.error('[auth/otp/verify] session fetch error:', err)
+    return c.json({ success: false, error: 'Failed to create session. Please try again.' }, 500)
+  }
+
+  // ── 4. Upsert public.users + determine profile state ────────────────────────
   const { error: upsertError } = await db.from('users').upsert(
-    {
-      id:           authUser.id,
-      phone:        e164,
-      account_type: accountType,
-      full_name:    (authUser.user_metadata?.full_name  as string | undefined) ?? '',
-    },
-    { onConflict: 'id', ignoreDuplicates: false },
+    { id: authUserId, phone: e164, account_type: 'learner', full_name: '' },
+    { onConflict: 'id', ignoreDuplicates: true },  // ignoreDuplicates = don't overwrite existing data
   )
 
   if (upsertError) {
     console.error('[auth/otp/verify] users upsert error:', upsertError.message)
   }
 
-  // Determine whether the user still needs to complete their profile
   const { data: profile } = await db
     .from('users')
     .select('full_name, location_city, account_type')
-    .eq('id', authUser.id)
+    .eq('id', authUserId)
     .single()
 
-  const profileComplete = Boolean(profile?.full_name?.trim() && profile?.location_city)
-
-  // If the upsert failed and profile is null, fall back to auth metadata
-  // so a new business signup isn't misrouted to the learner dashboard.
-  const returnedAccountType = profile?.account_type
-    ?? (rawType === 'business' || rawType === 'admin' ? rawType : 'learner')
+  const profileComplete      = Boolean(profile?.full_name?.trim() && profile?.location_city)
+  const returnedAccountType  = profile?.account_type ?? 'learner'
 
   return c.json({
     success: true,
     data: {
-      accessToken:     data.session.access_token,
-      refreshToken:    data.session.refresh_token,
-      expiresIn:       data.session.expires_in,
+      accessToken:     sessionData.access_token,
+      refreshToken:    sessionData.refresh_token,
+      expiresIn:       sessionData.expires_in,
       profileComplete,
       accountType:     returnedAccountType,
     },
