@@ -45,19 +45,19 @@ function toE164(msisdn: string): string {
 
 ussdRouter.post('/', async (c) => {
   // ── 1. Authenticate ────────────────────────────────────────────────────────
-  // const expected = process.env.QRIOS_WEBHOOK_SECRET
+  const expected = process.env.QRIOS_WEBHOOK_SECRET
 
-  // if (!expected) {
-  //   console.error('[ussd] QRIOS_WEBHOOK_SECRET is not set')
-  //   return c.json(infoView('Service temporarily unavailable. Please try again.'), 500)
-  // }
+  if (!expected) {
+    console.error('[ussd] QRIOS_WEBHOOK_SECRET is not set')
+    return c.json(infoView('Service temporarily unavailable. Please try again.'), 500)
+  }
 
-  // const authHeader = c.req.header('Authorization') ?? ''
-  // const token      = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const authHeader = c.req.header('Authorization') ?? ''
+  const token      = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
 
-  // if (!token || token !== expected) {
-  //   return c.json(infoView('Unauthorized request.'), 401)
-  // }
+  if (!token || token !== expected) {
+    return c.json(infoView('Unauthorized request.'), 401)
+  }
 
   // ── 2. Parse body ──────────────────────────────────────────────────────────
   let body: Record<string, unknown>
