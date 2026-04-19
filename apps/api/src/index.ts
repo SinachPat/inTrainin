@@ -11,6 +11,8 @@ import { businessRouter } from './domains/business/index.js'
 import { notificationsRouter } from './domains/notifications/index.js'
 import { roadmapRouter } from './domains/roadmap/index.js'
 import { paymentsRouter } from './domains/payments/index.js'
+import { webhooksRouter } from './domains/webhooks/index.js'
+import { ussdRouter } from './domains/ussd/index.js'
 
 const app = new Hono()
 
@@ -53,6 +55,8 @@ app.route('/business', businessRouter)
 app.route('/notifications', notificationsRouter)
 app.route('/roadmap', roadmapRouter)
 app.route('/payments', paymentsRouter)
+app.route('/webhooks', webhooksRouter)
+app.route('/ussd', ussdRouter)
 
 // ─── Server ──────────────────────────────────────────────────────────────────
 

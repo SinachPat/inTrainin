@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { createServerClient } from '@intrainin/db'
@@ -176,7 +177,7 @@ roadmap.get('/me', authMiddleware, async (c) => {
 // =============================================================================
 
 async function getRoadmapForUser(
-  c: Parameters<Parameters<ReturnType<typeof Hono.prototype.get>>[1]>[0],
+  c: Context<{ Variables: AuthVariables }>,
   userId: string,
   db: ReturnType<typeof createServerClient>,
 ) {

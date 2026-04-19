@@ -860,6 +860,122 @@ export interface Database {
         }
         Relationships: Relationship[]
       }
+
+      // ── career_paths ────────────────────────────────────────────────────────
+      career_paths: {
+        Row: {
+          id:            string
+          slug:          string
+          title:         string
+          description:   string | null
+          entry_role_id: string
+          created_at:    string
+        }
+        Insert: {
+          id?:           string
+          slug:          string
+          title:         string
+          description?:  string | null
+          entry_role_id: string
+        }
+        Update: Partial<Database['public']['Tables']['career_paths']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "career_paths_entry_role_id_fkey"
+            columns: ["entry_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      // ── career_path_roles ────────────────────────────────────────────────────
+      // Junction table: ordered spine of a career_path.
+      career_path_roles: {
+        Row: {
+          id:             string
+          career_path_id: string
+          role_id:        string
+          level:          number    // 1 = entry, 2 = intermediate, 3 = advanced
+          display_order:  number
+        }
+        Insert: {
+          id?:            string
+          career_path_id: string
+          role_id:        string
+          level:          number
+          display_order:  number
+        }
+        Update: Partial<Database['public']['Tables']['career_path_roles']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: "career_path_roles_career_path_id_fkey"
+            columns: ["career_path_id"]
+            isOneToOne: false
+            referencedRelation: "career_paths"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "career_path_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+
+      // ── payments ────────────────────────────────────────────────────────────
+      payments: {
+        Row: {
+          id:                string
+          reference:         string
+          user_id:           string
+          business_id:       string | null
+          payment_type:      string
+          amount_kobo:       number
+          status:            'pending' | 'completed' | 'failed'
+          metadata:          Record<string, unknown>
+          paystack_response: Record<string, unknown> | null
+          created_at:        string
+          completed_at:      string | null
+        }
+        Insert: {
+          id?:               string
+          reference:         string
+          user_id:           string
+          business_id?:      string | null
+          payment_type:      string
+          amount_kobo:       number
+          status?:           'pending' | 'completed' | 'failed'
+          metadata?:         Record<string, unknown>
+          paystack_response?: Record<string, unknown> | null
+          completed_at?:     string | null
+        }
+        Update: Partial<Database['public']['Tables']['payments']['Insert']>
+        Relationships: Relationship[]
+      }
+
+      // ── phone_otps ──────────────────────────────────────────────────────────
+      // Temporary store for OTPs captured by the Supabase "Send SMS" auth hook.
+      // Read exclusively by the /ussd endpoint; never exposed to clients.
+      phone_otps: {
+        Row: {
+          phone:      string      // E.164, PRIMARY KEY
+          code:       string
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          phone:      string
+          code:       string
+          expires_at: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['phone_otps']['Insert']>
+        Relationships: Relationship[]
+      }
     }
 
     Views: {

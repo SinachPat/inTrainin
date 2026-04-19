@@ -565,10 +565,15 @@ auth.post('/email/register', zValidator('json', EmailRegisterSchema), async (c) 
   const db = createServerClient()
 
   // Check if an account already exists for this email.
-  // getUserByEmail is a direct lookup — listUsers() paginates at 50 users
-  // and .some() on that result silently misses users beyond the first page.
-  const { data: existingAuthUser } = await db.auth.admin.getUserByEmail(email)
-  if (existingAuthUser?.user) {
+  // Query public.users directly — service role bypasses RLS and the result
+  // is an exact match, unlike listUsers() which paginates at 50 per page.
+  const { data: existingUser } = await db
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (existingUser) {
     return c.json({
       success: false,
       error: 'An account with this email already exists. Please sign in.',
